@@ -1,5 +1,5 @@
 import React from 'react';
-import { INTERVAL_MS } from '../types';
+import { DEFAULT_INTERVAL_MS } from '../types';
 
 interface TimerCircleProps {
   timeLeft: number;
@@ -7,10 +7,12 @@ interface TimerCircleProps {
   totalTime?: number;
 }
 
-const TimerCircle: React.FC<TimerCircleProps> = ({ timeLeft, isActive, totalTime = INTERVAL_MS }) => {
+const TimerCircle: React.FC<TimerCircleProps> = ({ timeLeft, isActive, totalTime = DEFAULT_INTERVAL_MS }) => {
   const radius = 120;
   const circumference = 2 * Math.PI * radius;
-  const progress = Math.max(0, Math.min(1, timeLeft / totalTime));
+  // Prevent division by zero
+  const safeTotalTime = totalTime || DEFAULT_INTERVAL_MS;
+  const progress = Math.max(0, Math.min(1, timeLeft / safeTotalTime));
   const dashoffset = circumference * (1 - progress);
 
   const minutes = Math.floor(timeLeft / 60000);

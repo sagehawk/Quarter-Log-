@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import TimerCircle from './components/TimerCircle';
 import LogList from './components/LogList';
 import EntryModal from './components/EntryModal';
-import { LogEntry, AppStatus, INTERVAL_MS } from './types';
+import SettingsModal from './components/SettingsModal';
+import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS } from './types';
 import { requestNotificationPermission, sendNotification } from './utils/notifications';
 import { playNotificationSound } from './utils/sound';
 
-const STORAGE_KEY = 'quarterlog_entries';
+const STORAGE_KEY_LOGS = 'quarterlog_entries';
+const STORAGE_KEY_DURATION = 'quarterlog_duration';
 
 // Inline worker code to avoid URL resolution issues in certain environments
 const WORKER_CODE = `
@@ -32,9 +34,11 @@ self.onmessage = function(e) {
 const App: React.FC = () => {
   // State
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
-  const [timeLeft, setTimeLeft] = useState(INTERVAL_MS);
+  const [duration, setDuration] = useState(DEFAULT_INTERVAL_MS);
+  const [timeLeft, setTimeLeft] = useState(DEFAULT_INTERVAL_MS);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
 
@@ -44,12 +48,31 @@ const App: React.FC = () => {
 
   // Load initial data
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
+    // Load Logs
+    const storedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
+    if (storedLogs) {
       try {
-        setLogs(JSON.parse(stored));
+        setLogs(JSON.parse(storedLogs));
       } catch (e) {
         console.error("Failed to parse logs", e);
+      }
+    }
+
+    // Load Duration
+    const storedDuration = localStorage.getItem(STORAGE_KEY_DURATION);
+    if (storedDuration) {
+      try {
+        const parsed = parseInt(storedDuration, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          setDuration(parsed);
+          // Only update timeLeft if we haven't started running yet/are idle
+          // But since this runs once on mount, we can set it.
+          // However, we rely on the initial state of timeLeft being DEFAULT_INTERVAL_MS
+          // So we should update it here to match the stored duration.
+          setTimeLeft(parsed); 
+        }
+      } catch (e) {
+        console.error("Failed to parse duration", e);
       }
     }
     
@@ -66,11 +89,6 @@ const App: React.FC = () => {
 
       workerRef.current.onmessage = (e) => {
         if (e.data.type === 'tick') {
-          // We need to call the latest tick function. 
-          // Since tick is stable (depends on ref), this is fine.
-          // However, to be safe against closure staleness if we change logic later, 
-          // we can just dispatch a custom event or call a ref-held function.
-          // For now, calling the component-scoped tick is fine as it uses Refs.
           triggerTick();
         }
       };
@@ -90,13 +108,10 @@ const App: React.FC = () => {
 
   // Save logs whenever they change
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+    localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs));
   }, [logs]);
 
-  // We need a stable reference to the logic that runs on tick
-  // because tick() calls handleTimerComplete() which changes state.
-  // We'll define the logic here.
-  
+  // Logic for timer completion
   const handleTimerComplete = useCallback(() => {
     // Stop worker ticking
     workerRef.current?.postMessage({ command: 'stop' });
@@ -105,11 +120,12 @@ const App: React.FC = () => {
     
     // Play sound and show notification
     playNotificationSound();
-    sendNotification("Time's up!", "Log your activity for the last 15 minutes.");
+    sendNotification("Time's up!", "Log your activity for the last session.");
     
-    setIsModalOpen(true);
+    setIsEntryModalOpen(true);
   }, []);
 
+  // Tick logic
   const tickLogic = useCallback(() => {
     if (!endTimeRef.current) return;
     
@@ -123,7 +139,7 @@ const App: React.FC = () => {
     }
   }, [handleTimerComplete]);
 
-  // Use a ref to hold the latest tick logic so the worker callback always accesses current closure
+  // Stable ref for worker callback
   const tickRef = useRef(tickLogic);
   useEffect(() => {
     tickRef.current = tickLogic;
@@ -144,11 +160,12 @@ const App: React.FC = () => {
     playNotificationSound();
 
     setStatus(AppStatus.RUNNING);
-    // Set end time relative to now
-    endTimeRef.current = Date.now() + INTERVAL_MS; 
+    // Set end time relative to now using current duration
+    endTimeRef.current = Date.now() + duration; 
     
     // Start worker
     workerRef.current?.postMessage({ command: 'start' });
+    
     tickLogic(); // Immediate update
   };
 
@@ -159,6 +176,7 @@ const App: React.FC = () => {
 
   const resumeTimer = () => {
     setStatus(AppStatus.RUNNING);
+    // Resume uses timeLeft
     endTimeRef.current = Date.now() + timeLeft;
     workerRef.current?.postMessage({ command: 'start' });
   };
@@ -166,7 +184,19 @@ const App: React.FC = () => {
   const resetTimer = () => {
     workerRef.current?.postMessage({ command: 'stop' });
     setStatus(AppStatus.IDLE);
-    setTimeLeft(INTERVAL_MS);
+    setTimeLeft(duration);
+  };
+
+  const handleDurationSave = (minutes: number) => {
+    const newDuration = minutes * 60 * 1000;
+    setDuration(newDuration);
+    localStorage.setItem(STORAGE_KEY_DURATION, String(newDuration));
+    setIsSettingsModalOpen(false);
+    
+    // If not running, update display immediately
+    if (status === AppStatus.IDLE) {
+      setTimeLeft(newDuration);
+    }
   };
 
   const handleLogSave = (text: string) => {
@@ -177,14 +207,14 @@ const App: React.FC = () => {
     };
     
     setLogs(prev => [newLog, ...prev]);
-    setIsModalOpen(false);
+    setIsEntryModalOpen(false);
     
     // Auto-restart timer immediately after saving
     startTimer();
   };
 
   const handleLogSkip = () => {
-    setIsModalOpen(false);
+    setIsEntryModalOpen(false);
     // If skipped, we still restart the timer for the next block to keep the rhythm
     startTimer();
   };
@@ -226,17 +256,6 @@ const App: React.FC = () => {
       setTimeout(() => setCopyFeedback(false), 2000);
     });
   };
-  
-  const testNotification = async () => {
-    const granted = await requestNotificationPermission();
-    setHasPermission(granted);
-    if (granted) {
-      playNotificationSound();
-      sendNotification("Test Notification", "This is how the reminder will look and sound.");
-    } else {
-      alert("Please allow notifications to use this feature.");
-    }
-  };
 
   // Helper for determining button state
   const isRunning = status === AppStatus.RUNNING;
@@ -253,15 +272,7 @@ const App: React.FC = () => {
            <h1 className="font-bold text-xl tracking-tight">QuarterLog</h1>
         </div>
         
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={testNotification}
-            className="text-xs font-medium text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors"
-            title="Test sound and notification"
-          >
-            Test
-          </button>
-          
+        <div className="flex items-center gap-3">
           {!hasPermission && (
             <button 
               onClick={async () => {
@@ -273,6 +284,14 @@ const App: React.FC = () => {
               Enable Notifications
             </button>
           )}
+
+          <button 
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="text-slate-400 hover:text-white hover:bg-slate-800 p-2 rounded-lg transition-colors"
+            title="Settings"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
         </div>
       </header>
 
@@ -280,10 +299,10 @@ const App: React.FC = () => {
         
         {/* Timer Section */}
         <section className="flex-none">
-          <TimerCircle timeLeft={timeLeft} isActive={isRunning} />
+          <TimerCircle timeLeft={timeLeft} totalTime={duration} isActive={isRunning} />
           
           <div className="flex justify-center gap-4 mb-12">
-            {!isRunning && timeLeft === INTERVAL_MS && (
+            {!isRunning && timeLeft === duration && (
                <button 
                 onClick={startTimer}
                 className="bg-blue-600 hover:bg-blue-500 text-white text-lg font-bold py-4 px-12 rounded-2xl shadow-xl shadow-blue-900/30 active:scale-95 transition-all w-full max-w-[240px]"
@@ -292,7 +311,7 @@ const App: React.FC = () => {
               </button>
             )}
 
-            {!isRunning && timeLeft < INTERVAL_MS && (
+            {!isRunning && timeLeft < duration && (
               <>
                  <button 
                   onClick={resumeTimer}
@@ -356,9 +375,17 @@ const App: React.FC = () => {
 
       {/* Input Modal */}
       <EntryModal 
-        isOpen={isModalOpen}
+        isOpen={isEntryModalOpen}
         onSave={handleLogSave}
         onClose={handleLogSkip}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        currentDurationMs={duration}
+        onSave={handleDurationSave}
+        onClose={() => setIsSettingsModalOpen(false)}
       />
       
       {/* Mobile-friendly padding for bottom safe areas */}
