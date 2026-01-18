@@ -1,0 +1,5 @@
+{
+  "name": "QuarterLog",
+  "description": "A productivity tool that notifies you every 15 minutes to log your recent activity, based on the interstitial journaling concept.",
+  "requestFramePermissions": []
+}
