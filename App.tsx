@@ -8,6 +8,27 @@ import { playNotificationSound } from './utils/sound';
 
 const STORAGE_KEY = 'quarterlog_entries';
 
+// Inline worker code to avoid URL resolution issues in certain environments
+const WORKER_CODE = `
+let intervalId = null;
+
+self.onmessage = function(e) {
+  const { command } = e.data;
+
+  if (command === 'start') {
+    if (intervalId) clearInterval(intervalId);
+    intervalId = setInterval(() => {
+      self.postMessage({ type: 'tick' });
+    }, 1000);
+  } else if (command === 'stop') {
+    if (intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+  }
+};
+`;
+
 const App: React.FC = () => {
   // State
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
@@ -17,9 +38,9 @@ const App: React.FC = () => {
   const [hasPermission, setHasPermission] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
 
-  // Refs for timer accuracy
-  const intervalRef = useRef<number | null>(null);
+  // Refs
   const endTimeRef = useRef<number | null>(null);
+  const workerRef = useRef<Worker | null>(null);
 
   // Load initial data
   useEffect(() => {
@@ -36,6 +57,35 @@ const App: React.FC = () => {
     if ('Notification' in window && Notification.permission === 'granted') {
       setHasPermission(true);
     }
+
+    // Initialize Web Worker from Blob
+    try {
+      const blob = new Blob([WORKER_CODE], { type: 'application/javascript' });
+      const workerUrl = URL.createObjectURL(blob);
+      workerRef.current = new Worker(workerUrl);
+
+      workerRef.current.onmessage = (e) => {
+        if (e.data.type === 'tick') {
+          // We need to call the latest tick function. 
+          // Since tick is stable (depends on ref), this is fine.
+          // However, to be safe against closure staleness if we change logic later, 
+          // we can just dispatch a custom event or call a ref-held function.
+          // For now, calling the component-scoped tick is fine as it uses Refs.
+          triggerTick();
+        }
+      };
+      
+      workerRef.current.onerror = (e) => {
+        console.error('Worker error:', e);
+      };
+
+      return () => {
+        workerRef.current?.terminate();
+        URL.revokeObjectURL(workerUrl);
+      };
+    } catch (err) {
+      console.error("Failed to initialize worker:", err);
+    }
   }, []);
 
   // Save logs whenever they change
@@ -43,8 +93,24 @@ const App: React.FC = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
   }, [logs]);
 
-  // Timer Logic
-  const tick = useCallback(() => {
+  // We need a stable reference to the logic that runs on tick
+  // because tick() calls handleTimerComplete() which changes state.
+  // We'll define the logic here.
+  
+  const handleTimerComplete = useCallback(() => {
+    // Stop worker ticking
+    workerRef.current?.postMessage({ command: 'stop' });
+    
+    setStatus(AppStatus.WAITING_FOR_INPUT);
+    
+    // Play sound and show notification
+    playNotificationSound();
+    sendNotification("Time's up!", "Log your activity for the last 15 minutes.");
+    
+    setIsModalOpen(true);
+  }, []);
+
+  const tickLogic = useCallback(() => {
     if (!endTimeRef.current) return;
     
     const now = Date.now();
@@ -55,18 +121,16 @@ const App: React.FC = () => {
     if (remaining <= 0) {
       handleTimerComplete();
     }
-  }, []);
+  }, [handleTimerComplete]);
 
-  const handleTimerComplete = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    
-    setStatus(AppStatus.WAITING_FOR_INPUT);
-    playNotificationSound();
-    sendNotification("Time's up!", "Log your activity for the last block.");
-    setIsModalOpen(true);
+  // Use a ref to hold the latest tick logic so the worker callback always accesses current closure
+  const tickRef = useRef(tickLogic);
+  useEffect(() => {
+    tickRef.current = tickLogic;
+  }, [tickLogic]);
+
+  const triggerTick = () => {
+    tickRef.current();
   };
 
   const startTimer = async () => {
@@ -76,34 +140,31 @@ const App: React.FC = () => {
       setHasPermission(granted);
     }
 
+    // Try to unlock audio context
+    playNotificationSound();
+
     setStatus(AppStatus.RUNNING);
-    // Set end time relative to now for drift-free timing
+    // Set end time relative to now
     endTimeRef.current = Date.now() + INTERVAL_MS; 
     
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = window.setInterval(tick, 1000);
-    tick(); // Immediate update
+    // Start worker
+    workerRef.current?.postMessage({ command: 'start' });
+    tickLogic(); // Immediate update
   };
 
   const pauseTimer = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
+    workerRef.current?.postMessage({ command: 'stop' });
     setStatus(AppStatus.IDLE);
   };
 
   const resumeTimer = () => {
     setStatus(AppStatus.RUNNING);
     endTimeRef.current = Date.now() + timeLeft;
-    intervalRef.current = window.setInterval(tick, 1000);
+    workerRef.current?.postMessage({ command: 'start' });
   };
 
   const resetTimer = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
+    workerRef.current?.postMessage({ command: 'stop' });
     setStatus(AppStatus.IDLE);
     setTimeLeft(INTERVAL_MS);
   };
@@ -165,6 +226,17 @@ const App: React.FC = () => {
       setTimeout(() => setCopyFeedback(false), 2000);
     });
   };
+  
+  const testNotification = async () => {
+    const granted = await requestNotificationPermission();
+    setHasPermission(granted);
+    if (granted) {
+      playNotificationSound();
+      sendNotification("Test Notification", "This is how the reminder will look and sound.");
+    } else {
+      alert("Please allow notifications to use this feature.");
+    }
+  };
 
   // Helper for determining button state
   const isRunning = status === AppStatus.RUNNING;
@@ -180,17 +252,28 @@ const App: React.FC = () => {
            </div>
            <h1 className="font-bold text-xl tracking-tight">QuarterLog</h1>
         </div>
-        {!hasPermission && (
+        
+        <div className="flex items-center gap-2">
           <button 
-            onClick={async () => {
-              const granted = await requestNotificationPermission();
-              setHasPermission(granted);
-            }}
-            className="text-xs font-medium text-amber-400 bg-amber-900/30 px-3 py-1.5 rounded-full border border-amber-800/50 hover:bg-amber-900/50 transition-colors"
+            onClick={testNotification}
+            className="text-xs font-medium text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors"
+            title="Test sound and notification"
           >
-            Enable Notifications
+            Test
           </button>
-        )}
+          
+          {!hasPermission && (
+            <button 
+              onClick={async () => {
+                const granted = await requestNotificationPermission();
+                setHasPermission(granted);
+              }}
+              className="text-xs font-medium text-amber-400 bg-amber-900/30 px-3 py-1.5 rounded-full border border-amber-800/50 hover:bg-amber-900/50 transition-colors"
+            >
+              Enable Notifications
+            </button>
+          )}
+        </div>
       </header>
 
       <main className="max-w-md mx-auto p-4 flex flex-col min-h-[calc(100vh-80px)]">
