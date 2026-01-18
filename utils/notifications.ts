@@ -17,44 +17,48 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
 };
 
 export const sendNotification = async (title: string, body: string) => {
-  if (Notification.permission === 'granted') {
-    try {
-      // Try to use ServiceWorker registration if available (better for PWAs)
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.getRegistration();
-        if (registration) {
-          registration.showNotification(title, {
-            body,
-            icon: 'https://placehold.co/192x192/3b82f6/ffffff.png?text=QL',
-            badge: 'https://placehold.co/96x96/3b82f6/ffffff.png?text=QL',
-            tag: 'quarter-log-reminder',
-            renotify: true,
-            // "Heartbeat" pattern: Short pulse (100ms), Pause (100ms), Longer pulse (250ms)
-            vibrate: [100, 100, 250], 
-            actions: [
-              {
-                action: 'log',
-                title: 'Log Activity',
-              }
-            ],
-            data: {
-              url: '/' // Used by sw.js to open the window
-            }
-          } as any);
-          return;
-        }
-      }
+  // Always check permission first
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    return;
+  }
 
-      // Fallback to standard Notification API if SW not ready
-      new Notification(title, {
-        body,
-        icon: 'https://placehold.co/192x192/3b82f6/ffffff.png?text=QL', 
-        tag: 'quarter-log-reminder',
-        // Cast to any because renotify is missing in some NotificationOptions type definitions
-        renotify: true,
-      } as any);
-    } catch (e) {
-      console.error("Notification failed", e);
+  // Aggressive options for high visibility
+  const options: any = {
+    body,
+    icon: 'https://placehold.co/192x192/3b82f6/ffffff.png?text=QL',
+    tag: 'quarter-log-reminder',
+    renotify: true, // Alert again even if a notification with this tag exists
+    requireInteraction: true, // Keep notification visible until user interacts
+    silent: false,
+    timestamp: Date.now(),
+    vibrate: [500, 200, 500, 200, 500, 200, 500], // Long, noticeable vibration pattern
+    data: {
+      url: '/'
     }
+  };
+
+  try {
+    // 1. Try Service Worker (Best for PWA/Mobile background handling)
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration && registration.active) {
+        await registration.showNotification(title, {
+          ...options,
+          badge: 'https://placehold.co/96x96/3b82f6/ffffff.png?text=QL',
+          actions: [
+            {
+              action: 'log',
+              title: 'Log Activity',
+            }
+          ]
+        } as any);
+        return;
+      }
+    }
+
+    // 2. Fallback to standard Notification API
+    new Notification(title, options);
+  } catch (e) {
+    console.error("Notification failed", e);
   }
 };

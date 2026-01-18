@@ -3,6 +3,7 @@ import TimerCircle from './components/TimerCircle';
 import LogList from './components/LogList';
 import EntryModal from './components/EntryModal';
 import SettingsModal from './components/SettingsModal';
+import Toast from './components/Toast';
 import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS } from './types';
 import { requestNotificationPermission, sendNotification } from './utils/notifications';
 import { playNotificationSound } from './utils/sound';
@@ -39,6 +40,7 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [toast, setToast] = useState<{title: string, message: string, visible: boolean}>({ title: '', message: '', visible: false });
   const [hasPermission, setHasPermission] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
 
@@ -65,10 +67,6 @@ const App: React.FC = () => {
         const parsed = parseInt(storedDuration, 10);
         if (!isNaN(parsed) && parsed > 0) {
           setDuration(parsed);
-          // Only update timeLeft if we haven't started running yet/are idle
-          // But since this runs once on mount, we can set it.
-          // However, we rely on the initial state of timeLeft being DEFAULT_INTERVAL_MS
-          // So we should update it here to match the stored duration.
           setTimeLeft(parsed); 
         }
       } catch (e) {
@@ -118,10 +116,20 @@ const App: React.FC = () => {
     
     setStatus(AppStatus.WAITING_FOR_INPUT);
     
-    // Play sound and show notification
+    // Play sound
     playNotificationSound();
+    
+    // Send System Notification
     sendNotification("Time's up!", "Log your activity for the last session.");
     
+    // Show In-App Toast
+    setToast({
+      title: "Time's up!",
+      message: "Take a moment to log your recent activity.",
+      visible: true
+    });
+    
+    // Open Entry Modal
     setIsEntryModalOpen(true);
   }, []);
 
@@ -208,6 +216,7 @@ const App: React.FC = () => {
     
     setLogs(prev => [newLog, ...prev]);
     setIsEntryModalOpen(false);
+    setToast(prev => ({ ...prev, visible: false })); // Dismiss toast on save
     
     // Auto-restart timer immediately after saving
     startTimer();
@@ -215,6 +224,7 @@ const App: React.FC = () => {
 
   const handleLogSkip = () => {
     setIsEntryModalOpen(false);
+    setToast(prev => ({ ...prev, visible: false })); // Dismiss toast on skip
     // If skipped, we still restart the timer for the next block to keep the rhythm
     startTimer();
   };
@@ -294,6 +304,14 @@ const App: React.FC = () => {
           </button>
         </div>
       </header>
+
+      {/* Toast Notification */}
+      <Toast 
+        title={toast.title} 
+        message={toast.message} 
+        isVisible={toast.visible} 
+        onClose={() => setToast(prev => ({ ...prev, visible: false }))} 
+      />
 
       <main className="max-w-md mx-auto p-4 flex flex-col min-h-[calc(100vh-80px)]">
         
