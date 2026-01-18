@@ -11,5 +11,5 @@ export enum AppStatus {
 }
 
 export const INTERVAL_MINUTES = 15;
-// export const INTERVAL_MS = INTERVAL_MINUTES * 60 * 1000;
-export const INTERVAL_MS = 5000; // Temporarily set to 5 seconds per user request
+export const INTERVAL_MS = INTERVAL_MINUTES * 60 * 1000;
+// export const INTERVAL_MS = 5000; // Removed temporary testing interval
