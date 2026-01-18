@@ -16,12 +16,39 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
   return false;
 };
 
-export const sendNotification = (title: string, body: string) => {
+export const sendNotification = async (title: string, body: string) => {
   if (Notification.permission === 'granted') {
     try {
+      // Try to use ServiceWorker registration if available (better for PWAs)
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          registration.showNotification(title, {
+            body,
+            icon: 'https://placehold.co/192x192/3b82f6/ffffff.png?text=QL',
+            badge: 'https://placehold.co/96x96/3b82f6/ffffff.png?text=QL',
+            tag: 'quarter-log-reminder',
+            renotify: true,
+            // "Heartbeat" pattern: Short pulse (100ms), Pause (100ms), Longer pulse (250ms)
+            vibrate: [100, 100, 250], 
+            actions: [
+              {
+                action: 'log',
+                title: 'Log Activity',
+              }
+            ],
+            data: {
+              url: '/' // Used by sw.js to open the window
+            }
+          } as any);
+          return;
+        }
+      }
+
+      // Fallback to standard Notification API if SW not ready
       new Notification(title, {
         body,
-        icon: 'https://picsum.photos/192/192', // Placeholder icon
+        icon: 'https://placehold.co/192x192/3b82f6/ffffff.png?text=QL', 
         tag: 'quarter-log-reminder',
         // Cast to any because renotify is missing in some NotificationOptions type definitions
         renotify: true,
