@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>QuarterLog - 15 Minute Tracker</title>
+    <link rel="manifest" href="./assets/manifest-uaMfScuA.json" />
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/3b82f6/ffffff.png?text=QL">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#eff6ff',
+                100: '#dbeafe',
+                500: '#3b82f6',
+                600: '#2563eb',
+                900: '#1e3a8a',
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      body {
+        background-color: #0f172a;
+        color: #e2e8f0;
+        -webkit-tap-highlight-color: transparent;
+      }
+      /* Custom scrollbar for webkit */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #1e293b;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #475569;
+        border-radius: 3px;
+      }
+    </style>
+
+<script type="importmap">
+{
+  "imports": {
+    "@capacitor/local-notifications": "https://esm.sh/@capacitor/local-notifications@^8.0.0",
+    "@capacitor/core": "https://esm.sh/@capacitor/core@^8.0.1",
+    "@capacitor/app": "https://esm.sh/@capacitor/app@^8.0.0",
+    "@capacitor/cli": "https://esm.sh/@capacitor/cli@^8.0.1",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "webworker": "https://esm.sh/webworker@^0.8.4"
+  }
+}
+</script>
+  <script type="module" crossorigin src="./assets/index-DpgubhTX.js"></script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
