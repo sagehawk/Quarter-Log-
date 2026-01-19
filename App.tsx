@@ -379,6 +379,7 @@ const App: React.FC = () => {
       <SettingsModal
         isOpen={isSettingsModalOpen}
         currentDurationMs={duration}
+        logs={logs}
         onSave={handleDurationSave}
         onClose={() => setIsSettingsModalOpen(false)}
       />
