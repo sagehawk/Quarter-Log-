@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { playNotificationSound } from '../utils/sound';
+import { playNotificationSound, keepAwake } from '../utils/sound';
 import { sendNotification } from '../utils/notifications';
 
 interface SettingsModalProps {
@@ -29,6 +29,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
   const handleTestAlert = () => {
     if (countdown !== null) return;
 
+    // CRITICAL: Play silent audio to keep the browser thread alive 
+    // if the user immediately locks the screen.
+    keepAwake(6);
+
     setCountdown(5);
     
     // Start countdown
@@ -44,14 +48,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
     }, 1000);
   };
 
-  const triggerTest = () => {
+  const triggerTest = async () => {
     // 1. Play Audio
     playNotificationSound();
     
     // 2. Send Notification
-    // We use a random tag here for testing to ensure it doesn't get grouped silently by the OS
-    // preventing the user from seeing it during a test.
-    sendNotification("Test Alert", "This is your timer notification.", true);
+    try {
+        await sendNotification("Test Alert", "This is your timer notification.", true);
+    } catch (e) {
+        alert("Failed to send test notification: " + e);
+    }
   };
 
   if (!isOpen) return null;
@@ -83,9 +89,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
              <h3 className="text-xs font-bold text-slate-300 uppercase mb-2">How to test</h3>
              <ul className="text-xs text-slate-400 space-y-2 list-disc pl-4">
                <li>Tap 'Start 5s Delay'.</li>
-               <li><strong>Immediately lock your screen</strong> or exit the app.</li>
+               <li><strong>Immediately lock your screen</strong>.</li>
                <li>Wait for the vibration and notification.</li>
              </ul>
+             <p className="text-[10px] text-slate-500 mt-2 italic">
+               Note: If no notification appears, ensure "Notifications" are allowed for this browser app in your phone's Settings.
+             </p>
           </div>
 
           <div className="mb-6">

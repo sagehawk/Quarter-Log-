@@ -1,5 +1,4 @@
-// Simple blue square icon in Base64 to ensure no network requests are needed.
-// This prevents the OS from dropping the notification if the network is slow or restricted.
+// Simple blue square icon in Base64
 const ICON_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADIAQMAAACXljzdAAAABlBMVEUAAAD7gov///+XjNlAAAAAFnRSTlMA8Emu7wAAAAlwSFlzAAAOxAAADsQBlSsOGwAAABxJREFUeF7NwTEBAAAAwqD1T20JT6AAAAAAAADgBxM4AAGdNb2yAAAAAElFTkSuQmCC";
 
 export const requestNotificationPermission = async (): Promise<boolean> => {
@@ -7,57 +6,67 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
     return false;
   }
 
-  if (Notification.permission === 'granted') {
-    return true;
-  }
-
-  if (Notification.permission !== 'denied') {
+  try {
     const permission = await Notification.requestPermission();
     return permission === 'granted';
+  } catch (e) {
+    console.error("Permission request failed", e);
+    return false;
   }
-
-  return false;
 };
 
 export const sendNotification = async (title: string, body: string, isTest: boolean = false) => {
-  if (!('Notification' in window) || Notification.permission !== 'granted') {
-    console.log('Notifications not granted or not supported');
+  // 1. Basic Check
+  if (!('Notification' in window)) {
+    console.warn("Notifications not supported in this browser.");
+    if (isTest) alert("This browser does not support web notifications.");
+    return;
+  }
+
+  // 2. Permission Check
+  if (Notification.permission !== 'granted') {
+    console.warn("Notification permission not granted.");
+    if (isTest) alert("Notification permission is not granted. Please enable it in browser settings.");
     return;
   }
 
   const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-  // Generate a unique tag for tests to prevent the OS from grouping/silencing them.
-  // For regular timer alerts, we use a consistent tag so they replace each other.
-  const tag = isTest ? `quarter-log-test-${Date.now()}` : 'quarter-log-alert-v2';
+  // Unique tag for test ensures it always pops up as new
+  const tag = isTest ? `ql-test-${Date.now()}` : 'ql-alert-v1';
 
+  // Simplified options to maximize compatibility across Android versions
   const options: any = {
-    body: `${body} • ${timestamp}`,
-    icon: ICON_BASE64, // Critical: Embedded icon ensures display even offline/locked
-    badge: ICON_BASE64,
+    body: `${body} [${timestamp}]`,
+    icon: ICON_BASE64,
     tag: tag,
-    renotify: true, // Forces sound/vibration even if a notification with this tag exists
-    requireInteraction: true, // Keeps notification visible until user interacts
+    renotify: true, // Required to make sound/vibrate again for same tag
+    requireInteraction: true,
     silent: false,
-    vibrate: [500, 250, 500, 250, 1000], // Vibration pattern: Vibrate-Pause-Vibrate-Pause-LongVibrate
-    data: { url: '/' }
+    // Simpler vibration pattern: Long-Short-Long
+    vibrate: [1000, 500, 1000] 
   };
+  
+  // Remove badge as it can cause silent failures if the image is rejected by OS
+  // options.badge = ICON_BASE64; 
 
   try {
-    // Try sending via Service Worker first (Best for Android/Background)
+    // Attempt Service Worker Notification (Primary for Mobile)
     if ('serviceWorker' in navigator) {
-      const registration = await navigator.serviceWorker.ready;
-      if (registration) {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (registration && registration.active) {
         await registration.showNotification(title, options);
-        console.log('Notification sent via Service Worker');
+        console.log('Notification sent via SW');
         return;
+      } else {
+        console.log('No active Service Worker found, falling back to new Notification()');
       }
     }
 
-    // Fallback for environments without active SW
+    // Fallback (Desktop / non-PWA)
     new Notification(title, options);
-    console.log('Notification sent via Standard API');
   } catch (e) {
     console.error("Notification failed to send:", e);
+    if (isTest) alert("Error sending notification: " + e);
   }
 };
