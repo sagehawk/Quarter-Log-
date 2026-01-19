@@ -26,13 +26,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
   };
   
   const handleTestAlert = () => {
+    // 1. Play Audio
     playNotificationSound();
-    // Try hardware vibrate
+    
+    // 2. Hardware Vibrate
     if (navigator.vibrate) {
-      navigator.vibrate([1000, 500, 1000]);
+      navigator.vibrate([500, 200, 500]);
     }
-    // Try system notification
-    sendNotification("Test Notification", "This is how your alert will look and feel.");
+    
+    // 3. Send Notification
+    // Note: We use a slight delay to allow the user to lock the screen if they want to test that behavior
+    setTimeout(() => {
+        sendNotification("Test Alert", "This is your timer notification.");
+    }, 500);
   };
 
   if (!isOpen) return null;
@@ -61,13 +67,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
           </div>
 
           <div className="mb-6 bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-             <h3 className="text-xs font-bold text-slate-300 uppercase mb-2">Troubleshooting</h3>
-             <p className="text-xs text-slate-400 leading-relaxed mb-2">
-               <strong>Android Users:</strong> If vibration/sound is missing, go to <em>Settings {'>'} Apps {'>'} Chrome {'>'} Notifications</em>.
-             </p>
-             <p className="text-xs text-slate-400 leading-relaxed">
-               Ensure the notification channel for this site is set to <strong>"Alert"</strong> or <strong>"Sound and Pop-up"</strong> (not "Silent").
-             </p>
+             <h3 className="text-xs font-bold text-slate-300 uppercase mb-2">Notification Help</h3>
+             <ul className="text-xs text-slate-400 space-y-2 list-disc pl-4">
+               <li>If testing while app is open, the banner might not "pop" down (Android default behavior).</li>
+               <li><strong>Try this:</strong> Tap 'Test', then immediately press your phone's power button to lock the screen.</li>
+             </ul>
           </div>
 
           <div className="mb-6">
@@ -79,9 +83,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
               Test Sound & Vibration
             </button>
-            <p className="text-xs text-slate-500 mt-2 text-center">
-              Tap this, then lock screen immediately to test.
-            </p>
           </div>
           
           <div className="flex gap-3">

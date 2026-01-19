@@ -17,52 +17,41 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
 
 export const sendNotification = async (title: string, body: string) => {
   if (!('Notification' in window) || Notification.permission !== 'granted') {
+    console.log('Notifications not granted or not supported');
     return;
   }
 
-  // Robust vibration pattern
-  const vibratePattern = [200, 100, 200, 100, 200, 100, 500];
-  
-  // Use a tag to group notifications, but renotify to ensure sound/vibration plays every time
-  const tag = 'quarter-log-timer';
+  const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-  // Use 'any' type here because some TypeScript definitions for NotificationOptions 
-  // do not include 'renotify' or 'actions', even though they are supported in modern browsers.
+  // CRITICAL FIX: 
+  // 1. Removed 'icon' and 'badge' URLs. Fetching these from the web during a notification 
+  //    event often fails silently on Android, causing 0 notifications to appear.
+  //    The browser will now use the PWA Manifest icon automatically.
+  // 2. Removed 'actions'.
   const options: any = {
-    body: `${body} (${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`,
-    icon: 'https://placehold.co/192x192/3b82f6/ffffff.png?text=QL',
-    badge: 'https://placehold.co/96x96/3b82f6/ffffff.png?text=QL',
-    tag: tag,
-    renotify: true, 
-    requireInteraction: true, // Crucial for keeping it on screen
+    body: `${body} • ${timestamp}`,
+    tag: 'quarter-log-alert-v2', // New tag to reset grouping/silencing rules
+    renotify: true, // Force sound/vibrate every time
+    requireInteraction: true, // Keep it on screen until user dismisses
     silent: false,
-    timestamp: Date.now(),
-    vibrate: vibratePattern,
-    data: { url: '/' },
-    // Actions can sometimes cause issues if not handled perfectly in SW, 
-    // keeping them simple or removing them if issues persist.
-    // For now, we keep a simple "Open" action which is default behavior anyway, 
-    // but explicit actions help visibility on some Android versions.
-    actions: [
-      { action: 'open', title: 'Log Activity' }
-    ]
+    vibrate: [500, 250, 500, 250, 1000], // Distinct pattern
+    data: { url: '/' }
   };
 
   try {
     if ('serviceWorker' in navigator) {
-      // Wait for the service worker to be ready. 
-      // This is more reliable than getRegistration() which might return undefined or an installing worker.
       const registration = await navigator.serviceWorker.ready;
-      
       if (registration) {
         await registration.showNotification(title, options);
+        console.log('Notification sent via Service Worker');
         return;
       }
     }
 
-    // Fallback
+    // Fallback for non-SW environments
     new Notification(title, options);
+    console.log('Notification sent via Standard API');
   } catch (e) {
-    console.error("Notification failed", e);
+    console.error("Notification failed to send:", e);
   }
 };
