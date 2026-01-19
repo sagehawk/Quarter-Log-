@@ -1,6 +1,5 @@
 export const requestNotificationPermission = async (): Promise<boolean> => {
   if (!('Notification' in window)) {
-    console.warn('This browser does not support desktop notification');
     return false;
   }
 
@@ -17,46 +16,51 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
 };
 
 export const sendNotification = async (title: string, body: string) => {
-  // Always check permission first
   if (!('Notification' in window) || Notification.permission !== 'granted') {
     return;
   }
 
-  // Aggressive options for high visibility
+  // Robust vibration pattern
+  const vibratePattern = [200, 100, 200, 100, 200, 100, 500];
+  
+  // Use a tag to group notifications, but renotify to ensure sound/vibration plays every time
+  const tag = 'quarter-log-timer';
+
+  // Use 'any' type here because some TypeScript definitions for NotificationOptions 
+  // do not include 'renotify' or 'actions', even though they are supported in modern browsers.
   const options: any = {
-    body,
+    body: `${body} (${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`,
     icon: 'https://placehold.co/192x192/3b82f6/ffffff.png?text=QL',
-    tag: 'quarter-log-reminder',
-    renotify: true, // Alert again even if a notification with this tag exists
-    requireInteraction: true, // Keep notification visible until user interacts
+    badge: 'https://placehold.co/96x96/3b82f6/ffffff.png?text=QL',
+    tag: tag,
+    renotify: true, 
+    requireInteraction: true, // Crucial for keeping it on screen
     silent: false,
     timestamp: Date.now(),
-    vibrate: [500, 200, 500, 200, 500, 200, 500], // Long, noticeable vibration pattern
-    data: {
-      url: '/'
-    }
+    vibrate: vibratePattern,
+    data: { url: '/' },
+    // Actions can sometimes cause issues if not handled perfectly in SW, 
+    // keeping them simple or removing them if issues persist.
+    // For now, we keep a simple "Open" action which is default behavior anyway, 
+    // but explicit actions help visibility on some Android versions.
+    actions: [
+      { action: 'open', title: 'Log Activity' }
+    ]
   };
 
   try {
-    // 1. Try Service Worker (Best for PWA/Mobile background handling)
     if ('serviceWorker' in navigator) {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (registration && registration.active) {
-        await registration.showNotification(title, {
-          ...options,
-          badge: 'https://placehold.co/96x96/3b82f6/ffffff.png?text=QL',
-          actions: [
-            {
-              action: 'log',
-              title: 'Log Activity',
-            }
-          ]
-        } as any);
+      // Wait for the service worker to be ready. 
+      // This is more reliable than getRegistration() which might return undefined or an installing worker.
+      const registration = await navigator.serviceWorker.ready;
+      
+      if (registration) {
+        await registration.showNotification(title, options);
         return;
       }
     }
 
-    // 2. Fallback to standard Notification API
+    // Fallback
     new Notification(title, options);
   } catch (e) {
     console.error("Notification failed", e);

@@ -27,9 +27,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
   
   const handleTestAlert = () => {
     playNotificationSound();
+    // Try hardware vibrate
     if (navigator.vibrate) {
       navigator.vibrate([1000, 500, 1000]);
     }
+    // Try system notification
     sendNotification("Test Notification", "This is how your alert will look and feel.");
   };
 
@@ -37,7 +39,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-2xl shadow-2xl p-6 transform transition-all scale-100">
+      <div className="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-2xl shadow-2xl p-6 transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold text-white mb-4">Timer Settings</h2>
         
         <form onSubmit={handleSubmit}>
@@ -58,6 +60,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
             </div>
           </div>
 
+          <div className="mb-6 bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+             <h3 className="text-xs font-bold text-slate-300 uppercase mb-2">Troubleshooting</h3>
+             <p className="text-xs text-slate-400 leading-relaxed mb-2">
+               <strong>Android Users:</strong> If vibration/sound is missing, go to <em>Settings {'>'} Apps {'>'} Chrome {'>'} Notifications</em>.
+             </p>
+             <p className="text-xs text-slate-400 leading-relaxed">
+               Ensure the notification channel for this site is set to <strong>"Alert"</strong> or <strong>"Sound and Pop-up"</strong> (not "Silent").
+             </p>
+          </div>
+
           <div className="mb-6">
             <button
               type="button"
@@ -68,7 +80,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
               Test Sound & Vibration
             </button>
             <p className="text-xs text-slate-500 mt-2 text-center">
-              Ensure device media volume is up.
+              Tap this, then lock screen immediately to test.
             </p>
           </div>
           
