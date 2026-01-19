@@ -35,36 +35,37 @@ export const sendNotification = async (title: string, body: string, isTest: bool
   // Unique tag for test ensures it always pops up as new
   const tag = isTest ? `ql-test-${Date.now()}` : 'ql-alert-v1';
 
-  // Simplified options to maximize compatibility across Android versions
   const options: any = {
     body: `${body} [${timestamp}]`,
     icon: ICON_BASE64,
     tag: tag,
-    renotify: true, // Required to make sound/vibrate again for same tag
+    renotify: true, // Forces sound/vibration again
     requireInteraction: true,
     silent: false,
-    // Simpler vibration pattern: Long-Short-Long
-    vibrate: [1000, 500, 1000] 
+    vibrate: [1000, 500, 1000], // Vibration pattern
+    data: { url: '/' }
   };
-  
-  // Remove badge as it can cause silent failures if the image is rejected by OS
-  // options.badge = ICON_BASE64; 
 
   try {
-    // Attempt Service Worker Notification (Primary for Mobile)
+    // CRITICAL FIX: Android requires notifications to be sent via Service Worker.
+    // 'new Notification()' throws "Illegal constructor" on many mobile browsers.
     if ('serviceWorker' in navigator) {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (registration && registration.active) {
-        await registration.showNotification(title, options);
-        console.log('Notification sent via SW');
-        return;
-      } else {
-        console.log('No active Service Worker found, falling back to new Notification()');
-      }
+      // await .ready ensures the SW is active and ready to handle the request
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(title, options);
+      console.log('Notification sent via Service Worker');
+      return;
     }
 
-    // Fallback (Desktop / non-PWA)
-    new Notification(title, options);
+    // Fallback only if Service Worker is completely unsupported (e.g. very old browsers)
+    // We try-catch this specifically because it might throw on Android if SW check failed strangely.
+    try {
+      new Notification(title, options);
+    } catch (err) {
+      // If direct construction fails, we can't do anything else.
+      console.error("Direct notification construction failed", err);
+      if (isTest) throw new Error("Mobile browsers require a Service Worker. Please refresh and try again.");
+    }
   } catch (e) {
     console.error("Notification failed to send:", e);
     if (isTest) alert("Error sending notification: " + e);
