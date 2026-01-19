@@ -22,6 +22,31 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
   }
 };
 
+export const registerNotificationActions = async () => {
+  if (Capacitor.getPlatform() === 'web') return;
+
+  try {
+    await LocalNotifications.registerActionTypes({
+      types: [
+        {
+          id: 'LOG_ACTIVITY',
+          actions: [
+            {
+              id: 'log_input',
+              title: 'Log Activity',
+              input: true,
+              placeholder: 'What did you do?',
+              submitTitle: 'Save'
+            }
+          ]
+        }
+      ]
+    });
+  } catch (e) {
+    console.error("Failed to register actions", e);
+  }
+};
+
 export const scheduleNotification = async (title: string, body: string, delayMs: number) => {
   try {
     // Web Fallback: Use setTimeout + Notification API
@@ -30,7 +55,7 @@ export const scheduleNotification = async (title: string, body: string, delayMs:
         setTimeout(() => {
           new Notification(title, { 
             body,
-            icon: '/vite.svg' // Fallback icon for dev
+            icon: 'https://i.imgur.com/HEBJbFC.png' // Use remote icon
           });
         }, delayMs);
         console.log(`Web notification scheduled in ${delayMs}ms`);
@@ -51,7 +76,7 @@ export const scheduleNotification = async (title: string, body: string, delayMs:
           schedule: { at: new Date(Date.now() + delayMs) },
           sound: undefined, // Uses default system notification sound
           smallIcon: 'res://mipmap/ic_launcher',
-          actionTypeId: "",
+          actionTypeId: 'LOG_ACTIVITY',
           extra: null
         }
       ]
@@ -65,8 +90,6 @@ export const scheduleNotification = async (title: string, body: string, delayMs:
 export const cancelNotification = async () => {
   try {
     if (Capacitor.getPlatform() === 'web') {
-      // Clearing web timeouts requires storing IDs, which is complex for simple dev testing.
-      // For now, we just skip cancellation on web dev.
       return;
     }
     await LocalNotifications.cancel({ notifications: [{ id: 1 }] });
@@ -76,5 +99,6 @@ export const cancelNotification = async () => {
 };
 
 export const sendNotification = async (title: string, body: string, isTest: boolean = false) => {
-  return scheduleNotification(title, body, 1000); 
+  // Use a very short delay for immediate notifications to ensure execution order
+  return scheduleNotification(title, body, 100); 
 };
