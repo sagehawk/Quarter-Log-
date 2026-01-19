@@ -4,6 +4,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
+import { StatusBar } from '@capacitor/status-bar';
 import TimerCircle from './components/TimerCircle';
 import LogList from './components/LogList';
 import EntryModal from './components/EntryModal';
@@ -56,9 +57,16 @@ const App: React.FC = () => {
   // Refs
   const endTimeRef = useRef<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
+  const wasOpenedFromNotification = useRef(false);
 
   // Load initial data
   useEffect(() => {
+    // Initialize Status Bar for full screen experience
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setOverlaysWebView({ overlay: true }).catch(err => console.log('StatusBar overlay error', err));
+      StatusBar.hide().catch(err => console.log('StatusBar hide error', err));
+    }
+
     const storedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
     if (storedLogs) {
       try { setLogs(JSON.parse(storedLogs)); } catch (e) { console.error(e); }
@@ -185,7 +193,7 @@ const App: React.FC = () => {
     setIsEntryModalOpen(true);
   };
 
-  const handleLogSave = useCallback((text: string) => {
+  const handleLogSave = useCallback(async (text: string) => {
     const newLog: LogEntry = {
       id: crypto.randomUUID(),
       timestamp: Date.now(),
@@ -201,7 +209,12 @@ const App: React.FC = () => {
     
     // Automatically restart timer if it wasn't a manual entry (or if triggered via notification)
     if (status === AppStatus.WAITING_FOR_INPUT || status === AppStatus.IDLE) {
-       startTimer();
+       await startTimer();
+    }
+
+    if (wasOpenedFromNotification.current) {
+      wasOpenedFromNotification.current = false;
+      CapacitorApp.exitApp();
     }
   }, [startTimer, status]);
 
@@ -242,6 +255,7 @@ const App: React.FC = () => {
         } 
         // Handle tap on notification body or generic action
         else {
+           wasOpenedFromNotification.current = true;
            setIsEntryModalOpen(true);
            setIsManualEntry(false); 
         }

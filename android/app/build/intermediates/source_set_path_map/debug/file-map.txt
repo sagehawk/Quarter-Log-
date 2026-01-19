@@ -30,5 +30,8 @@ com.quarterlog.app-main-28 C:\Users\secte\OneDrive\Documents\GitHub\Quarter-Log-
 com.quarterlog.app-packaged_res-29 C:\Users\secte\OneDrive\Documents\GitHub\Quarter-Log-\android\capacitor-cordova-android-plugins\build\intermediates\packaged_res\debug
 com.quarterlog.app-packaged_res-30 C:\Users\secte\OneDrive\Documents\GitHub\Quarter-Log-\node_modules\@capacitor\android\capacitor\build\intermediates\packaged_res\debug
 com.quarterlog.app-packaged_res-31 C:\Users\secte\OneDrive\Documents\GitHub\Quarter-Log-\node_modules\@capacitor\app\android\build\intermediates\packaged_res\debug
-com.quarterlog.app-packaged_res-32 C:\Users\secte\OneDrive\Documents\GitHub\Quarter-Log-\node_modules\@capacitor\haptics\android\build\intermediates\packaged_res\debug
-com.quarterlog.app-packaged_res-33 C:\Users\secte\OneDrive\Documents\GitHub\Quarter-Log-\node_modules\@capacitor\local-notifications\android\build\intermediates\packaged_res\debug
+com.quarterlog.app-packaged_res-32 C:\Users\secte\OneDrive\Documents\GitHub\Quarter-Log-\node_modules\@capacitor\filesystem\android\build\intermediates\packaged_res\debug
+com.quarterlog.app-packaged_res-33 C:\Users\secte\OneDrive\Documents\GitHub\Quarter-Log-\node_modules\@capacitor\haptics\android\build\intermediates\packaged_res\debug
+com.quarterlog.app-packaged_res-34 C:\Users\secte\OneDrive\Documents\GitHub\Quarter-Log-\node_modules\@capacitor\local-notifications\android\build\intermediates\packaged_res\debug
+com.quarterlog.app-packaged_res-35 C:\Users\secte\OneDrive\Documents\GitHub\Quarter-Log-\node_modules\@capacitor\share\android\build\intermediates\packaged_res\debug
+com.quarterlog.app-packaged_res-36 C:\Users\secte\OneDrive\Documents\GitHub\Quarter-Log-\node_modules\@capacitor\status-bar\android\build\intermediates\packaged_res\debug

@@ -34,9 +34,7 @@ export const registerNotificationActions = async () => {
             {
               id: 'log_input',
               title: 'Log Activity',
-              input: true,
-              placeholder: 'What did you do?',
-              submitTitle: 'Save'
+              foreground: true
             }
           ]
         }
@@ -102,3 +100,4 @@ export const sendNotification = async (title: string, body: string, isTest: bool
   // Use a very short delay for immediate notifications to ensure execution order
   return scheduleNotification(title, body, 100); 
 };
+

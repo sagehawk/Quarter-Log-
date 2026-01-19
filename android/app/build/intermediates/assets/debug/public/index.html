@@ -2,11 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>QuarterLog - 15 Minute Tracker</title>
-    <link rel="manifest" href="./assets/manifest-uaMfScuA.json" />
+    <link rel="manifest" href="./assets/manifest-CXCUm9co.json" />
     <meta name="theme-color" content="#0f172a" />
-    <link rel="apple-touch-icon" href="https://placehold.co/192x192/3b82f6/ffffff.png?text=QL">
+    <link rel="apple-touch-icon" href="https://i.imgur.com/HEBJbFC.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -24,26 +24,61 @@
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
             },
+            animation: {
+              'fade-in': 'fadeIn 0.3s ease-out forwards',
+              'slide-up': 'slideUp 0.3s ease-out forwards',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              }
+            }
           },
         },
       }
     </script>
     <style>
       body {
-        background-color: #0f172a;
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+        background-attachment: fixed;
         color: #e2e8f0;
         -webkit-tap-highlight-color: transparent;
+        min-height: 100vh;
       }
       /* Custom scrollbar for webkit */
       ::-webkit-scrollbar {
-        width: 6px;
+        width: 4px;
       }
       ::-webkit-scrollbar-track {
-        background: #1e293b;
+        background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #475569;
-        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .glass-panel {
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .glass-button {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.2s ease;
+      }
+      .glass-button:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
       }
     </style>
 
@@ -59,11 +94,13 @@
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "webworker": "https://esm.sh/webworker@^0.8.4"
+    "webworker": "https://esm.sh/webworker@^0.8.4",
+    "@capacitor/filesystem": "https://esm.sh/@capacitor/filesystem@^8.0.0",
+    "@capacitor/share": "https://esm.sh/@capacitor/share@^8.0.0"
   }
 }
 </script>
-  <script type="module" crossorigin src="./assets/index-DpgubhTX.js"></script>
+  <script type="module" crossorigin src="./assets/index-DrrwTghd.js"></script>
 </head>
   <body>
     <div id="root"></div>
