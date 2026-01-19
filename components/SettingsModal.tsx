@@ -11,6 +11,7 @@ interface SettingsModalProps {
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs, onSave, onClose }) => {
   const [minutes, setMinutes] = useState(15);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -26,19 +27,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
   };
   
   const handleTestAlert = () => {
+    if (countdown !== null) return;
+
+    setCountdown(5);
+    
+    // Start countdown
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          triggerTest();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const triggerTest = () => {
     // 1. Play Audio
     playNotificationSound();
     
-    // 2. Hardware Vibrate
-    if (navigator.vibrate) {
-      navigator.vibrate([500, 200, 500]);
-    }
-    
-    // 3. Send Notification
-    // Note: We use a slight delay to allow the user to lock the screen if they want to test that behavior
-    setTimeout(() => {
-        sendNotification("Test Alert", "This is your timer notification.");
-    }, 500);
+    // 2. Send Notification
+    // We use a random tag here for testing to ensure it doesn't get grouped silently by the OS
+    // preventing the user from seeing it during a test.
+    sendNotification("Test Alert", "This is your timer notification.", true);
   };
 
   if (!isOpen) return null;
@@ -67,10 +80,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
           </div>
 
           <div className="mb-6 bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-             <h3 className="text-xs font-bold text-slate-300 uppercase mb-2">Notification Help</h3>
+             <h3 className="text-xs font-bold text-slate-300 uppercase mb-2">How to test</h3>
              <ul className="text-xs text-slate-400 space-y-2 list-disc pl-4">
-               <li>If testing while app is open, the banner might not "pop" down (Android default behavior).</li>
-               <li><strong>Try this:</strong> Tap 'Test', then immediately press your phone's power button to lock the screen.</li>
+               <li>Tap 'Start 5s Delay'.</li>
+               <li><strong>Immediately lock your screen</strong> or exit the app.</li>
+               <li>Wait for the vibration and notification.</li>
              </ul>
           </div>
 
@@ -78,10 +92,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, currentDurationMs
             <button
               type="button"
               onClick={handleTestAlert}
-              className="w-full py-2 px-4 rounded-xl font-medium text-amber-400 bg-amber-900/20 border border-amber-900/50 hover:bg-amber-900/40 transition-colors flex items-center justify-center gap-2"
+              disabled={countdown !== null}
+              className={`w-full py-2 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                countdown !== null 
+                  ? 'bg-blue-600 text-white shadow-lg scale-105' 
+                  : 'text-amber-400 bg-amber-900/20 border border-amber-900/50 hover:bg-amber-900/40'
+              }`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
-              Test Sound & Vibration
+              {countdown !== null ? (
+                <span className="text-lg font-bold animate-pulse">Wait... {countdown}</span>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
+                  Start 5s Delay Test
+                </>
+              )}
             </button>
           </div>
           

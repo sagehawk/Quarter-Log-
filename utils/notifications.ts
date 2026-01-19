@@ -15,7 +15,7 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
   return false;
 };
 
-export const sendNotification = async (title: string, body: string) => {
+export const sendNotification = async (title: string, body: string, isTest: boolean = false) => {
   if (!('Notification' in window) || Notification.permission !== 'granted') {
     console.log('Notifications not granted or not supported');
     return;
@@ -23,14 +23,12 @@ export const sendNotification = async (title: string, body: string) => {
 
   const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-  // CRITICAL FIX: 
-  // 1. Removed 'icon' and 'badge' URLs. Fetching these from the web during a notification 
-  //    event often fails silently on Android, causing 0 notifications to appear.
-  //    The browser will now use the PWA Manifest icon automatically.
-  // 2. Removed 'actions'.
+  // Use a unique tag if testing, otherwise keep it consistent to allow grouping/replacement
+  const tag = isTest ? `quarter-log-test-${Date.now()}` : 'quarter-log-alert-v2';
+
   const options: any = {
     body: `${body} • ${timestamp}`,
-    tag: 'quarter-log-alert-v2', // New tag to reset grouping/silencing rules
+    tag: tag,
     renotify: true, // Force sound/vibrate every time
     requireInteraction: true, // Keep it on screen until user dismisses
     silent: false,
