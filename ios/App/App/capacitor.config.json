@@ -1,0 +1,23 @@
+{
+	"appId": "com.quarterlog.app",
+	"appName": "QuarterLog",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	},
+	"plugins": {
+		"LocalNotifications": {
+			"smallIcon": "ic_stat_icon_config_sample",
+			"iconColor": "#488AFF",
+			"sound": "beep.wav"
+		}
+	},
+	"packageClassList": [
+		"AppPlugin",
+		"FilesystemPlugin",
+		"HapticsPlugin",
+		"LocalNotificationsPlugin",
+		"SharePlugin",
+		"StatusBarPlugin"
+	]
+}
