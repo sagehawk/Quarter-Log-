@@ -4,14 +4,13 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
-import { StatusBar } from '@capacitor/status-bar';
 import TimerCircle from './components/TimerCircle';
 import LogList from './components/LogList';
 import EntryModal from './components/EntryModal';
 import SettingsModal from './components/SettingsModal';
 import Toast from './components/Toast';
 import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS } from './types';
-import { requestNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions } from './utils/notifications';
+import { requestNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel } from './utils/notifications';
 import { playNotificationSound } from './utils/sound';
 
 const STORAGE_KEY_LOGS = 'quarterlog_entries';
@@ -57,16 +56,9 @@ const App: React.FC = () => {
   // Refs
   const endTimeRef = useRef<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
-  const wasOpenedFromNotification = useRef(false);
 
   // Load initial data
   useEffect(() => {
-    // Initialize Status Bar for full screen experience
-    if (Capacitor.isNativePlatform()) {
-      StatusBar.setOverlaysWebView({ overlay: true }).catch(err => console.log('StatusBar overlay error', err));
-      StatusBar.hide().catch(err => console.log('StatusBar hide error', err));
-    }
-
     const storedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
     if (storedLogs) {
       try { setLogs(JSON.parse(storedLogs)); } catch (e) { console.error(e); }
@@ -83,8 +75,14 @@ const App: React.FC = () => {
       } catch (e) { console.error(e); }
     }
     
-    requestNotificationPermission().then(setHasPermission);
-    registerNotificationActions();
+    // Initialize notifications
+    const initNotifications = async () => {
+        await configureNotificationChannel();
+        const perm = await requestNotificationPermission();
+        setHasPermission(perm);
+        await registerNotificationActions();
+    };
+    initNotifications();
 
     try {
       const blob = new Blob([WORKER_CODE], { type: 'application/javascript' });
@@ -212,9 +210,13 @@ const App: React.FC = () => {
        await startTimer();
     }
 
-    if (wasOpenedFromNotification.current) {
-      wasOpenedFromNotification.current = false;
-      CapacitorApp.exitApp();
+    // Auto-minimize on mobile to return user to previous app (e.g. YouTube)
+    if (Capacitor.isNativePlatform()) {
+        try {
+            await CapacitorApp.minimizeApp();
+        } catch (e) {
+            console.error("Failed to minimize app:", e);
+        }
     }
   }, [startTimer, status]);
 
@@ -255,7 +257,6 @@ const App: React.FC = () => {
         } 
         // Handle tap on notification body or generic action
         else {
-           wasOpenedFromNotification.current = true;
            setIsEntryModalOpen(true);
            setIsManualEntry(false); 
         }

@@ -1,6 +1,8 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 
+const CHANNEL_ID = 'quarterlog_high_priority';
+
 export const requestNotificationPermission = async (): Promise<boolean> => {
   try {
     // Web Fallback: Use standard browser API
@@ -22,6 +24,27 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
   }
 };
 
+export const configureNotificationChannel = async () => {
+  if (Capacitor.getPlatform() !== 'android') return;
+
+  try {
+    // Create a high-importance channel to ensure "Heads-up" notifications (Pop over screen)
+    await LocalNotifications.createChannel({
+      id: CHANNEL_ID,
+      name: 'QuarterLog Timer',
+      description: 'Notifications for the 15-minute timer',
+      importance: 5, // 5 = High Importance (Heads-up notification)
+      visibility: 1, // 1 = Public (Visible on lock screen)
+      sound: undefined, // Let the app play the sound or system default
+      vibration: true,
+      lights: true,
+      lightColor: '#3b82f6'
+    });
+  } catch (e) {
+    console.error("Failed to create notification channel", e);
+  }
+};
+
 export const registerNotificationActions = async () => {
   if (Capacitor.getPlatform() === 'web') return;
 
@@ -34,7 +57,9 @@ export const registerNotificationActions = async () => {
             {
               id: 'log_input',
               title: 'Log Activity',
-              foreground: true
+              input: true,
+              placeholder: 'What did you do?',
+              submitTitle: 'Save'
             }
           ]
         }
@@ -74,6 +99,7 @@ export const scheduleNotification = async (title: string, body: string, delayMs:
           schedule: { at: new Date(Date.now() + delayMs) },
           sound: undefined, // Uses default system notification sound
           smallIcon: 'res://mipmap/ic_launcher',
+          channelId: CHANNEL_ID, // Use the high-priority channel
           actionTypeId: 'LOG_ACTIVITY',
           extra: null
         }
@@ -100,4 +126,3 @@ export const sendNotification = async (title: string, body: string, isTest: bool
   // Use a very short delay for immediate notifications to ensure execution order
   return scheduleNotification(title, body, 100); 
 };
-
