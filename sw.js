@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quarterlog-v1';
+const CACHE_NAME = 'quarterlog-v2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -45,13 +45,19 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+// NEW: Listen for messages from the client (window)
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    const { title, options } = event.data;
+    // Show notification from the SW context
+    self.registration.showNotification(title, options);
+  }
+});
+
 self.addEventListener('notificationclick', (event) => {
   const notification = event.notification;
   notification.close();
 
-  // If user clicked a specific action (like 'log'), we still just want to open the app
-  // In a more complex app, we might send a message to the client to open a specific modal.
-  
   const urlToOpen = new URL('/', self.location.origin).href;
 
   const promiseChain = clients.matchAll({
@@ -60,7 +66,6 @@ self.addEventListener('notificationclick', (event) => {
   }).then((windowClients) => {
     let matchingClient = null;
 
-    // Check if there is already a window/tab open with the target URL
     for (let i = 0; i < windowClients.length; i++) {
       const windowClient = windowClients[i];
       if (windowClient.url === urlToOpen || windowClient.url.includes('index.html')) {
@@ -70,10 +75,8 @@ self.addEventListener('notificationclick', (event) => {
     }
 
     if (matchingClient) {
-      // Focus if available
       return matchingClient.focus();
     } else {
-      // Otherwise open new window
       return clients.openWindow(urlToOpen);
     }
   });

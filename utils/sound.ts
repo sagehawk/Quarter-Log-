@@ -62,6 +62,12 @@ export const keepAwake = (durationSec: number) => {
     if (!AudioContextClass) return;
 
     const ctx = new AudioContextClass();
+    
+    // CRITICAL: Resume if suspended, otherwise the oscillator won't actually run/keep awake
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(console.error);
+    }
+
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 

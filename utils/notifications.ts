@@ -47,25 +47,31 @@ export const sendNotification = async (title: string, body: string, isTest: bool
   };
 
   try {
-    // CRITICAL FIX: Android requires notifications to be sent via Service Worker.
-    // 'new Notification()' throws "Illegal constructor" on many mobile browsers.
     if ('serviceWorker' in navigator) {
-      // await .ready ensures the SW is active and ready to handle the request
+      // Ensure SW is ready
       const registration = await navigator.serviceWorker.ready;
+
+      // PREFERRED METHOD: Send message to SW to trigger notification.
+      // This is much more reliable on Android than calling showNotification from the window.
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_NOTIFICATION',
+          title: title,
+          options: options
+        });
+        console.log('Notification delegated to Service Worker via postMessage');
+        return;
+      }
+
+      // Fallback: If no controller (e.g. first load), try direct call via registration
       await registration.showNotification(title, options);
-      console.log('Notification sent via Service Worker');
+      console.log('Notification sent via Service Worker Registration (Fallback)');
       return;
     }
 
-    // Fallback only if Service Worker is completely unsupported (e.g. very old browsers)
-    // We try-catch this specifically because it might throw on Android if SW check failed strangely.
-    try {
-      new Notification(title, options);
-    } catch (err) {
-      // If direct construction fails, we can't do anything else.
-      console.error("Direct notification construction failed", err);
-      if (isTest) throw new Error("Mobile browsers require a Service Worker. Please refresh and try again.");
-    }
+    // Legacy Fallback
+    new Notification(title, options);
+
   } catch (e) {
     console.error("Notification failed to send:", e);
     if (isTest) alert("Error sending notification: " + e);
