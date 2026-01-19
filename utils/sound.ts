@@ -5,38 +5,49 @@ export const playNotificationSound = () => {
 
     const ctx = new AudioContextClass();
     
-    // Ensure context is running (sometimes required if created outside user gesture)
+    // Ensure context is running
     if (ctx.state === 'suspended') {
       ctx.resume().catch(console.error);
     }
     
     const now = ctx.currentTime;
 
-    // Helper to create a bell-like tone
-    const playChimeTone = (freq: number, startTime: number, volume: number = 0.3) => {
+    // Helper to create a louder, sharper tone
+    const playTone = (freq: number, startTime: number, duration: number, volume: number = 1.0) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
-      osc.type = 'sine';
+      osc.type = 'square'; // 'square' wave is harsher and louder than 'sine'
       osc.frequency.setValueAtTime(freq, startTime);
 
-      // Envelope: Soft attack, long smooth decay
+      // Attack and release
       gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(volume, startTime + 0.03); 
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 2.0);
+      gain.gain.linearRampToValueAtTime(volume, startTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
 
       osc.start(startTime);
-      osc.stop(startTime + 2.0);
+      osc.stop(startTime + duration);
     };
 
-    // Play a gentle major interval (Perfect 5th ish)
-    // A4 (440Hz) followed by E5 (659.25Hz)
-    // Creates a "Ding-Dong" or "Hi-There" effect
-    playChimeTone(440, now, 0.25);
-    playChimeTone(659.25, now + 0.15, 0.25);
+    // Play a sequence: High-Low-High (Alarm style)
+    // Much louder (volume 1.0) and higher pitch
+    const noteDuration = 0.2;
+    const gap = 0.1;
+    
+    // First burst
+    playTone(880, now, noteDuration); // A5
+    playTone(1760, now + noteDuration, noteDuration); // A6
+    
+    // Second burst
+    playTone(880, now + (noteDuration * 2) + gap, noteDuration);
+    playTone(1760, now + (noteDuration * 3) + gap, noteDuration);
+    
+    // Third burst (for good measure)
+    playTone(880, now + (noteDuration * 4) + (gap * 2), noteDuration);
+    playTone(1760, now + (noteDuration * 5) + (gap * 2), noteDuration);
 
   } catch (e) {
     console.error("Audio play failed", e);

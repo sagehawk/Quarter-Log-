@@ -116,20 +116,26 @@ const App: React.FC = () => {
     
     setStatus(AppStatus.WAITING_FOR_INPUT);
     
-    // Play sound
+    // 1. Play sound
     playNotificationSound();
+
+    // 2. Direct Hardware Vibration (if supported and app is active/foreground)
+    if (navigator.vibrate) {
+      // Vibrate: 1s on, 0.5s off, 1s on
+      navigator.vibrate([1000, 500, 1000]);
+    }
     
-    // Send System Notification
+    // 3. Send System Notification
     sendNotification("Time's up!", "Log your activity for the last session.");
     
-    // Show In-App Toast
+    // 4. Show In-App Toast
     setToast({
       title: "Time's up!",
       message: "Take a moment to log your recent activity.",
       visible: true
     });
     
-    // Open Entry Modal
+    // 5. Open Entry Modal
     setIsEntryModalOpen(true);
   }, []);
 
@@ -164,7 +170,7 @@ const App: React.FC = () => {
       setHasPermission(granted);
     }
 
-    // Try to unlock audio context
+    // Try to unlock audio context (iOS requirement)
     playNotificationSound();
 
     setStatus(AppStatus.RUNNING);
