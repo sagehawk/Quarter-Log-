@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quarterlog-v2';
+const CACHE_NAME = 'quarterlog-v3';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -45,15 +45,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// NEW: Listen for messages from the client (window)
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
-    const { title, options } = event.data;
-    // Show notification from the SW context
-    self.registration.showNotification(title, options);
-  }
-});
-
+// Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
   const notification = event.notification;
   notification.close();
