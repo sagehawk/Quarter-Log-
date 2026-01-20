@@ -14,10 +14,9 @@
 	},
 	"packageClassList": [
 		"AppPlugin",
-		"FilesystemPlugin",
-		"HapticsPlugin",
 		"LocalNotificationsPlugin",
-		"SharePlugin",
-		"StatusBarPlugin"
+		"HapticsPlugin",
+		"FilesystemPlugin",
+		"SharePlugin"
 	]
 }
