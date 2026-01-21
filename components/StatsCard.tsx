@@ -333,7 +333,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 }
 
                 // Determine colors
-                const trackColor = "#1e293b"; // slate-800
+                // Track color removed (silhouette issue)
                 const barColor = d.isCurrent ? "#f472b6" : "#db2777"; // brand-400 : brand-600
                 const tickColor = d.isCurrent ? "#f472b6" : "#475569";
 
@@ -341,7 +341,6 @@ const StatsCard: React.FC<StatsCardProps> = ({
                     <g key={i}>
                         {!isZero && (
                             <>
-                                <rect x={x} y={0} width={barWidth} height={CHART_HEIGHT} rx={barWidth / 2} fill={trackColor} className={interactionIndex !== null && interactionIndex !== i ? 'opacity-40' : 'opacity-100'} />
                                 <rect x={x} y={y} width={barWidth} height={height} rx={barWidth / 2} fill={barColor} className={interactionIndex !== null && interactionIndex !== i ? 'opacity-40' : 'opacity-100'} />
                             </>
                         )}

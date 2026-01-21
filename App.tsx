@@ -622,6 +622,27 @@ const App: React.FC = () => {
             canGoForward={canGoForward}
           />
 
+          {/* New Filter Location - Replaced fixed footer */}
+          <div className="flex justify-center mb-8">
+            <div className="bg-slate-900 p-1.5 rounded-2xl flex items-center justify-between w-full border border-slate-800 shadow-sm">
+                {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
+                <button
+                    key={f}
+                    onClick={() => {
+                        try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+                        setFilter(f);
+                        setViewDate(new Date()); 
+                    }}
+                    className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-200 ${
+                    filter === f ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                    }`}
+                >
+                    {f}
+                </button>
+                ))}
+            </div>
+          </div>
+
           {/* Action Bar */}
           {filteredLogs.length > 0 && (
             <div className="flex gap-3 mb-6">
@@ -657,27 +678,6 @@ const App: React.FC = () => {
         </section>
 
       </main>
-
-      {/* Fixed Bottom Filter Tabs */}
-      <div className="fixed bottom-8 left-0 right-0 z-30 flex justify-center px-4 pointer-events-none pb-safe">
-        <div className="pointer-events-auto bg-slate-900/90 backdrop-blur-xl border border-white/10 p-1.5 rounded-full flex gap-1 shadow-2xl shadow-black/50 overflow-x-auto no-scrollbar max-w-full">
-            {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
-            <button
-                key={f}
-                onClick={() => {
-                    try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
-                    setFilter(f);
-                    setViewDate(new Date()); 
-                }}
-                className={`min-w-[44px] px-4 py-2 flex items-center justify-center rounded-full text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap ${
-                filter === f ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/50' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-                }`}
-            >
-                {f}
-            </button>
-            ))}
-        </div>
-      </div>
 
       <EntryModal 
         isOpen={isEntryModalOpen}
