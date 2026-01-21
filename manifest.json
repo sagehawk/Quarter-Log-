@@ -1,6 +1,6 @@
 {
-  "name": "QuarterLog",
-  "short_name": "QuarterLog",
+  "name": "Time Log: Easy Activity Tracker",
+  "short_name": "Time Log",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

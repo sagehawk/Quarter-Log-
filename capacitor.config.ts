@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.quarterlog.app',
-  appName: 'QuarterLog',
+  appName: 'Time Log: Easy Activity Tracker',
   webDir: 'dist',
   server: {
     androidScheme: 'https'
@@ -13,6 +13,11 @@ const config: CapacitorConfig = {
       iconColor: "#488AFF",
       sound: "beep.wav",
     },
+    StatusBar: {
+      overlaysWebView: true,
+      style: 'DARK',
+      backgroundColor: '#00000000'
+    }
   },
 };
 

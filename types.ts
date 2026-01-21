@@ -10,5 +10,12 @@ export enum AppStatus {
   WAITING_FOR_INPUT = 'WAITING_FOR_INPUT',
 }
 
+export interface ScheduleConfig {
+  enabled: boolean;
+  startTime: string; // "09:00"
+  endTime: string;   // "17:00"
+  daysOfWeek: number[]; // 0 = Sunday, 1 = Monday, etc.
+}
+
 export const DEFAULT_INTERVAL_MINUTES = 15;
 export const DEFAULT_INTERVAL_MS = DEFAULT_INTERVAL_MINUTES * 60 * 1000;
