@@ -229,10 +229,11 @@ const StatsCard: React.FC<StatsCardProps> = ({
         const count = bucket.logs.length;
         
         // --- FIX: Cap minutes at 60 for the graph ---
-        // Actual calculation
         const rawMinutes = count * durationMinutes;
-        // Capped calculation for visualization
         const minutes = Math.min(rawMinutes, 60);
+
+        // Cap display text ONLY for Day view (per hour bucket)
+        const displayMinutes = filter === 'D' ? Math.min(rawMinutes, 60) : rawMinutes;
         
         // Header Date Formatting
         let fullDate = '';
@@ -249,7 +250,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
         dChart.push({
             label: bucket.label,
             value: minutes, // Capped value used for chart height
-            displayValue: rawMinutes >= 60 ? `${Math.floor(rawMinutes/60)}h ${Math.round(rawMinutes%60)}m` : `${rawMinutes}m`, // Real value for text
+            displayValue: displayMinutes >= 60 ? `${Math.floor(displayMinutes/60)}h ${Math.round(displayMinutes%60)}m` : `${displayMinutes}m`, // Capped Text for Day view
             isCurrent: isTodayReal(key),
             hour: bucket.date.getHours(),
             day: bucket.date.getDate(),
@@ -349,7 +350,10 @@ const StatsCard: React.FC<StatsCardProps> = ({
                             </>
                         )}
                         {showTickMark && (
-                            <rect x={cx - 0.75} y={CHART_HEIGHT + 4} width={1.5} height={6} rx={0.5} fill={tickColor} />
+                            // ADJUST Y HERE: CHART_HEIGHT - 2 moves it down. 
+                            // CHART_HEIGHT is the baseline. 
+                            // - X moves it UP. + X moves it DOWN.
+                            <rect x={cx - 0.75} y={CHART_HEIGHT - -4} width={1.5} height={4} rx={0.5} fill={tickColor} />
                         )}
                         <rect x={x} y="-5" width={barWidth} height={CHART_HEIGHT + 20} fill="transparent" />
                     </g>
@@ -375,8 +379,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 return (
                     <div 
                       key={i} 
-                      // FIX: Increased bottom spacing from 0.5 to 2 to separate text from ticks
-                      className={`absolute bottom-2 text-[9px] font-bold uppercase tracking-wider transform -translate-x-1/2 ${d.isCurrent ? 'text-white' : 'text-slate-500'}`}
+                      className={`absolute bottom-0 text-[9px] font-bold uppercase tracking-wider transform -translate-x-1/2 ${d.isCurrent ? 'text-white' : 'text-slate-500'}`}
                       style={{ left: `${leftPct}%` }}
                     >
                         {d.label}
