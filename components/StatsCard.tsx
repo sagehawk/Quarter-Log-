@@ -302,7 +302,6 @@ const StatsCard: React.FC<StatsCardProps> = ({
     const maxVal = Math.max(...durationChartData.map(d => d.value), 1); 
     const count = durationChartData.length;
     const barWidth = getBarWidth(count);
-    const tickWidth = Math.max(1, barWidth * 0.4); 
 
     return (
         <svg 
@@ -345,12 +344,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                             </>
                         )}
                         {showTickMark && (
-                            <rect x={cx - (tickWidth/2)} y={CHART_HEIGHT + 4} width={tickWidth} height={3} rx={1.5} fill={tickColor} />
-                        )}
-                        {d.label && (
-                            <text x={cx} y={CHART_HEIGHT + 18} textAnchor="middle" className={`text-[9px] font-bold uppercase tracking-wider ${d.isCurrent ? 'fill-white' : 'fill-slate-500'}`}>
-                                {d.label}
-                            </text>
+                            <rect x={cx - 0.75} y={CHART_HEIGHT + 4} width={1.5} height={6} rx={0.5} fill={tickColor} />
                         )}
                         <rect x={x} y="-5" width={barWidth} height={CHART_HEIGHT + 20} fill="transparent" />
                     </g>
@@ -361,6 +355,29 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 <line x1={getColumnX(interactionIndex, count)} y1="0" x2={getColumnX(interactionIndex, count)} y2={CHART_HEIGHT} stroke="#fff" strokeWidth="0.5" strokeDasharray="2 2" className="pointer-events-none" />
             )}
         </svg>
+    );
+  };
+
+  const renderLabels = () => {
+    return (
+        <div className="absolute inset-0 pointer-events-none">
+            {durationChartData.map((d, i) => {
+                if (!d.label) return null;
+                const count = durationChartData.length;
+                const cx = getColumnX(i, count);
+                const leftPct = (cx / CHART_WIDTH) * 100;
+                
+                return (
+                    <div 
+                      key={i} 
+                      className={`absolute bottom-0.5 text-[9px] font-bold uppercase tracking-wider transform -translate-x-1/2 ${d.isCurrent ? 'text-white' : 'text-slate-500'}`}
+                      style={{ left: `${leftPct}%` }}
+                    >
+                        {d.label}
+                    </div>
+                );
+            })}
+        </div>
     );
   };
 
@@ -412,8 +429,15 @@ const StatsCard: React.FC<StatsCardProps> = ({
                     </div>
                 </div>
             </div>
-            <div className="h-36 w-full pt-4">
-                {durationChartData.length > 0 ? renderBarChart() : <div className="h-full flex items-center justify-center text-slate-600 text-xs font-bold uppercase tracking-wider">No Data</div>}
+            <div className="h-36 w-full pt-4 relative">
+                {durationChartData.length > 0 ? (
+                    <>
+                        {renderBarChart()}
+                        {renderLabels()}
+                    </>
+                ) : (
+                    <div className="h-full flex items-center justify-center text-slate-600 text-xs font-bold uppercase tracking-wider">No Data</div>
+                )}
             </div>
         </div>
     </div>

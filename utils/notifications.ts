@@ -8,7 +8,6 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
     // Web Fallback: Use standard browser API
     if (Capacitor.getPlatform() === 'web') {
       if (!('Notification' in window)) {
-        console.warn("Notifications not supported in this browser.");
         return false;
       }
       const permission = await Notification.requestPermission();
@@ -81,7 +80,6 @@ export const scheduleNotification = async (title: string, body: string, delayMs:
             icon: 'https://i.imgur.com/HEBJbFC.png' // Use remote icon
           });
         }, delayMs);
-        console.log(`Web notification scheduled in ${delayMs}ms`);
       }
       return;
     }
@@ -105,7 +103,6 @@ export const scheduleNotification = async (title: string, body: string, delayMs:
         }
       ]
     });
-    console.log(`Native notification scheduled in ${delayMs}ms`);
   } catch (e) {
     console.error("Failed to schedule notification", e);
   }

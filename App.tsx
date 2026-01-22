@@ -552,7 +552,7 @@ const App: React.FC = () => {
       >
         <div className="relative flex items-center gap-3">
            <div className={`w-10 h-10 rounded-xl overflow-hidden transition-all duration-500 shadow-lg ${isScrolled ? 'shadow-brand-900/40 ring-0' : 'shadow-brand-500/20 ring-1 ring-white/10'}`}>
-             <img src="https://i.imgur.com/0fFibCf.png" alt="App Icon" className="w-full h-full object-cover" />
+             <img src="https://i.imgur.com/43DnpQe.png" alt="App Icon" className="w-full h-full object-cover" />
            </div>
            <div>
              <h1 className="font-black text-2xl tracking-tighter uppercase text-white leading-none drop-shadow-sm italic">Time Log</h1>
