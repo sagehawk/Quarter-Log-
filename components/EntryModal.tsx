@@ -66,7 +66,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
             value={text}
             onChange={(e) => setText(e.target.value)}
             className="w-full bg-black/40 text-white rounded-2xl border-2 border-white/10 p-5 min-h-[160px] focus:ring-0 focus:border-brand-500 outline-none placeholder-slate-600 text-xl font-bold mb-8 resize-none shadow-inner"
-            placeholder="e.g. SALES CALL, GYM, DEEP WORK..."
+            placeholder="e.g. EMAILS, MEETING, PROJECT WORK, LUNCH..."
           />
           
           <div className="flex gap-4">

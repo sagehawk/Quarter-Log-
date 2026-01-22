@@ -201,7 +201,7 @@ const TimerCircle: React.FC<TimerCircleProps> = ({ timeLeft, isActive, totalTime
       
       {/* Time Text */}
       <div className="relative z-10 text-center flex flex-col items-center justify-center pointer-events-none">
-        <div className={`text-8xl font-bold tracking-tight transition-colors duration-300 ${isActive ? 'text-white' : 'text-slate-200'}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
+        <div className={`text-7xl sm:text-8xl font-bold tracking-tight transition-colors duration-300 ${isActive ? 'text-white' : 'text-slate-200'}`} style={{ fontVariantNumeric: 'tabular-nums' }}>
           {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
         </div>
         <div className="flex items-center gap-2 mt-4">

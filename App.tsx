@@ -152,11 +152,17 @@ const App: React.FC = () => {
     return currentMinutes >= startTotal && currentMinutes < endTotal;
   }, [schedule]);
 
-  const handleTimerComplete = useCallback(() => {
+  const handleTimerComplete = useCallback(async () => {
+    // 1. Stop the worker immediately
     workerRef.current?.postMessage({ command: 'stop' });
+    
+    // 2. Clear any pending notifications to prevent double-firing
+    await cancelNotification();
+    
+    // 3. Update Status
     setStatus(AppStatus.WAITING_FOR_INPUT);
     
-    // Vibrate to alert
+    // 4. Visual/Haptic Feedback
     try { Haptics.vibrate(); } catch(e) {}
 
     setToast({
@@ -181,31 +187,42 @@ const App: React.FC = () => {
   useEffect(() => { tickRef.current = tickLogic; }, [tickLogic]);
   const triggerTick = () => tickRef.current();
 
-  const startTimer = useCallback(async () => {
+  // START TIMER
+  const startTimer = useCallback(async (overrideTime?: number) => {
     let perm = hasPermission;
     if (!perm) {
       perm = await requestNotificationPermission();
       setHasPermission(perm);
     }
     
+    // Use override time if provided, otherwise current state
+    const timeToUse = overrideTime ?? timeLeft;
+
+    // Sanity check: prevent starting a 0ms timer or negative
+    if (timeToUse <= 0) {
+        // Fallback to default duration if something went wrong
+        return; 
+    }
+
     setStatus(AppStatus.RUNNING);
     const now = Date.now();
     
-    const targetTime = now + timeLeft;
+    const targetTime = now + timeToUse;
     endTimeRef.current = targetTime; 
     
-    // Schedule with high priority
-    await scheduleNotification("Time's up.", "What did you do? Even 1-2 words is enough.", timeLeft);
+    // Schedule with high priority - Cancel previous first to be safe
+    await cancelNotification();
+    await scheduleNotification("Time's up.", "What did you do? Even 1-2 words is enough.", timeToUse);
     
     workerRef.current?.postMessage({ command: 'start' });
     tickLogic(); 
-  }, [duration, hasPermission, tickLogic, timeLeft]);
+  }, [hasPermission, tickLogic, timeLeft]);
 
-  const pauseTimer = () => {
-    cancelNotification();
+  const pauseTimer = useCallback(async () => {
+    await cancelNotification();
     workerRef.current?.postMessage({ command: 'stop' });
     setStatus(AppStatus.IDLE);
-  };
+  }, []);
 
   const handleToggleTimer = () => {
     if (status === AppStatus.RUNNING) {
@@ -364,11 +381,15 @@ const App: React.FC = () => {
 
     // Auto-restart logic (Only for Timer Completion)
     const wasAutomated = status === AppStatus.WAITING_FOR_INPUT;
+    
+    // Reset internal state
     setTimeLeft(duration);
     
     if (wasAutomated || status === AppStatus.IDLE) {
        if (isWithinSchedule()) {
-         await startTimer();
+         // CRITICAL FIX: Pass 'duration' explicitly. 
+         // 'timeLeft' state won't update until next render, so startTimer would read '0' otherwise.
+         await startTimer(duration);
        } else if (schedule.enabled) {
          setStatus(AppStatus.IDLE);
          setToast({
@@ -377,7 +398,7 @@ const App: React.FC = () => {
            visible: true
          });
        } else {
-         await startTimer();
+         await startTimer(duration);
        }
     }
 
@@ -393,11 +414,11 @@ const App: React.FC = () => {
     if (!isManualEntry) {
        setTimeLeft(duration);
        if (isWithinSchedule()) {
-          startTimer();
+          startTimer(duration); // Pass duration explicit
        } else if (schedule.enabled) {
           setStatus(AppStatus.IDLE);
        } else {
-          startTimer();
+          startTimer(duration); // Pass duration explicit
        }
     }
   };
@@ -602,9 +623,9 @@ const App: React.FC = () => {
             <h2 className="text-xl font-black text-white tracking-wide uppercase italic">Timeline</h2>
             <button 
               onClick={handleManualLogStart}
-              className="glass-button text-brand-400 hover:text-white hover:bg-brand-600 hover:border-brand-500 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm"
+              className="text-slate-500 hover:text-white px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 opacity-60 hover:opacity-100"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               Log Now
             </button>
           </div>

@@ -227,7 +227,12 @@ const StatsCard: React.FC<StatsCardProps> = ({
     keys.forEach(key => {
         const bucket = buckets[key];
         const count = bucket.logs.length;
-        const minutes = count * durationMinutes;
+        
+        // --- FIX: Cap minutes at 60 for the graph ---
+        // Actual calculation
+        const rawMinutes = count * durationMinutes;
+        // Capped calculation for visualization
+        const minutes = Math.min(rawMinutes, 60);
         
         // Header Date Formatting
         let fullDate = '';
@@ -243,8 +248,8 @@ const StatsCard: React.FC<StatsCardProps> = ({
 
         dChart.push({
             label: bucket.label,
-            value: minutes,
-            displayValue: minutes >= 60 ? `${Math.floor(minutes/60)}h ${Math.round(minutes%60)}m` : `${minutes}m`,
+            value: minutes, // Capped value used for chart height
+            displayValue: rawMinutes >= 60 ? `${Math.floor(rawMinutes/60)}h ${Math.round(rawMinutes%60)}m` : `${rawMinutes}m`, // Real value for text
             isCurrent: isTodayReal(key),
             hour: bucket.date.getHours(),
             day: bucket.date.getDate(),
@@ -370,7 +375,8 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 return (
                     <div 
                       key={i} 
-                      className={`absolute bottom-0.5 text-[9px] font-bold uppercase tracking-wider transform -translate-x-1/2 ${d.isCurrent ? 'text-white' : 'text-slate-500'}`}
+                      // FIX: Increased bottom spacing from 0.5 to 2 to separate text from ticks
+                      className={`absolute bottom-2 text-[9px] font-bold uppercase tracking-wider transform -translate-x-1/2 ${d.isCurrent ? 'text-white' : 'text-slate-500'}`}
                       style={{ left: `${leftPct}%` }}
                     >
                         {d.label}
