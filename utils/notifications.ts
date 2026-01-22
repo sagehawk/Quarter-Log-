@@ -3,6 +3,20 @@ import { Capacitor } from '@capacitor/core';
 
 const CHANNEL_ID = 'quarterlog_high_priority';
 
+export const checkNotificationPermission = async (): Promise<boolean> => {
+  try {
+    if (Capacitor.getPlatform() === 'web') {
+      return Notification.permission === 'granted';
+    }
+    // Native Check
+    const status = await LocalNotifications.checkPermissions();
+    return status.display === 'granted';
+  } catch (e) {
+    console.error("Failed to check permissions", e);
+    return false;
+  }
+};
+
 export const requestNotificationPermission = async (): Promise<boolean> => {
   try {
     // Web Fallback: Use standard browser API
@@ -57,8 +71,8 @@ export const registerNotificationActions = async () => {
               id: 'log_input',
               title: 'Log Activity',
               input: true,
-              inputPlaceholder: 'What did you do?',
-              inputButtonTitle: 'Save'
+              placeholder: 'What did you do?',
+              submitTitle: 'Save'
             }
           ]
         }

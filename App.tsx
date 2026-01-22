@@ -13,7 +13,7 @@ import PromptLibraryModal from './components/PromptLibraryModal'; // Import Prom
 import Toast from './components/Toast';
 import StatsCard from './components/StatsCard'; 
 import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig } from './types';
-import { requestNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel } from './utils/notifications';
+import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel } from './utils/notifications';
 
 const STORAGE_KEY_LOGS = 'quarterlog_entries';
 const STORAGE_KEY_DURATION = 'quarterlog_duration';
@@ -96,7 +96,8 @@ const App: React.FC = () => {
     // Initialize notifications
     const initNotifications = async () => {
         await configureNotificationChannel();
-        const perm = await requestNotificationPermission();
+        // Check only, don't ask
+        const perm = await checkNotificationPermission();
         setHasPermission(perm);
         await registerNotificationActions();
     };
@@ -156,8 +157,10 @@ const App: React.FC = () => {
     // 1. Stop the worker immediately
     workerRef.current?.postMessage({ command: 'stop' });
     
-    // 2. Clear any pending notifications to prevent double-firing
-    await cancelNotification();
+    // 2. DO NOT Cancel notifications here. 
+    // If the user hasn't seen it yet, we want it to stay. 
+    // If they click the action, we need it to be active to fire the event.
+    // 'startTimer' will clean up old notifications anyway.
     
     // 3. Update Status
     setStatus(AppStatus.WAITING_FOR_INPUT);
@@ -189,8 +192,10 @@ const App: React.FC = () => {
 
   // START TIMER
   const startTimer = useCallback(async (overrideTime?: number) => {
+    // Check local state or re-check real permission
     let perm = hasPermission;
     if (!perm) {
+      // If we don't have it, REQUEST it now (this triggers the popup)
       perm = await requestNotificationPermission();
       setHasPermission(perm);
     }
@@ -366,7 +371,7 @@ const App: React.FC = () => {
     setIsEntryModalOpen(true);
   };
 
-  const handleLogSave = useCallback(async (text: string) => {
+  const handleLogSave = useCallback(async (text: string, isFromNotification: boolean = false) => {
     const newLog: LogEntry = {
       id: crypto.randomUUID(),
       timestamp: Date.now(),
@@ -381,20 +386,21 @@ const App: React.FC = () => {
     try { await Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
 
     // Check if this was a manual entry.
-    if (isManualEntry) {
+    // If it comes from notification, it is inherently NOT manual in the sense of 'user initiated spontaneously',
+    // it is a response to the timer. So we ignore isManualEntry flag if isFromNotification is true.
+    if (isManualEntry && !isFromNotification) {
         return;
     }
 
-    // Auto-restart logic (Only for Timer Completion)
-    const wasAutomated = status === AppStatus.WAITING_FOR_INPUT;
+    // Auto-restart logic
+    // If we are responding to a notification, we FORCE logic to believe it was automated/timer-completed
+    const wasAutomated = isFromNotification || status === AppStatus.WAITING_FOR_INPUT;
     
     // Reset internal state
     setTimeLeft(duration);
     
     if (wasAutomated || status === AppStatus.IDLE) {
        if (isWithinSchedule()) {
-         // CRITICAL FIX: Pass 'duration' explicitly. 
-         // 'timeLeft' state won't update until next render, so startTimer would read '0' otherwise.
          await startTimer(duration);
        } else if (schedule.enabled) {
          setStatus(AppStatus.IDLE);
@@ -439,6 +445,9 @@ const App: React.FC = () => {
           const now = Date.now();
           const remaining = endTimeRef.current - now;
           if (remaining <= 0) {
+            // Only trigger complete if it hasn't been handled by a notification action yet.
+            // Note: This is racy. If the notification action fires first, startTimer updates endTimeRef.
+            // If we are here, endTimeRef is old (expired).
             handleTimerComplete();
           } else {
             setTimeLeft(remaining);
@@ -449,8 +458,10 @@ const App: React.FC = () => {
 
     const notificationSub = LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
         if (notification.actionId === 'log_input' && notification.inputValue) {
-           handleLogSave(notification.inputValue);
+           // Pass true for isFromNotification to force timer restart logic
+           handleLogSave(notification.inputValue, true);
         } else {
+           // If they just tapped the notification body, open the modal
            setIsEntryModalOpen(true);
            setIsManualEntry(false); 
         }

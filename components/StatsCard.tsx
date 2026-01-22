@@ -230,7 +230,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
         
         // --- FIX: Cap minutes at 60 for the graph ---
         const rawMinutes = count * durationMinutes;
-        const minutes = Math.min(rawMinutes, 60);
+        
+        // Fix: Only cap at 60 for Day view (hourly buckets). Allow other views to scale based on total time.
+        const minutes = filter === 'D' ? Math.min(rawMinutes, 60) : rawMinutes;
 
         // Cap display text ONLY for Day view (per hour bucket)
         const displayMinutes = filter === 'D' ? Math.min(rawMinutes, 60) : rawMinutes;
@@ -249,8 +251,8 @@ const StatsCard: React.FC<StatsCardProps> = ({
 
         dChart.push({
             label: bucket.label,
-            value: minutes, // Capped value used for chart height
-            displayValue: displayMinutes >= 60 ? `${Math.floor(displayMinutes/60)}h ${Math.round(displayMinutes%60)}m` : `${displayMinutes}m`, // Capped Text for Day view
+            value: minutes, 
+            displayValue: displayMinutes >= 60 ? `${Math.floor(displayMinutes/60)}h ${Math.round(displayMinutes%60)}m` : `${displayMinutes}m`, 
             isCurrent: isTodayReal(key),
             hour: bucket.date.getHours(),
             day: bucket.date.getDate(),
@@ -305,7 +307,13 @@ const StatsCard: React.FC<StatsCardProps> = ({
   };
 
   const renderBarChart = () => {
-    const maxVal = Math.max(...durationChartData.map(d => d.value), 1); 
+    // Determine max value for Y-axis scaling
+    const dataMax = Math.max(...durationChartData.map(d => d.value));
+
+    // Update: ONLY force the 60-minute floor for the 'Day' filter.
+    // For Week, Month, etc., allow it to scale naturally (min 1 to avoid div/0).
+    const maxVal = filter === 'D' ? Math.max(dataMax, 60) : Math.max(dataMax, 1);
+
     const count = durationChartData.length;
     const barWidth = getBarWidth(count);
 
@@ -350,10 +358,8 @@ const StatsCard: React.FC<StatsCardProps> = ({
                             </>
                         )}
                         {showTickMark && (
-                            // ADJUST Y HERE: CHART_HEIGHT - 2 moves it down. 
-                            // CHART_HEIGHT is the baseline. 
-                            // - X moves it UP. + X moves it DOWN.
-                            <rect x={cx - 0.75} y={CHART_HEIGHT - -4} width={1.5} height={4} rx={0.5} fill={tickColor} />
+                            // Cleaned up the y math to be consistent with baseline
+                            <rect x={cx - 0.75} y={CHART_HEIGHT + 2} width={1.5} height={4} rx={0.5} fill={tickColor} />
                         )}
                         <rect x={x} y="-5" width={barWidth} height={CHART_HEIGHT + 20} fill="transparent" />
                     </g>
