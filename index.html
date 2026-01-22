@@ -57,15 +57,19 @@
         -webkit-touch-callout: none;
       }
       
+      html {
+        background-color: #4a001b; /* Matches top of gradient to hide grey overscroll */
+        height: 100%;
+      }
+
       body {
-        /* Updated Gradient: Deep Velvet Pink to Dark Slate */
-        background: linear-gradient(135deg, #4a001b 0%, #0f172a 100%);
-        background-attachment: fixed;
+        /* Gradient moved to App.tsx for better mobile support */
+        background-color: transparent;
         color: #e2e8f0;
         -webkit-tap-highlight-color: transparent;
-        min-height: 100vh;
-        /* Ensure background covers the notch area */
-        padding-top: env(safe-area-inset-top); 
+        min-height: 100%;
+        margin: 0;
+        /* Removed padding-top: env(safe-area-inset-top) to allow full-screen background */
       }
 
       /* Allow interaction with inputs */

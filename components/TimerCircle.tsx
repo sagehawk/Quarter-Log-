@@ -7,10 +7,18 @@ interface TimerCircleProps {
   isActive: boolean;
   totalTime?: number;
   onDurationChange?: (newDurationMs: number) => void;
+  onDurationCommit?: (newDurationMs: number) => void;
   onToggle: () => void;
 }
 
-const TimerCircle: React.FC<TimerCircleProps> = ({ timeLeft, isActive, totalTime = DEFAULT_INTERVAL_MS, onDurationChange, onToggle }) => {
+const TimerCircle: React.FC<TimerCircleProps> = ({ 
+  timeLeft, 
+  isActive, 
+  totalTime = DEFAULT_INTERVAL_MS, 
+  onDurationChange, 
+  onDurationCommit,
+  onToggle 
+}) => {
   const [isDragging, setIsDragging] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   
@@ -69,7 +77,7 @@ const TimerCircle: React.FC<TimerCircleProps> = ({ timeLeft, isActive, totalTime
     // Haptic Feedback on value change
     if (minutes !== lastHapticMinute.current) {
         if (isDragging) { // Only vibrate if we are actively dragging
-            try { Haptics.selectionStart(); } catch(e) {}
+            try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
         }
         lastHapticMinute.current = minutes;
     }
@@ -120,8 +128,11 @@ const TimerCircle: React.FC<TimerCircleProps> = ({ timeLeft, isActive, totalTime
        try { await Haptics.impact({ style: ImpactStyle.Heavy }); } catch(e) {}
        onToggle();
     } else {
-       // Drag Release -> Light confirmation
+       // Drag Release -> Light confirmation & Commit
        try { await Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+       if (onDurationCommit && lastHapticMinute.current > 0) {
+          onDurationCommit(lastHapticMinute.current * 60 * 1000);
+       }
     }
     
     setIsDragging(false);

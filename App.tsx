@@ -246,7 +246,13 @@ const App: React.FC = () => {
     setIsSettingsModalOpen(false);
   };
 
-  const handleDragUpdate = (newDurationMs: number) => {
+  // Live preview update (Does NOT commit to global duration/stats)
+  const handleDurationPreview = (newDurationMs: number) => {
+    setTimeLeft(newDurationMs);
+  };
+
+  // Commit update (Updates global duration, saving stats & storage)
+  const handleDurationCommit = (newDurationMs: number) => {
     setDuration(newDurationMs);
     setTimeLeft(newDurationMs);
     localStorage.setItem(STORAGE_KEY_DURATION, String(newDurationMs));
@@ -355,7 +361,7 @@ const App: React.FC = () => {
   // --- Logging Logic ---
 
   const handleManualLogStart = () => {
-    try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+    try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
     setIsManualEntry(true);
     setIsEntryModalOpen(true);
   };
@@ -400,10 +406,6 @@ const App: React.FC = () => {
        } else {
          await startTimer(duration);
        }
-    }
-
-    if (Capacitor.isNativePlatform()) {
-        try { await CapacitorApp.minimizeApp(); } catch (e) { console.error(e); }
     }
   }, [startTimer, status, isWithinSchedule, schedule.enabled, duration, isManualEntry]);
 
@@ -558,8 +560,16 @@ const App: React.FC = () => {
   const isRunning = status === AppStatus.RUNNING;
 
   return (
-    <div className="min-h-screen font-sans bg-transparent pb-safe">
+    <div className="min-h-screen font-sans pb-[env(safe-area-inset-bottom)]">
       
+      {/* Fixed Background - Solves mobile viewport glitches */}
+      <div 
+        className="fixed inset-0 -z-50"
+        style={{
+          background: 'linear-gradient(135deg, #4a001b 0%, #0f172a 100%)'
+        }}
+      />
+
       {/* Header */}
       <header 
         className={`
@@ -611,7 +621,8 @@ const App: React.FC = () => {
             timeLeft={timeLeft} 
             totalTime={duration} 
             isActive={isRunning} 
-            onDurationChange={handleDragUpdate}
+            onDurationChange={handleDurationPreview}
+            onDurationCommit={handleDurationCommit}
             onToggle={handleToggleTimer}
           />
         </section>
@@ -724,7 +735,7 @@ const App: React.FC = () => {
         onCopySuccess={handleCopySuccess}
       />
       
-      <div className="h-safe-bottom" />
+      <div className="h-[env(safe-area-inset-bottom)]" />
     </div>
   );
 };
