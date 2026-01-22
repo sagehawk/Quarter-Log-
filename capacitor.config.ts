@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.quarterlog.app',
-  appName: 'Time Log: Easy Activity Tracker',
+  appName: 'Time Log: Stop Wasting Time',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

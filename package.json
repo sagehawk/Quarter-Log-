@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "build:apk": "npm run build && npx cap sync && cd android && chmod +x gradlew && ./gradlew assembleDebug",
+    "build:apk": "npm run build && npx cap sync && cd android && gradlew.bat assembleDebug",
     "build:ios": "npm run build && npx cap sync && npx cap open ios"
   },
   "dependencies": {
