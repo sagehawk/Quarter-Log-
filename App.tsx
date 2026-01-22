@@ -167,7 +167,7 @@ const App: React.FC = () => {
 
     setToast({
       title: "Time's up.",
-      message: "What did you do? Even 1-2 words is enough.",
+      message: "What did you do?",
       visible: true
     });
     
@@ -212,7 +212,7 @@ const App: React.FC = () => {
     
     // Schedule with high priority - Cancel previous first to be safe
     await cancelNotification();
-    await scheduleNotification("Time's up.", "What did you do? Even 1-2 words is enough.", timeToUse);
+    await scheduleNotification("Time's up.", "What did you do?", timeToUse);
     
     workerRef.current?.postMessage({ command: 'start' });
     tickLogic(); 

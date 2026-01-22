@@ -46,7 +46,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const triggerTest = async () => {
     try {
-        await sendNotification("Time's up.", "What did you do? Even 1-2 words is enough.", true);
+        await sendNotification("Time's up.", "What did you do?", true);
     } catch (e) {
         alert("Failed to send test notification: " + e);
     }
