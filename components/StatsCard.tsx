@@ -52,9 +52,12 @@ const StatsCard: React.FC<StatsCardProps> = ({
     const now = new Date(viewDate);
     const todayReal = new Date();
     const durationMinutes = durationMs / 1000 / 60;
+
+    // Use real logs
+    const processedLogs = logs;
     
     // -- Summary Stats --
-    const totalMinutesLogged = logs.length * durationMinutes;
+    const totalMinutesLogged = processedLogs.length * durationMinutes;
     const hours = Math.floor(totalMinutesLogged / 60);
     const mins = Math.round(totalMinutesLogged % 60);
     const timeDisplay = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
@@ -186,7 +189,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
     }
 
     // --- Distribute Logs ---
-    logs.forEach(log => {
+    processedLogs.forEach(log => {
         const logDate = new Date(log.timestamp);
         let key = '';
         if (filter === 'D') {
