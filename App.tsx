@@ -67,6 +67,7 @@ const App: React.FC = () => {
   // Refs
   const endTimeRef = useRef<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
+  const processedNotificationRef = useRef(false);
 
   // Load initial data
   useEffect(() => {
@@ -439,6 +440,12 @@ const App: React.FC = () => {
   useEffect(() => {
     const appStateSub = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
       if (isActive) {
+        // If we just processed a notification action, skip this check to avoid double-prompting
+        if (processedNotificationRef.current) {
+            processedNotificationRef.current = false;
+            return;
+        }
+
         if (status === AppStatus.RUNNING && endTimeRef.current) {
           const now = Date.now();
           const remaining = endTimeRef.current - now;
@@ -455,6 +462,9 @@ const App: React.FC = () => {
     });
 
     const notificationSub = LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
+        // Mark as processed so appResume doesn't re-trigger
+        processedNotificationRef.current = true;
+        
         if (notification.actionId === 'log_input' && notification.inputValue) {
            // Pass true for isFromNotification to force timer restart logic
            handleLogSave(notification.inputValue, true);
