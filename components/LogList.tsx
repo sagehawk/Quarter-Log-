@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { LogEntry } from '../types';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 interface LogListProps {
   logs: LogEntry[];
@@ -7,6 +8,19 @@ interface LogListProps {
 }
 
 const LogList: React.FC<LogListProps> = ({ logs, onDelete }) => {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      try { await Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy', err);
+    }
+  };
+
   if (logs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center pt-12 pb-32 text-center">
@@ -50,7 +64,12 @@ const LogList: React.FC<LogListProps> = ({ logs, onDelete }) => {
             {groupedLogs[date].map((log) => (
               <div 
                 key={log.id} 
-                className="group relative bg-slate-900 hover:bg-slate-800 border-2 border-transparent hover:border-slate-700 rounded-xl p-4 transition-all duration-200"
+                onClick={() => handleCopy(log.text, log.id)}
+                className={`group relative border-2 rounded-xl p-4 transition-all duration-200 cursor-pointer select-none
+                  ${copiedId === log.id 
+                    ? 'bg-emerald-900/10 border-emerald-500/30' 
+                    : 'bg-slate-900 hover:bg-slate-800 border-transparent hover:border-slate-700 active:scale-[0.99]'}
+                `}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
@@ -58,12 +77,21 @@ const LogList: React.FC<LogListProps> = ({ logs, onDelete }) => {
                        <span className="text-[12px] font-black tracking-wide text-brand-300 bg-brand-900/30 px-1.5 py-0.5 rounded">
                         {new Date(log.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                        </span>
+                       {copiedId === log.id && (
+                         <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 animate-fade-in flex items-center gap-1">
+                           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                           Copied
+                         </span>
+                       )}
                     </div>
-                    <p className="text-white text-lg font-bold leading-snug">{log.text}</p>
+                    <p className={`text-lg font-bold leading-snug transition-colors ${copiedId === log.id ? 'text-emerald-100' : 'text-white'}`}>{log.text}</p>
                   </div>
                   
                   <button 
-                    onClick={() => onDelete(log.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(log.id);
+                    }}
                     className="opacity-0 group-hover:opacity-100 p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-all"
                     aria-label="Delete log"
                     title="Delete entry"
