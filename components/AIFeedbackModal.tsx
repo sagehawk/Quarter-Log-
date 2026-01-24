@@ -18,6 +18,7 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
   onClose,
   onGenerate 
 }) => {
+  
   if (!isOpen) return null;
 
   // Simple Markdown Renderer (for bolding and bullets)
@@ -95,6 +96,7 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
                     <p className="text-slate-400 mb-6 font-medium text-sm px-4">
                         Generate a customized report for this {period.toLowerCase()}. The AI will analyze your logs based on your goal.
                     </p>
+                    
                     <button 
                         onClick={() => {
                             try { Haptics.impact({ style: ImpactStyle.Heavy }); } catch(e) {}

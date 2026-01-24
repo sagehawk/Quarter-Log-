@@ -1,18 +1,21 @@
 import { GoogleGenAI } from "@google/genai";
 import { LogEntry, UserGoal } from "../types";
 
-// NOTE: In a production environment, this should be proxied through a backend
-// to protect the API key. For this client-side demo/beta, we use env var.
-const apiKey = process.env.API_KEY || ''; 
-
-const ai = new GoogleGenAI({ apiKey });
-
 export const generateAIReport = async (
   logs: LogEntry[],
   period: string, // 'Day', 'Week', 'Month'
   goal: UserGoal
 ): Promise<string> => {
   
+  const apiKey = process.env.API_KEY;
+
+  if (!apiKey) {
+    return "API Key is missing. Please create a .env file and add API_KEY=your_key_here to enable intelligence.";
+  }
+
+  // Initialize client here to ensure we use the latest key and avoid top-level crashes
+  const ai = new GoogleGenAI({ apiKey });
+
   if (!logs || logs.length === 0) {
     return "No activity logs found for this period. Track your time to generate a report.";
   }
@@ -73,8 +76,11 @@ export const generateAIReport = async (
     });
 
     return response.text || "Could not generate report.";
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Generation Error:", error);
+    if (error.message?.includes("API key")) {
+        return "Invalid API Key. Please check your .env configuration.";
+    }
     return "Error connecting to AI. Please try again later.";
   }
 };

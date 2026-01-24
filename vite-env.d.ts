@@ -7,12 +7,20 @@ interface ImportMetaEnv {
   readonly DEV: boolean;
   readonly PROD: boolean;
   readonly SSR: boolean;
+  readonly API_KEY?: string;
   [key: string]: any;
 }
 
 interface ImportMeta {
   url: string;
   readonly env: ImportMetaEnv;
+}
+
+interface Window {
+  aistudio?: {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  };
 }
 
 declare module '*.svg' {
