@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { keepAwake } from '../utils/sound';
 import { sendNotification, requestNotificationPermission } from '../utils/notifications';
-import { LogEntry, ScheduleConfig } from '../types';
+import { LogEntry, ScheduleConfig, UserGoal } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
   currentDurationMs: number;
   logs: LogEntry[];
-  schedule?: ScheduleConfig; // Optional to prevent breaking old usages if any
+  schedule?: ScheduleConfig; 
   onSave: (minutes: number) => void;
   onSaveSchedule?: (schedule: ScheduleConfig) => void;
   onClose: () => void;
@@ -27,6 +27,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     endTime: '17:00',
     daysOfWeek: [1, 2, 3, 4, 5]
   });
+  const [goal, setGoal] = useState<UserGoal>('FOCUS');
+
+  useEffect(() => {
+    if (isOpen) {
+        const storedGoal = localStorage.getItem('quarterlog_goal') as UserGoal;
+        if (storedGoal) setGoal(storedGoal);
+    }
+  }, [isOpen]);
+
+  const handleGoalChange = (newGoal: UserGoal) => {
+      setGoal(newGoal);
+      localStorage.setItem('quarterlog_goal', newGoal);
+  };
 
   const handleTestAlert = () => {
     if (countdown !== null) return;
@@ -83,9 +96,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         className="absolute inset-0 bg-brand-950/90 backdrop-blur-lg animate-fade-in"
         onClick={handleSaveAndClose}
       />
-      <div className="relative bg-slate-900 border-2 border-white/10 w-full max-w-sm rounded-3xl shadow-2xl p-6 transform transition-all animate-slide-up max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-slate-900 border-2 border-white/10 w-full max-w-sm rounded-3xl shadow-2xl p-6 transform transition-all animate-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
         <h2 className="text-2xl font-black text-white mb-6 text-center uppercase tracking-widest italic">Settings</h2>
         
+        {/* Goal Section */}
+        <div className="mb-8">
+            <label className="text-[10px] uppercase font-black text-slate-500 block mb-3 tracking-wider">Your Enemy (The Goal)</label>
+            <div className="grid grid-cols-3 gap-2">
+                {(['FOCUS', 'BUSINESS', 'LIFE'] as UserGoal[]).map((g) => (
+                    <button
+                        key={g}
+                        onClick={() => handleGoalChange(g)}
+                        className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-wider border-2 transition-all ${
+                            goal === g 
+                            ? 'bg-brand-600 border-brand-500 text-white shadow-lg' 
+                            : 'bg-slate-800 border-transparent text-slate-500 hover:bg-slate-700'
+                        }`}
+                    >
+                        {g === 'FOCUS' ? 'Distraction' : g === 'BUSINESS' ? 'Money' : 'Burnout'}
+                    </button>
+                ))}
+            </div>
+            <p className="text-[10px] text-slate-500 mt-2 text-center font-bold uppercase tracking-wide">
+               Changes the AI Prompt logic.
+             </p>
+        </div>
+
+        <div className="h-0.5 bg-slate-800 my-6"></div>
+
         {/* Schedule Section */}
         {onSaveSchedule && (
         <div className="mb-6">
@@ -105,12 +143,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 {/* Days */}
                 <div>
                   <label className="text-[10px] uppercase font-black text-slate-500 block mb-2 tracking-wider">Active Days</label>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between gap-1">
                     {days.map((day, idx) => (
                       <button
                         key={idx}
                         onClick={() => toggleDay(idx)}
-                        className={`w-9 h-9 rounded-lg text-sm font-black transition-all ${
+                        className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
                           localSchedule.daysOfWeek.includes(idx)
                             ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/50 scale-105'
                             : 'bg-slate-800 text-slate-500 hover:bg-slate-700'

@@ -24,6 +24,7 @@ type ChartDataPoint = {
   fullDate?: string; 
   hour?: number; 
   day?: number;
+  showLabel?: boolean; // New prop for selective labeling
 };
 
 // SVG Constants
@@ -88,12 +89,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 key = current.toISOString().substring(0, 13);
                 const h = current.getHours();
                 const h12 = h % 12 || 12;
-                const isStandardTick = h % 4 === 0;
-                const isLast = i === count - 1;
-                const is11PM = h === 23;
-                if (isStandardTick) label = `${h12}`;
-                else if (isLast && is11PM) label = '11'; 
-
+                label = `${h12}`; // Store raw label, we decide visibility later
             } else if (stepUnit === 'day') {
                 key = current.toISOString().substring(0, 10);
                 const day = current.getDate();
@@ -115,7 +111,6 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 key = monday.toISOString().substring(0, 10); // Group by Monday date
 
                 // Label logic for 3M view
-                // Simple heuristic: Label roughly once a month (if it's the start of the data or near start of month)
                 if (i === 0 || monday.getDate() <= 7) {
                      label = monday.toLocaleDateString('en-US', { month: 'short' });
                 }
@@ -159,13 +154,10 @@ const StatsCard: React.FC<StatsCardProps> = ({
         fillBuckets(start, daysInMonth, 'day');
 
     } else if (filter === '3M') {
-        // Quarter view: 3 Months starting from current quarter start
         const currentMonth = now.getMonth();
         const startMonth = Math.floor(currentMonth / 3) * 3;
         const start = new Date(now.getFullYear(), startMonth, 1);
-        const endOfQuarter = new Date(now.getFullYear(), startMonth + 3, 0); // Last day of quarter
-
-        // Dynamically calculate how many weeks we need to cover the entire quarter
+        const endOfQuarter = new Date(now.getFullYear(), startMonth + 3, 0); 
         let count = 0;
         const probe = new Date(start);
         while (true) {
@@ -173,14 +165,10 @@ const StatsCard: React.FC<StatsCardProps> = ({
              const diff = probe.getDate() - d + (d === 0 ? -6 : 1);
              const monday = new Date(probe);
              monday.setDate(diff);
-             
-             // Stop if the week starts after the quarter ends
              if (monday > endOfQuarter) break;
-             
              count++;
              probe.setDate(probe.getDate() + 7);
         }
-
         fillBuckets(start, count, 'week');
 
     } else if (filter === 'Y') {
@@ -197,17 +185,14 @@ const StatsCard: React.FC<StatsCardProps> = ({
         } else if (filter === 'Y') {
             key = logDate.toISOString().substring(0, 7);
         } else if (filter === '3M') {
-            // Group by Week Monday
             const day = logDate.getDay();
             const diff = logDate.getDate() - day + (day === 0 ? -6 : 1);
             const monday = new Date(logDate);
             monday.setDate(diff);
             key = monday.toISOString().substring(0, 10);
         } else {
-            // W, M use full date
             key = logDate.toISOString().substring(0, 10);
         }
-        
         if (buckets[key]) buckets[key].logs.push(log);
     });
 
@@ -217,7 +202,6 @@ const StatsCard: React.FC<StatsCardProps> = ({
         if (filter === 'D') return key === todayReal.toISOString().substring(0, 13);
         if (filter === 'Y') return key === todayReal.toISOString().substring(0, 7);
         if (filter === '3M') {
-             // Check if today falls in that week key
              const day = todayReal.getDay();
              const diff = todayReal.getDate() - day + (day === 0 ? -6 : 1);
              const monday = new Date(todayReal);
@@ -227,30 +211,35 @@ const StatsCard: React.FC<StatsCardProps> = ({
         return key === todayReal.toISOString().substring(0, 10);
     };
 
-    keys.forEach(key => {
+    keys.forEach((key, index) => {
         const bucket = buckets[key];
         const count = bucket.logs.length;
-        
-        // --- FIX: Cap minutes at 60 for the graph ---
         const rawMinutes = count * durationMinutes;
-        
-        // Fix: Only cap at 60 for Day view (hourly buckets). Allow other views to scale based on total time.
         const minutes = filter === 'D' ? Math.min(rawMinutes, 60) : rawMinutes;
-
-        // Cap display text ONLY for Day view (per hour bucket)
         const displayMinutes = filter === 'D' ? Math.min(rawMinutes, 60) : rawMinutes;
         
-        // Header Date Formatting
         let fullDate = '';
         if (filter === 'D') fullDate = bucket.date.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
         else if (filter === 'Y') fullDate = bucket.date.toLocaleDateString([], {month: 'long', year: 'numeric'});
         else if (filter === '3M') {
-             // Week range
              const end = new Date(bucket.date);
              end.setDate(end.getDate() + 6);
              fullDate = `${bucket.date.toLocaleDateString([], {month:'short', day:'numeric'})} - ${end.toLocaleDateString([], {month:'short', day:'numeric'})}`;
         }
         else fullDate = bucket.date.toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'});
+
+        // Determine if label should be shown
+        let showLabel = !!bucket.label;
+        if (filter === 'D') {
+            // First, Last, and every 4 hours (e.g., 0, 4, 8, 12...)
+            // But we are indexing into an array of buckets which might not start at 00:00.
+            // So we check the bucket's Hour property.
+            const h = bucket.date.getHours();
+            const isFirst = index === 0;
+            const isLast = index === keys.length - 1;
+            const isFourHour = h % 4 === 0;
+            showLabel = isFirst || isLast || isFourHour;
+        }
 
         dChart.push({
             label: bucket.label,
@@ -259,7 +248,8 @@ const StatsCard: React.FC<StatsCardProps> = ({
             isCurrent: isTodayReal(key),
             hour: bucket.date.getHours(),
             day: bucket.date.getDate(),
-            fullDate
+            fullDate,
+            showLabel
         });
     });
 
@@ -310,13 +300,8 @@ const StatsCard: React.FC<StatsCardProps> = ({
   };
 
   const renderBarChart = () => {
-    // Determine max value for Y-axis scaling
     const dataMax = Math.max(...durationChartData.map(d => d.value));
-
-    // Update: ONLY force the 60-minute floor for the 'Day' filter.
-    // For Week, Month, etc., allow it to scale naturally (min 1 to avoid div/0).
     const maxVal = filter === 'D' ? Math.max(dataMax, 60) : Math.max(dataMax, 1);
-
     const count = durationChartData.length;
     const barWidth = getBarWidth(count);
 
@@ -340,17 +325,14 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 const y = CHART_HEIGHT - height;
                 const isZero = d.value === 0;
                 
-                // Show ticks if label exists
-                const showTickMark = !!d.label;
+                const showTickMark = d.showLabel;
 
                 // Invisible hit area
                 if (isZero && !showTickMark) {
                      return <rect key={i} x={x} y="-5" width={barWidth} height={CHART_HEIGHT + 20} fill="transparent" />;
                 }
 
-                // Determine colors
-                // Track color removed (silhouette issue)
-                const barColor = d.isCurrent ? "#f472b6" : "#db2777"; // brand-400 : brand-600
+                const barColor = d.isCurrent ? "#f472b6" : "#db2777"; 
                 const tickColor = d.isCurrent ? "#f472b6" : "#475569";
 
                 return (
@@ -361,7 +343,6 @@ const StatsCard: React.FC<StatsCardProps> = ({
                             </>
                         )}
                         {showTickMark && (
-                            // Cleaned up the y math to be consistent with baseline
                             <rect x={cx - 0.75} y={CHART_HEIGHT + 2} width={1.5} height={4} rx={0.5} fill={tickColor} />
                         )}
                         <rect x={x} y="-5" width={barWidth} height={CHART_HEIGHT + 20} fill="transparent" />
@@ -380,7 +361,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
     return (
         <div className="absolute inset-0 pointer-events-none">
             {durationChartData.map((d, i) => {
-                if (!d.label) return null;
+                if (!d.showLabel) return null;
                 const count = durationChartData.length;
                 const cx = getColumnX(i, count);
                 const leftPct = (cx / CHART_WIDTH) * 100;
@@ -414,10 +395,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                         <span className="text-3xl font-black text-white tracking-tighter italic tabular-nums block h-9">{headerValue}</span>
                     </div>
                     
-                    {/* Updated Navigation Controls */}
                     <div className="pointer-events-auto flex items-center gap-1.5">
-                        
-                        {/* Back Arrow - Vertical Pill */}
                         <button 
                             onClick={() => onNavigate(-1)}
                             disabled={!canGoBack}
@@ -425,8 +403,6 @@ const StatsCard: React.FC<StatsCardProps> = ({
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                         </button>
-
-                        {/* Forward Arrow - Vertical Pill */}
                         <button 
                             onClick={() => onNavigate(1)}
                             disabled={!canGoForward}
@@ -434,8 +410,6 @@ const StatsCard: React.FC<StatsCardProps> = ({
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                         </button>
-
-                        {/* Reset / Calendar Button - Circle */}
                         <button 
                             onClick={onReset}
                             disabled={isCurrentView}

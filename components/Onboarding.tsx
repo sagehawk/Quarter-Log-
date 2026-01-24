@@ -10,9 +10,11 @@ interface OnboardingProps {
 const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [step, setStep] = useState(1);
   const [goal, setGoal] = useState<UserGoal | null>(null);
+  
+  // Schedule State
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('17:00');
-  const [permissionGranted, setPermissionGranted] = useState(false);
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]); // Mon-Fri default
 
   const handleNext = () => {
     try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
@@ -25,11 +27,22 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     setTimeout(() => setStep(2), 200);
   };
 
+  const toggleDay = (dayIndex: number) => {
+    try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+    setDaysOfWeek(prev => {
+      if (prev.includes(dayIndex)) {
+        // Don't allow removing the last day
+        if (prev.length === 1) return prev;
+        return prev.filter(d => d !== dayIndex);
+      }
+      return [...prev, dayIndex].sort();
+    });
+  };
+
   const handlePermissionRequest = async () => {
     try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
     const granted = await requestNotificationPermission();
     if (granted) {
-      setPermissionGranted(true);
       setTimeout(() => setStep(4), 500);
     } else {
         alert("Notifications are required for the audit to work.");
@@ -43,10 +56,12 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
              enabled: true,
              startTime,
              endTime,
-             daysOfWeek: [1,2,3,4,5] // Default Mon-Fri
+             daysOfWeek
          });
      }
   };
+
+  const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   return (
     <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
@@ -63,23 +78,23 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         {/* Step 1: Goal */}
         {step === 1 && (
             <>
-                <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">What is your enemy?</h1>
-                <p className="text-slate-400 font-bold uppercase tracking-wide text-xs mb-8">We will adapt the AI personality to fix this.</p>
+                <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">Choose Your Enemy</h1>
+                <p className="text-slate-400 font-bold uppercase tracking-wide text-xs mb-8">We will calibrate the AI to defeat this.</p>
                 
                 <div className="space-y-4">
                     <button onClick={() => handleGoalSelect('FOCUS')} className="w-full bg-slate-900 border border-slate-800 hover:border-brand-500 hover:bg-slate-800 p-6 rounded-2xl transition-all group text-left">
-                        <div className="text-brand-400 font-black uppercase tracking-wider text-sm mb-1 group-hover:text-white">Distraction</div>
-                        <div className="text-slate-400 text-xs leading-relaxed">I scroll too much. I need a drill sergeant to keep me on task.</div>
+                        <div className="text-brand-400 font-black uppercase tracking-wider text-xl mb-1 group-hover:text-white">Distraction</div>
+                        <div className="text-slate-400 text-sm font-medium">"I waste time scrolling social media."</div>
                     </button>
                     
-                    <button onClick={() => handleGoalSelect('BUSINESS')} className="w-full bg-slate-900 border border-slate-800 hover:border-brand-500 hover:bg-slate-800 p-6 rounded-2xl transition-all group text-left">
-                        <div className="text-emerald-400 font-black uppercase tracking-wider text-sm mb-1 group-hover:text-white">Stagnation</div>
-                        <div className="text-slate-400 text-xs leading-relaxed">I'm busy but not making money. I need a CEO Audit to check the dollar value of my time.</div>
+                    <button onClick={() => handleGoalSelect('BUSINESS')} className="w-full bg-slate-900 border border-slate-800 hover:border-emerald-500 hover:bg-slate-800 p-6 rounded-2xl transition-all group text-left">
+                        <div className="text-emerald-400 font-black uppercase tracking-wider text-xl mb-1 group-hover:text-white">Inefficiency</div>
+                        <div className="text-slate-400 text-sm font-medium">"I work hard but make no money."</div>
                     </button>
 
-                    <button onClick={() => handleGoalSelect('LIFE')} className="w-full bg-slate-900 border border-slate-800 hover:border-brand-500 hover:bg-slate-800 p-6 rounded-2xl transition-all group text-left">
-                        <div className="text-amber-400 font-black uppercase tracking-wider text-sm mb-1 group-hover:text-white">Overwhelm</div>
-                        <div className="text-slate-400 text-xs leading-relaxed">I feel burnt out. I need an Energy Audit to find balance.</div>
+                    <button onClick={() => handleGoalSelect('LIFE')} className="w-full bg-slate-900 border border-slate-800 hover:border-amber-500 hover:bg-slate-800 p-6 rounded-2xl transition-all group text-left">
+                        <div className="text-amber-400 font-black uppercase tracking-wider text-xl mb-1 group-hover:text-white">Burnout</div>
+                        <div className="text-slate-400 text-sm font-medium">"I am overwhelmed and exhausted."</div>
                     </button>
                 </div>
             </>
@@ -88,11 +103,32 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         {/* Step 2: Schedule */}
         {step === 2 && (
             <>
-                <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">Working Hours?</h1>
-                <p className="text-slate-400 font-bold uppercase tracking-wide text-xs mb-8">We will only interrupt you during this window.</p>
+                <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">When do you work?</h1>
+                <p className="text-slate-400 font-bold uppercase tracking-wide text-xs mb-8">The AI only interrupts you during these hours.</p>
                 
-                <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 mb-8">
-                   <div className="flex gap-4 mb-4">
+                <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 mb-6">
+                   {/* Days Selector */}
+                   <div className="mb-6">
+                      <label className="text-[10px] font-black uppercase text-slate-500 block mb-3 text-left">Active Days</label>
+                      <div className="flex justify-between gap-1">
+                        {days.map((day, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => toggleDay(idx)}
+                            className={`w-10 h-10 rounded-xl text-sm font-black transition-all ${
+                              daysOfWeek.includes(idx)
+                                ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/50 scale-105'
+                                : 'bg-slate-800 text-slate-600 hover:bg-slate-700'
+                            }`}
+                          >
+                            {day}
+                          </button>
+                        ))}
+                      </div>
+                   </div>
+
+                   {/* Time Selector */}
+                   <div className="flex gap-4">
                        <div className="flex-1 text-left">
                            <label className="text-[10px] font-black uppercase text-slate-500 block mb-2">Start Time</label>
                            <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-black/40 text-white font-bold text-xl p-4 rounded-xl border border-white/10 focus:border-brand-500 outline-none" />
@@ -102,11 +138,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                            <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-black/40 text-white font-bold text-xl p-4 rounded-xl border border-white/10 focus:border-brand-500 outline-none" />
                        </div>
                    </div>
-                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide text-center">Mon - Fri</p>
                 </div>
 
-                <button onClick={handleNext} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-colors">
-                    Continue
+                <button onClick={handleNext} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-colors shadow-lg shadow-white/10">
+                    Next Step
                 </button>
             </>
         )}
@@ -119,11 +154,11 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                 </div>
                 <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">One Condition.</h1>
                 <p className="text-slate-400 font-bold uppercase tracking-wide text-xs mb-8 leading-relaxed max-w-xs mx-auto">
-                    We are going to interrupt you every 15 minutes. It will be annoying. But it works. We need permission to buzz you.
+                    To hold you accountable, we need permission to send system alerts (Sound & Vibration).
                 </p>
                 
                 <button onClick={handlePermissionRequest} className="w-full py-4 bg-brand-600 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-brand-900/50 hover:bg-brand-500 transition-colors">
-                    Allow Interruptions
+                    Allow Alerts
                 </button>
                 <p className="text-[10px] text-slate-600 font-bold uppercase tracking-wide mt-4">
                     Required for the app to function.
