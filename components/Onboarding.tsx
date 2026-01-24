@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { UserGoal, ScheduleConfig } from '../types';
 import { requestNotificationPermission } from '../utils/notifications';
 
@@ -38,7 +38,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
   const handleFinish = () => {
      if (goal) {
-         try { Haptics.notification({ type: Haptics.NotificationType.Success }); } catch(e) {}
+         try { Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
          onComplete(goal, {
              enabled: true,
              startTime,
