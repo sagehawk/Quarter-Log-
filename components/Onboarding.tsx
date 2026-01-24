@@ -67,13 +67,13 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
       
       {/* Progress */}
-      <div className="absolute top-10 left-0 w-full flex justify-center gap-2">
+      <div className="absolute top-6 left-0 w-full flex justify-center gap-2 safe-top">
         {[1, 2, 3, 4].map(i => (
             <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i <= step ? 'w-8 bg-brand-500' : 'w-2 bg-slate-800'}`} />
         ))}
       </div>
 
-      <div className="max-w-md w-full animate-slide-up">
+      <div className="max-w-md w-full animate-slide-up mt-8">
         
         {/* Step 1: Goal */}
         {step === 1 && (

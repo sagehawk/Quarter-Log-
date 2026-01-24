@@ -10,7 +10,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     base: './',
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY)
+      // Map the Vercel variable (GEMINI_API_KEY) or local variable (API_KEY) to the code's expected variable
+      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.API_KEY)
     }
   };
 });

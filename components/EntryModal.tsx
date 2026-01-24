@@ -8,6 +8,8 @@ interface EntryModalProps {
   isManual?: boolean;
 }
 
+const MAX_CHARS = 500;
+
 const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManual = false }) => {
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -61,13 +63,19 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
         </div>
         
         <form onSubmit={handleSubmit}>
-          <textarea
-            ref={inputRef}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="w-full bg-black/40 text-white rounded-2xl border-2 border-white/10 p-5 min-h-[160px] focus:ring-0 focus:border-brand-500 outline-none placeholder-slate-600 text-xl font-bold mb-8 resize-none shadow-inner"
-            placeholder="e.g. EMAILS, MEETING, PROJECT WORK, LUNCH..."
-          />
+          <div className="relative">
+            <textarea
+                ref={inputRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                maxLength={MAX_CHARS}
+                className="w-full bg-black/40 text-white rounded-2xl border-2 border-white/10 p-5 min-h-[160px] focus:ring-0 focus:border-brand-500 outline-none placeholder-slate-600 text-xl font-bold mb-2 resize-none shadow-inner"
+                placeholder="e.g. EMAILS, MEETING, PROJECT WORK, LUNCH..."
+            />
+            <div className={`text-right text-[10px] font-bold uppercase tracking-wider mb-6 ${text.length >= MAX_CHARS ? 'text-brand-500' : 'text-slate-600'}`}>
+                {text.length} / {MAX_CHARS} Characters
+            </div>
+          </div>
           
           <div className="flex gap-4">
             <button
