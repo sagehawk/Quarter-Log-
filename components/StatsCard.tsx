@@ -232,8 +232,6 @@ const StatsCard: React.FC<StatsCardProps> = ({
         let showLabel = !!bucket.label;
         if (filter === 'D') {
             // First, Last, and every 4 hours (e.g., 0, 4, 8, 12...)
-            // But we are indexing into an array of buckets which might not start at 00:00.
-            // So we check the bucket's Hour property.
             const h = bucket.date.getHours();
             const isFirst = index === 0;
             const isLast = index === keys.length - 1;
@@ -301,7 +299,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
 
   const renderBarChart = () => {
     const dataMax = Math.max(...durationChartData.map(d => d.value));
-    const maxVal = filter === 'D' ? Math.max(dataMax, 60) : Math.max(dataMax, 1);
+    // Dynamic max value for all views, ensuring at least 1 min to prevent /0 errors
+    const maxVal = Math.max(dataMax, 1);
+    
     const count = durationChartData.length;
     const barWidth = getBarWidth(count);
 

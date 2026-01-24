@@ -40,8 +40,8 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule })
             </div>
 
             <div className="flex items-baseline gap-1">
-                <span className={`text-5xl font-black tracking-tighter tabular-nums ${isActive ? 'text-white' : 'text-slate-600'}`}>
-                    {minutes}<span className="text-2xl text-slate-600 ml-1">m</span> {String(seconds).padStart(2, '0')}<span className="text-2xl text-slate-600 ml-1">s</span>
+                <span className={`text-5xl font-black tabular-nums ${isActive ? 'text-white' : 'text-slate-600'}`}>
+                    {minutes}<span className="text-2xl text-slate-600 ml-1 tracking-normal">m</span> {String(seconds).padStart(2, '0')}<span className="text-2xl text-slate-600 ml-1 tracking-normal">s</span>
                 </span>
             </div>
             
