@@ -22,7 +22,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [countdown, setCountdown] = useState<number | null>(null);
   const [showTroubleshoot, setShowTroubleshoot] = useState(false);
   const [localSchedule, setLocalSchedule] = useState<ScheduleConfig>(schedule || {
-    enabled: false,
+    enabled: true, // Always enabled now
     startTime: '09:00',
     endTime: '17:00',
     daysOfWeek: [1, 2, 3, 4, 5]
@@ -33,8 +33,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     if (isOpen) {
         const storedGoal = localStorage.getItem('quarterlog_goal') as UserGoal;
         if (storedGoal) setGoal(storedGoal);
+        if (schedule) {
+            setLocalSchedule({ ...schedule, enabled: true }); // Enforce enabled
+        }
     }
-  }, [isOpen]);
+  }, [isOpen, schedule]);
 
   const handleGoalChange = (newGoal: UserGoal) => {
       setGoal(newGoal);
@@ -81,7 +84,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleSaveAndClose = () => {
     if (onSaveSchedule) {
-      onSaveSchedule(localSchedule);
+      onSaveSchedule({ ...localSchedule, enabled: true }); // Ensure enabled on save
     }
     onClose();
   };
@@ -101,7 +104,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         
         {/* Goal Section */}
         <div className="mb-8">
-            <label className="text-[10px] uppercase font-black text-slate-500 block mb-3 tracking-wider">Your Enemy (The Goal)</label>
+            <label className="text-[10px] uppercase font-black text-slate-500 block mb-3 tracking-wider">What are you fighting?</label>
             <div className="grid grid-cols-3 gap-2">
                 {(['FOCUS', 'BUSINESS', 'LIFE'] as UserGoal[]).map((g) => (
                     <button
@@ -113,7 +116,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             : 'bg-slate-800 border-transparent text-slate-500 hover:bg-slate-700'
                         }`}
                     >
-                        {g === 'FOCUS' ? 'Distraction' : g === 'BUSINESS' ? 'Money' : 'Burnout'}
+                        {g === 'FOCUS' ? 'Distraction' : g === 'BUSINESS' ? 'Stagnation' : 'Burnout'}
                     </button>
                 ))}
             </div>
@@ -128,16 +131,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         {onSaveSchedule && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-slate-200 font-extrabold uppercase text-sm tracking-wide">Enable Schedule</span>
-            <button 
-              onClick={() => setLocalSchedule(p => ({ ...p, enabled: !p.enabled }))}
-              className={`w-14 h-8 rounded-full p-1 transition-colors duration-200 ease-in-out border-2 border-transparent ${localSchedule.enabled ? 'bg-brand-600' : 'bg-slate-700'}`}
-            >
-              <div className={`w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform duration-200 ${localSchedule.enabled ? 'translate-x-6' : 'translate-x-0'}`} />
-            </button>
+            <span className="text-slate-200 font-extrabold uppercase text-sm tracking-wide">Active Schedule</span>
+             {/* Toggle removed, just a static label indicating it's always on */}
+             <div className="bg-slate-800 px-2 py-1 rounded text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                 Always On
+             </div>
           </div>
 
-          <div className={`transition-all duration-300 ${localSchedule.enabled ? 'opacity-100 max-h-96' : 'opacity-40 max-h-96 pointer-events-none'}`}>
+          <div className="transition-all duration-300 opacity-100 max-h-96">
              <div className="bg-black/30 rounded-2xl p-4 space-y-4 border border-white/5">
                 
                 {/* Days */}

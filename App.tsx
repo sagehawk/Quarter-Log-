@@ -18,6 +18,7 @@ const STORAGE_KEY_LOGS = 'quarterlog_entries';
 const STORAGE_KEY_SCHEDULE = 'quarterlog_schedule';
 const STORAGE_KEY_ONBOARDED = 'quarterlog_onboarded';
 const STORAGE_KEY_GOAL = 'quarterlog_goal';
+const STORAGE_KEY_TIMER_TARGET = 'quarterlog_timer_target';
 
 // Updated filter types
 type FilterType = 'D' | 'W' | 'M' | '3M' | 'Y';
@@ -47,7 +48,7 @@ const App: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(DEFAULT_INTERVAL_MS);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [schedule, setSchedule] = useState<ScheduleConfig>({
-    enabled: false,
+    enabled: true, // Always default to true
     startTime: '09:00',
     endTime: '17:00',
     daysOfWeek: [1, 2, 3, 4, 5] // Mon-Fri default
@@ -84,7 +85,10 @@ const App: React.FC = () => {
 
     const storedSchedule = localStorage.getItem(STORAGE_KEY_SCHEDULE);
     if (storedSchedule) {
-      try { setSchedule(JSON.parse(storedSchedule)); } catch (e) { console.error(e); }
+      try { 
+          const parsed = JSON.parse(storedSchedule);
+          setSchedule({ ...parsed, enabled: true }); // Enforce enabled
+      } catch (e) { console.error(e); }
     }
     
     // Initialize notifications
@@ -101,6 +105,27 @@ const App: React.FC = () => {
       workerRef.current.onmessage = (e) => {
         if (e.data.type === 'tick') triggerTick();
       };
+      
+      // Check for persisted timer
+      const savedTarget = localStorage.getItem(STORAGE_KEY_TIMER_TARGET);
+      if (savedTarget) {
+          const targetTime = parseInt(savedTarget, 10);
+          const now = Date.now();
+          if (targetTime > now) {
+              // Timer is still running
+              endTimeRef.current = targetTime;
+              setStatus(AppStatus.RUNNING);
+              workerRef.current.postMessage({ command: 'start' });
+          } else {
+              // Timer expired while closed
+              // We should prompt the user
+              endTimeRef.current = null;
+              localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
+              setStatus(AppStatus.WAITING_FOR_INPUT);
+              setIsEntryModalOpen(true);
+          }
+      }
+
       return () => {
         workerRef.current?.terminate();
         URL.revokeObjectURL(workerUrl);
@@ -127,8 +152,8 @@ const App: React.FC = () => {
     const onboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED);
     if (!onboarded) return false;
 
-    if (!schedule.enabled) return false;
-
+    // Schedule is now always enabled if onboarded
+    
     const now = new Date();
     const currentDay = now.getDay();
     
@@ -148,6 +173,9 @@ const App: React.FC = () => {
   const handleTimerComplete = useCallback(async () => {
     workerRef.current?.postMessage({ command: 'stop' });
     setStatus(AppStatus.WAITING_FOR_INPUT);
+    
+    // Clear persisted timer
+    localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
     
     // Timer is done. Notification should be visible on user device.
     // If they open app, show modal.
@@ -174,7 +202,10 @@ const App: React.FC = () => {
     setStatus(AppStatus.RUNNING);
     const now = Date.now();
     const targetTime = now + timeToUse;
-    endTimeRef.current = targetTime; 
+    endTimeRef.current = targetTime;
+    
+    // Persist Target Time
+    localStorage.setItem(STORAGE_KEY_TIMER_TARGET, targetTime.toString());
     
     await cancelNotification();
     await scheduleNotification("What are you doing?", "Tap to log. Be honest.", timeToUse);
@@ -188,6 +219,7 @@ const App: React.FC = () => {
     workerRef.current?.postMessage({ command: 'stop' });
     setStatus(AppStatus.IDLE);
     setTimeLeft(DEFAULT_INTERVAL_MS);
+    localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
   }, []);
 
   // Auto-Start Logic
@@ -197,10 +229,13 @@ const App: React.FC = () => {
     // Check every second if we should be running but aren't
     const checkInterval = setInterval(() => {
         const shouldRun = isWithinSchedule();
+        
+        // If we should run, and we are IDLE, start.
         if (shouldRun && status === AppStatus.IDLE) {
             startTimer();
-        } else if (!shouldRun && status === AppStatus.RUNNING) {
-            // Schedule ended, pause
+        } 
+        // If we shouldn't run (outside hours), and we ARE running, stop.
+        else if (!shouldRun && status === AppStatus.RUNNING) {
             pauseTimer();
         }
     }, 2000);
@@ -210,23 +245,19 @@ const App: React.FC = () => {
 
 
   const handleScheduleSave = (newSchedule: ScheduleConfig) => {
-    setSchedule(newSchedule);
-    localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(newSchedule));
+    const configWithEnabled = { ...newSchedule, enabled: true };
+    setSchedule(configWithEnabled);
+    localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
     setIsSettingsModalOpen(false);
   };
 
   const handleOnboardingComplete = (goal: UserGoal, config: ScheduleConfig) => {
+      const configWithEnabled = { ...config, enabled: true };
       localStorage.setItem(STORAGE_KEY_ONBOARDED, 'true');
       localStorage.setItem(STORAGE_KEY_GOAL, goal);
-      localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(config));
+      localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
       
-      // Set default Prompt based on Goal
-      // Note: We don't have direct access to set prompts in state here easily without context, 
-      // but PromptLibraryModal loads from localStorage on mount.
-      // We can pre-seed custom prompts or just rely on the user manually using the library.
-      // However, we can use the goal to inform the user later.
-      
-      setSchedule(config);
+      setSchedule(configWithEnabled);
       setHasOnboarded(true);
       
       // Auto start if within time
@@ -345,10 +376,13 @@ const App: React.FC = () => {
     setToast(prev => ({ ...prev, visible: false }));
     try { await Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
 
-    // Manual entry doesn't affect timer
-    if (isManualEntry && !isFromNotification) return;
-
-    // Reset timer loop
+    // Manual entry doesn't affect timer unless we want it to reset the loop
+    // Per requirements, user logs -> timer restarts.
+    
+    // Reset timer loop if we are within schedule
+    // Clear old timer persistence
+    localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
+    
     setTimeLeft(DEFAULT_INTERVAL_MS);
     if (isWithinSchedule()) {
        await startTimer(DEFAULT_INTERVAL_MS);
@@ -382,11 +416,21 @@ const App: React.FC = () => {
   useEffect(() => {
     const appStateSub = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
       if (isActive) {
-        if (status === AppStatus.RUNNING && endTimeRef.current) {
-          const now = Date.now();
-          const remaining = endTimeRef.current - now;
-          if (remaining <= 0) handleTimerComplete();
-          else setTimeLeft(remaining);
+        // App came to foreground. 
+        // 1. Check if we have a persisted timer
+        const savedTarget = localStorage.getItem(STORAGE_KEY_TIMER_TARGET);
+        if (savedTarget) {
+            const target = parseInt(savedTarget);
+            const now = Date.now();
+            if (target > now) {
+                // Resume visuals
+                endTimeRef.current = target;
+                setStatus(AppStatus.RUNNING);
+                workerRef.current?.postMessage({ command: 'start' });
+            } else {
+                // Timer finished while backgrounded
+                handleTimerComplete();
+            }
         }
       }
     });
