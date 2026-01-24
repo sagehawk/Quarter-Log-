@@ -231,12 +231,12 @@ const StatsCard: React.FC<StatsCardProps> = ({
         // Determine if label should be shown
         let showLabel = !!bucket.label;
         if (filter === 'D') {
-            // First, Last, and every 4 hours (e.g., 0, 4, 8, 12...)
+            // First, Last, and every 2 hours (e.g., 0, 2, 4, 6...)
             const h = bucket.date.getHours();
             const isFirst = index === 0;
             const isLast = index === keys.length - 1;
-            const isFourHour = h % 4 === 0;
-            showLabel = isFirst || isLast || isFourHour;
+            const isTwoHour = h % 2 === 0; // Updated from % 4 to % 2
+            showLabel = isFirst || isLast || isTwoHour;
         }
 
         dChart.push({
