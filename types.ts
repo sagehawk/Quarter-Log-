@@ -17,5 +17,7 @@ export interface ScheduleConfig {
   daysOfWeek: number[]; // 0 = Sunday, 1 = Monday, etc.
 }
 
+export type UserGoal = 'FOCUS' | 'BUSINESS' | 'LIFE';
+
 export const DEFAULT_INTERVAL_MINUTES = 15;
 export const DEFAULT_INTERVAL_MS = DEFAULT_INTERVAL_MINUTES * 60 * 1000;

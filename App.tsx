@@ -3,19 +3,21 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, NotificationType, ImpactStyle } from '@capacitor/haptics';
-import TimerCircle from './components/TimerCircle';
 import LogList from './components/LogList';
 import EntryModal from './components/EntryModal';
 import SettingsModal from './components/SettingsModal';
-import PromptLibraryModal from './components/PromptLibraryModal'; // Import Prompt Modal
+import PromptLibraryModal from './components/PromptLibraryModal';
 import Toast from './components/Toast';
-import StatsCard from './components/StatsCard'; 
-import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig } from './types';
+import StatsCard from './components/StatsCard';
+import Onboarding from './components/Onboarding';
+import StatusCard from './components/StatusCard';
+import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal } from './types';
 import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel } from './utils/notifications';
 
 const STORAGE_KEY_LOGS = 'quarterlog_entries';
-const STORAGE_KEY_DURATION = 'quarterlog_duration';
 const STORAGE_KEY_SCHEDULE = 'quarterlog_schedule';
+const STORAGE_KEY_ONBOARDED = 'quarterlog_onboarded';
+const STORAGE_KEY_GOAL = 'quarterlog_goal';
 
 // Updated filter types
 type FilterType = 'D' | 'W' | 'M' | '3M' | 'Y';
@@ -40,8 +42,8 @@ self.onmessage = function(e) {
 
 const App: React.FC = () => {
   // State
+  const [hasOnboarded, setHasOnboarded] = useState<boolean>(true); // Default true to avoid flicker, corrected in effect
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
-  const [duration, setDuration] = useState(DEFAULT_INTERVAL_MS);
   const [timeLeft, setTimeLeft] = useState(DEFAULT_INTERVAL_MS);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [schedule, setSchedule] = useState<ScheduleConfig>({
@@ -54,37 +56,30 @@ const App: React.FC = () => {
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isManualEntry, setIsManualEntry] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isPromptLibraryOpen, setIsPromptLibraryOpen] = useState(false); // Prompt Modal State
+  const [isPromptLibraryOpen, setIsPromptLibraryOpen] = useState(false);
   const [toast, setToast] = useState<{title: string, message: string, visible: boolean}>({ title: '', message: '', visible: false });
-  const [hasPermission, setHasPermission] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   
   // Filter State
   const [filter, setFilter] = useState<FilterType>('D');
-  const [viewDate, setViewDate] = useState<Date>(new Date()); // State for navigation
+  const [viewDate, setViewDate] = useState<Date>(new Date());
 
   // Refs
   const endTimeRef = useRef<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
-  const processedNotificationRef = useRef(false);
 
   // Load initial data
   useEffect(() => {
+    // Check Onboarding
+    const onboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED);
+    if (!onboarded) {
+        setHasOnboarded(false);
+    }
+
     const storedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
     if (storedLogs) {
       try { setLogs(JSON.parse(storedLogs)); } catch (e) { console.error(e); }
-    }
-
-    const storedDuration = localStorage.getItem(STORAGE_KEY_DURATION);
-    if (storedDuration) {
-      try {
-        const parsed = parseInt(storedDuration, 10);
-        if (!isNaN(parsed) && parsed > 0) {
-          setDuration(parsed);
-          setTimeLeft(parsed); 
-        }
-      } catch (e) { console.error(e); }
     }
 
     const storedSchedule = localStorage.getItem(STORAGE_KEY_SCHEDULE);
@@ -95,9 +90,6 @@ const App: React.FC = () => {
     // Initialize notifications
     const initNotifications = async () => {
         await configureNotificationChannel();
-        // Check only, don't ask
-        const perm = await checkNotificationPermission();
-        setHasPermission(perm);
         await registerNotificationActions();
     };
     initNotifications();
@@ -123,7 +115,6 @@ const App: React.FC = () => {
   // Handle Scroll Effect for Header
   useEffect(() => {
     const handleScroll = () => {
-      // Change state when scrolled past 10px
       setIsScrolled(window.scrollY > 10);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -132,20 +123,22 @@ const App: React.FC = () => {
 
   // Check if current time matches schedule
   const isWithinSchedule = useCallback(() => {
-    if (!schedule.enabled) return true; // Always active if schedule disabled
+    // If onboarding is not done, we don't start
+    const onboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED);
+    if (!onboarded) return false;
+
+    if (!schedule.enabled) return false;
 
     const now = new Date();
     const currentDay = now.getDay();
     
-    // Check Day
+    // Check Day (0 = Sun, 6 = Sat) - standard JS
+    // Our schedule uses standard JS getDay integers (0-6)
     if (!schedule.daysOfWeek.includes(currentDay)) return false;
 
-    // Check Time
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    
     const [startH, startM] = schedule.startTime.split(':').map(Number);
     const startTotal = startH * 60 + startM;
-    
     const [endH, endM] = schedule.endTime.split(':').map(Number);
     const endTotal = endH * 60 + endM;
 
@@ -153,26 +146,11 @@ const App: React.FC = () => {
   }, [schedule]);
 
   const handleTimerComplete = useCallback(async () => {
-    // 1. Stop the worker immediately
     workerRef.current?.postMessage({ command: 'stop' });
-    
-    // 2. DO NOT Cancel notifications here. 
-    // If the user hasn't seen it yet, we want it to stay. 
-    // If they click the action, we need it to be active to fire the event.
-    // 'startTimer' will clean up old notifications anyway.
-    
-    // 3. Update Status
     setStatus(AppStatus.WAITING_FOR_INPUT);
     
-    // 4. Visual/Haptic Feedback
-    try { Haptics.vibrate(); } catch(e) {}
-
-    setToast({
-      title: "Time's up.",
-      message: "What did you do?",
-      visible: true
-    });
-    
+    // Timer is done. Notification should be visible on user device.
+    // If they open app, show modal.
     setIsManualEntry(false);
     setIsEntryModalOpen(true);
   }, []);
@@ -191,58 +169,45 @@ const App: React.FC = () => {
 
   // START TIMER
   const startTimer = useCallback(async (overrideTime?: number) => {
-    // Check local state or re-check real permission
-    let perm = hasPermission;
-    if (!perm) {
-      // If we don't have it, REQUEST it now (this triggers the popup)
-      perm = await requestNotificationPermission();
-      setHasPermission(perm);
-    }
+    const timeToUse = overrideTime ?? DEFAULT_INTERVAL_MS;
     
-    // Use override time if provided, otherwise current state
-    const timeToUse = overrideTime ?? timeLeft;
-
-    // Sanity check: prevent starting a 0ms timer or negative
-    if (timeToUse <= 0) {
-        // Fallback to default duration if something went wrong
-        return; 
-    }
-
     setStatus(AppStatus.RUNNING);
     const now = Date.now();
-    
     const targetTime = now + timeToUse;
     endTimeRef.current = targetTime; 
     
-    // Schedule with high priority - Cancel previous first to be safe
     await cancelNotification();
-    await scheduleNotification("Time's up.", "What did you do?", timeToUse);
+    await scheduleNotification("What are you doing?", "Tap to log. Be honest.", timeToUse);
     
     workerRef.current?.postMessage({ command: 'start' });
     tickLogic(); 
-  }, [hasPermission, tickLogic, timeLeft]);
+  }, [tickLogic]);
 
   const pauseTimer = useCallback(async () => {
     await cancelNotification();
     workerRef.current?.postMessage({ command: 'stop' });
     setStatus(AppStatus.IDLE);
+    setTimeLeft(DEFAULT_INTERVAL_MS);
   }, []);
 
-  const handleToggleTimer = () => {
-    if (status === AppStatus.RUNNING) {
-      pauseTimer();
-    } else {
-      startTimer();
-    }
-  };
+  // Auto-Start Logic
+  useEffect(() => {
+    if (!hasOnboarded) return;
 
-  const handleDurationSave = (minutes: number) => {
-    const newDuration = minutes * 60 * 1000;
-    setDuration(newDuration);
-    localStorage.setItem(STORAGE_KEY_DURATION, String(newDuration));
-    setIsSettingsModalOpen(false);
-    if (status === AppStatus.IDLE) setTimeLeft(newDuration);
-  };
+    // Check every second if we should be running but aren't
+    const checkInterval = setInterval(() => {
+        const shouldRun = isWithinSchedule();
+        if (shouldRun && status === AppStatus.IDLE) {
+            startTimer();
+        } else if (!shouldRun && status === AppStatus.RUNNING) {
+            // Schedule ended, pause
+            pauseTimer();
+        }
+    }, 2000);
+
+    return () => clearInterval(checkInterval);
+  }, [isWithinSchedule, status, startTimer, pauseTimer, hasOnboarded]);
+
 
   const handleScheduleSave = (newSchedule: ScheduleConfig) => {
     setSchedule(newSchedule);
@@ -250,34 +215,45 @@ const App: React.FC = () => {
     setIsSettingsModalOpen(false);
   };
 
-  // Live preview update (Does NOT commit to global duration/stats)
-  const handleDurationPreview = (newDurationMs: number) => {
-    setTimeLeft(newDurationMs);
-  };
-
-  // Commit update (Updates global duration, saving stats & storage)
-  const handleDurationCommit = (newDurationMs: number) => {
-    setDuration(newDurationMs);
-    setTimeLeft(newDurationMs);
-    localStorage.setItem(STORAGE_KEY_DURATION, String(newDurationMs));
+  const handleOnboardingComplete = (goal: UserGoal, config: ScheduleConfig) => {
+      localStorage.setItem(STORAGE_KEY_ONBOARDED, 'true');
+      localStorage.setItem(STORAGE_KEY_GOAL, goal);
+      localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(config));
+      
+      // Set default Prompt based on Goal
+      // Note: We don't have direct access to set prompts in state here easily without context, 
+      // but PromptLibraryModal loads from localStorage on mount.
+      // We can pre-seed custom prompts or just rely on the user manually using the library.
+      // However, we can use the goal to inform the user later.
+      
+      setSchedule(config);
+      setHasOnboarded(true);
+      
+      // Auto start if within time
+      setTimeout(() => {
+         const now = new Date();
+         const currentMinutes = now.getHours() * 60 + now.getMinutes();
+         const [startH, startM] = config.startTime.split(':').map(Number);
+         const startTotal = startH * 60 + startM;
+         const [endH, endM] = config.endTime.split(':').map(Number);
+         const endTotal = endH * 60 + endM;
+         
+         if (currentMinutes >= startTotal && currentMinutes < endTotal) {
+             startTimer();
+         }
+      }, 500);
   };
 
   // --- Navigation Logic ---
   
   const handleNavigate = (direction: -1 | 1) => {
     const newDate = new Date(viewDate);
-    if (filter === 'D') {
-        newDate.setDate(newDate.getDate() + direction);
-    } else if (filter === 'W') {
-        newDate.setDate(newDate.getDate() + (direction * 7));
-    } else if (filter === 'M') {
-        newDate.setMonth(newDate.getMonth() + direction);
-    } else if (filter === '3M') {
-        // Jump 3 months
-        newDate.setMonth(newDate.getMonth() + (direction * 3));
-    } else if (filter === 'Y') {
-        newDate.setFullYear(newDate.getFullYear() + direction);
-    }
+    if (filter === 'D') newDate.setDate(newDate.getDate() + direction);
+    else if (filter === 'W') newDate.setDate(newDate.getDate() + (direction * 7));
+    else if (filter === 'M') newDate.setMonth(newDate.getMonth() + direction);
+    else if (filter === '3M') newDate.setMonth(newDate.getMonth() + (direction * 3));
+    else if (filter === 'Y') newDate.setFullYear(newDate.getFullYear() + direction);
+    
     setViewDate(newDate);
     try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
   };
@@ -289,13 +265,11 @@ const App: React.FC = () => {
 
   const isCurrentView = useMemo(() => {
     const now = new Date();
-    // Helper to normalize dates for comparison based on filter
     const checkSame = (d1: Date, d2: Date) => {
         if (filter === 'D') return d1.toDateString() === d2.toDateString();
         if (filter === 'M') return d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
         if (filter === 'Y') return d1.getFullYear() === d2.getFullYear();
         if (filter === 'W') {
-            // Check if same week
             const getWeekStart = (d: Date) => {
                 const copy = new Date(d);
                 const day = copy.getDay();
@@ -314,16 +288,10 @@ const App: React.FC = () => {
     return checkSame(now, viewDate);
   }, [viewDate, filter]);
 
-  // Navigation Boundaries Logic
   const { canGoBack, canGoForward } = useMemo(() => {
-    if (logs.length === 0) {
-        return { canGoBack: false, canGoForward: false };
-    }
-    
-    // Bounds
+    if (logs.length === 0) return { canGoBack: false, canGoForward: false };
     const minTimestamp = Math.min(...logs.map(l => l.timestamp));
     const maxTimestamp = Date.now(); 
-    
     const current = new Date(viewDate);
     let viewStart = 0;
     let viewEnd = 0;
@@ -343,7 +311,6 @@ const App: React.FC = () => {
         viewStart = new Date(current.getFullYear(), current.getMonth(), 1).getTime();
         viewEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0).getTime();
     } else if (filter === '3M') {
-        // Start of quarter
         const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
         const qStart = new Date(current.getFullYear(), qStartMonth, 1);
         viewStart = qStart.getTime();
@@ -354,11 +321,7 @@ const App: React.FC = () => {
         viewStart = new Date(current.getFullYear(), 0, 1).getTime();
         viewEnd = new Date(current.getFullYear() + 1, 0, 1).getTime();
     }
-    
-    const canGoBack = viewStart > minTimestamp;
-    const canGoForward = viewEnd < maxTimestamp;
-    
-    return { canGoBack, canGoForward };
+    return { canGoBack: viewStart > minTimestamp, canGoForward: viewEnd < maxTimestamp };
   }, [viewDate, filter, logs]);
 
 
@@ -380,52 +343,31 @@ const App: React.FC = () => {
     setIsEntryModalOpen(false);
     
     setToast(prev => ({ ...prev, visible: false }));
-    
-    // Success Haptics
     try { await Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
 
-    // Check if this was a manual entry.
-    // If it comes from notification, it is inherently NOT manual in the sense of 'user initiated spontaneously',
-    // it is a response to the timer. So we ignore isManualEntry flag if isFromNotification is true.
-    if (isManualEntry && !isFromNotification) {
-        return;
-    }
+    // Manual entry doesn't affect timer
+    if (isManualEntry && !isFromNotification) return;
 
-    // Auto-restart logic
-    // If we are responding to a notification, we FORCE logic to believe it was automated/timer-completed
-    const wasAutomated = isFromNotification || status === AppStatus.WAITING_FOR_INPUT;
-    
-    // Reset internal state
-    setTimeLeft(duration);
-    
-    if (wasAutomated || status === AppStatus.IDLE) {
-       if (isWithinSchedule()) {
-         await startTimer(duration);
-       } else if (schedule.enabled) {
-         setStatus(AppStatus.IDLE);
-         setToast({
-           title: "Schedule Ended",
-           message: "We'll see you tomorrow!",
-           visible: true
-         });
-       } else {
-         await startTimer(duration);
-       }
+    // Reset timer loop
+    setTimeLeft(DEFAULT_INTERVAL_MS);
+    if (isWithinSchedule()) {
+       await startTimer(DEFAULT_INTERVAL_MS);
+    } else {
+       setStatus(AppStatus.IDLE);
     }
-  }, [startTimer, status, isWithinSchedule, schedule.enabled, duration, isManualEntry]);
+  }, [startTimer, isWithinSchedule, isManualEntry]);
 
   const handleLogClose = () => {
     setIsEntryModalOpen(false);
     setToast(prev => ({ ...prev, visible: false }));
-    
+    // If user closed without logging after timer finished, we basically "skip"
+    // But we need to restart timer if in schedule
     if (!isManualEntry) {
-       setTimeLeft(duration);
+       setTimeLeft(DEFAULT_INTERVAL_MS);
        if (isWithinSchedule()) {
-          startTimer(duration); // Pass duration explicit
-       } else if (schedule.enabled) {
-          setStatus(AppStatus.IDLE);
+          startTimer();
        } else {
-          startTimer(duration); // Pass duration explicit
+          setStatus(AppStatus.IDLE);
        }
     }
   };
@@ -440,36 +382,19 @@ const App: React.FC = () => {
   useEffect(() => {
     const appStateSub = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
       if (isActive) {
-        // If we just processed a notification action, skip this check to avoid double-prompting
-        if (processedNotificationRef.current) {
-            processedNotificationRef.current = false;
-            return;
-        }
-
         if (status === AppStatus.RUNNING && endTimeRef.current) {
           const now = Date.now();
           const remaining = endTimeRef.current - now;
-          if (remaining <= 0) {
-            // Only trigger complete if it hasn't been handled by a notification action yet.
-            // Note: This is racy. If the notification action fires first, startTimer updates endTimeRef.
-            // If we are here, endTimeRef is old (expired).
-            handleTimerComplete();
-          } else {
-            setTimeLeft(remaining);
-          }
+          if (remaining <= 0) handleTimerComplete();
+          else setTimeLeft(remaining);
         }
       }
     });
 
     const notificationSub = LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
-        // Mark as processed so appResume doesn't re-trigger
-        processedNotificationRef.current = true;
-        
         if (notification.actionId === 'log_input' && notification.inputValue) {
-           // Pass true for isFromNotification to force timer restart logic
            handleLogSave(notification.inputValue, true);
         } else {
-           // If they just tapped the notification body, open the modal
            setIsEntryModalOpen(true);
            setIsManualEntry(false); 
         }
@@ -556,12 +481,14 @@ const App: React.FC = () => {
     return text;
   };
 
-  const isRunning = status === AppStatus.RUNNING;
+  if (!hasOnboarded) {
+      return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
 
   return (
     <div className="min-h-screen font-sans pb-[env(safe-area-inset-bottom)]">
       
-      {/* Fixed Background - Solves mobile viewport glitches */}
+      {/* Fixed Background */}
       <div 
         className="fixed inset-0 -z-50"
         style={{
@@ -614,16 +541,13 @@ const App: React.FC = () => {
       {/* Main Content */}
       <main className="max-w-xl mx-auto p-5 pt-32 flex flex-col min-h-[calc(100vh-80px)]">
         
-        {/* Timer */}
-        <section className="flex-none mb-10 relative">
-          <TimerCircle 
-            timeLeft={timeLeft} 
-            totalTime={duration} 
-            isActive={isRunning} 
-            onDurationChange={handleDurationPreview}
-            onDurationCommit={handleDurationCommit}
-            onToggle={handleToggleTimer}
-          />
+        {/* Status Dashboard */}
+        <section className="flex-none mb-8">
+            <StatusCard 
+                isActive={status === AppStatus.RUNNING} 
+                timeLeft={timeLeft}
+                schedule={schedule}
+            />
         </section>
 
         {/* Logs */}
@@ -644,7 +568,7 @@ const App: React.FC = () => {
             logs={filteredLogs} 
             filter={filter} 
             schedule={schedule} 
-            durationMs={duration} 
+            durationMs={DEFAULT_INTERVAL_MS} 
             viewDate={viewDate} 
             onNavigate={handleNavigate}
             onReset={handleResetView}
@@ -653,7 +577,7 @@ const App: React.FC = () => {
             canGoForward={canGoForward}
           />
 
-          {/* New Filter Location - Replaced fixed footer */}
+          {/* New Filter Location */}
           <div className="flex justify-center mb-8">
             <div className="bg-slate-900 p-1.5 rounded-2xl flex items-center justify-between w-full border border-slate-800 shadow-sm">
                 {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
@@ -689,7 +613,7 @@ const App: React.FC = () => {
                  ) : (
                    <>
                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                     Export
+                     AI Audit / Export
                    </>
                  )}
                </button>
@@ -712,10 +636,10 @@ const App: React.FC = () => {
 
       <SettingsModal
         isOpen={isSettingsModalOpen}
-        currentDurationMs={duration}
+        currentDurationMs={DEFAULT_INTERVAL_MS}
         logs={logs}
         schedule={schedule}
-        onSave={handleDurationSave}
+        onSave={() => {}} 
         onSaveSchedule={handleScheduleSave}
         onClose={() => setIsSettingsModalOpen(false)}
       />

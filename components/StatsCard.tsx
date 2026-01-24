@@ -324,7 +324,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
         <svg 
             ref={svgRef}
             viewBox={`0 -5 ${CHART_WIDTH} ${CHART_HEIGHT + 25}`} 
-            className="w-full h-full overflow-visible touch-pan-y cursor-crosshair"
+            className="w-full h-full overflow-visible touch-none cursor-crosshair"
             preserveAspectRatio="none"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}

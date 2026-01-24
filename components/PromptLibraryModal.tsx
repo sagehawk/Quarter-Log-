@@ -11,17 +11,23 @@ interface Prompt {
   isDefault?: boolean;
 }
 
-const DEFAULT_PROMPTS: Prompt[] = [
+export const DEFAULT_PROMPTS: Prompt[] = [
   {
     id: 'raw',
-    title: 'Raw Logs (No Prompt)',
+    title: 'Raw Logs',
     text: '',
     isDefault: true
   },
   {
-    id: '8020',
-    title: '80/20 Analysis',
-    text: 'Apply the Pareto Principle to these logs. Identify the 20% of activities that likely produced 80% of the value. Also highlight the "busy work" that provided little value but took up time.',
+    id: 'ceo',
+    title: 'CEO Audit ($ Value)',
+    text: 'Analyze the dollar value of my time. Identify low-leverage tasks ($10/hr) vs high-leverage tasks ($1,000/hr). Tell me exactly what I should have delegated and calculate the estimated cost of my inefficiency.',
+    isDefault: true
+  },
+  {
+    id: 'tough_love',
+    title: 'Drill Sergeant',
+    text: 'Roast my time management. Be direct, critical, and short. Point out where I was distracted, procrastinating, or lying to myself about being productive.',
     isDefault: true
   },
   {
@@ -31,21 +37,15 @@ const DEFAULT_PROMPTS: Prompt[] = [
     isDefault: true
   },
   {
-    id: 'coach',
-    title: 'Tough Love Coach',
-    text: 'Roast my time management. Be direct, critical, and short. Point out where I was distracted, procrastinating, or lying to myself about being productive.',
+    id: '8020',
+    title: '80/20 Analysis',
+    text: 'Apply the Pareto Principle to these logs. Identify the 20% of activities that likely produced 80% of the value. Also highlight the "busy work" that provided little value but took up time.',
     isDefault: true
   },
   {
     id: 'summary',
     title: 'Executive Summary',
     text: 'Create a concise, bulleted executive summary of what was accomplished today. Group by project or category. Ignore minor interruptions.',
-    isDefault: true
-  },
-  {
-    id: 'timesheet',
-    title: 'Timesheet / Billing',
-    text: 'Format these logs into a professional timesheet table with columns for Time, Duration, and Task Description. Round durations to the nearest 15 minutes.',
     isDefault: true
   }
 ];

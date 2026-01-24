@@ -71,9 +71,8 @@ export const registerNotificationActions = async () => {
               id: 'log_input',
               title: 'Log Activity',
               input: true,
-              inputPlaceholder: 'What did you do?',
-              inputButtonTitle: 'Save',
-              foreground: false
+              placeholder: 'What did you do?',
+              submitTitle: 'Save'
             }
           ]
         }
