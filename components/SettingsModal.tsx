@@ -131,11 +131,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         {onSaveSchedule && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-slate-200 font-extrabold uppercase text-sm tracking-wide">Active Schedule</span>
-             {/* Toggle removed, just a static label indicating it's always on */}
-             <div className="bg-slate-800 px-2 py-1 rounded text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                 Always On
-             </div>
+            <span className="text-slate-200 font-extrabold uppercase text-sm tracking-wide">Schedule</span>
           </div>
 
           <div className="transition-all duration-300 opacity-100 max-h-96">

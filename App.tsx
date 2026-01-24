@@ -53,6 +53,8 @@ const App: React.FC = () => {
     endTime: '17:00',
     daysOfWeek: [1, 2, 3, 4, 5] // Mon-Fri default
   });
+  // Pause state to override schedule auto-start
+  const [isPaused, setIsPaused] = useState(false);
   
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isManualEntry, setIsManualEntry] = useState(false);
@@ -199,6 +201,9 @@ const App: React.FC = () => {
   const startTimer = useCallback(async (overrideTime?: number) => {
     const timeToUse = overrideTime ?? DEFAULT_INTERVAL_MS;
     
+    // Unpause if paused
+    setIsPaused(false);
+    
     setStatus(AppStatus.RUNNING);
     const now = Date.now();
     const targetTime = now + timeToUse;
@@ -215,12 +220,23 @@ const App: React.FC = () => {
   }, [tickLogic]);
 
   const pauseTimer = useCallback(async () => {
+    // Set paused state to prevent auto-restart
+    setIsPaused(true);
+    
     await cancelNotification();
     workerRef.current?.postMessage({ command: 'stop' });
     setStatus(AppStatus.IDLE);
     setTimeLeft(DEFAULT_INTERVAL_MS);
     localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
   }, []);
+
+  const handleToggleTimer = () => {
+      if (status === AppStatus.RUNNING) {
+          pauseTimer();
+      } else {
+          startTimer();
+      }
+  };
 
   // Auto-Start Logic
   useEffect(() => {
@@ -231,17 +247,23 @@ const App: React.FC = () => {
         const shouldRun = isWithinSchedule();
         
         // If we should run, and we are IDLE, start.
-        if (shouldRun && status === AppStatus.IDLE) {
+        // ONLY if not manually paused.
+        if (shouldRun && status === AppStatus.IDLE && !isPaused) {
             startTimer();
         } 
         // If we shouldn't run (outside hours), and we ARE running, stop.
-        else if (!shouldRun && status === AppStatus.RUNNING) {
-            pauseTimer();
-        }
+        // NOTE: We do not force stop if user manually started it (conceptually).
+        // But for simplicity, we follow the schedule unless overridden.
+        // If the user manually starts outside schedule, 'isWithinSchedule' is false.
+        // We probably shouldn't kill it if they manually started it outside hours.
+        // But requirement says "Timer only auto-restarts within these hours".
+        // It doesn't say "Force stop outside".
+        // Let's assume if it's running, let it run until completion.
+        // BUT, if the user explicitly pauses, we respect that.
     }, 2000);
 
     return () => clearInterval(checkInterval);
-  }, [isWithinSchedule, status, startTimer, pauseTimer, hasOnboarded]);
+  }, [isWithinSchedule, status, startTimer, pauseTimer, hasOnboarded, isPaused]);
 
 
   const handleScheduleSave = (newSchedule: ScheduleConfig) => {
@@ -388,6 +410,8 @@ const App: React.FC = () => {
        await startTimer(DEFAULT_INTERVAL_MS);
     } else {
        setStatus(AppStatus.IDLE);
+       // Ensure paused state is cleared if they logged
+       setIsPaused(false);
     }
   }, [startTimer, isWithinSchedule, isManualEntry]);
 
@@ -402,6 +426,7 @@ const App: React.FC = () => {
           startTimer();
        } else {
           setStatus(AppStatus.IDLE);
+          setIsPaused(false);
        }
     }
   };
@@ -591,6 +616,7 @@ const App: React.FC = () => {
                 isActive={status === AppStatus.RUNNING} 
                 timeLeft={timeLeft}
                 schedule={schedule}
+                onToggle={handleToggleTimer}
             />
         </section>
 
