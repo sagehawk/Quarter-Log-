@@ -7,12 +7,14 @@ import LogList from './components/LogList';
 import EntryModal from './components/EntryModal';
 import SettingsModal from './components/SettingsModal';
 import PromptLibraryModal from './components/PromptLibraryModal';
+import AIFeedbackModal from './components/AIFeedbackModal';
 import Toast from './components/Toast';
 import StatsCard from './components/StatsCard';
 import Onboarding from './components/Onboarding';
 import StatusCard from './components/StatusCard';
 import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal } from './types';
 import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel } from './utils/notifications';
+import { generateAIReport } from './utils/aiService';
 
 const STORAGE_KEY_LOGS = 'quarterlog_entries';
 const STORAGE_KEY_SCHEDULE = 'quarterlog_schedule';
@@ -60,6 +62,12 @@ const App: React.FC = () => {
   const [isManualEntry, setIsManualEntry] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isPromptLibraryOpen, setIsPromptLibraryOpen] = useState(false);
+  
+  // AI Report State
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [aiReportLoading, setAiReportLoading] = useState(false);
+  const [aiReportContent, setAiReportContent] = useState<string | null>(null);
+
   const [toast, setToast] = useState<{title: string, message: string, visible: boolean}>({ title: '', message: '', visible: false });
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -309,11 +317,15 @@ const App: React.FC = () => {
     
     setViewDate(newDate);
     try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+    
+    // Reset AI report when view changes
+    setAiReportContent(null);
   };
 
   const handleResetView = () => {
     setViewDate(new Date());
     try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+    setAiReportContent(null);
   };
 
   const isCurrentView = useMemo(() => {
@@ -550,6 +562,21 @@ const App: React.FC = () => {
     return text;
   };
 
+  // --- AI Report Logic ---
+  const handleGenerateAIReport = async () => {
+      setAiReportLoading(true);
+      // Fetch goal from storage (or pass via prop if available)
+      const goal = localStorage.getItem(STORAGE_KEY_GOAL) as UserGoal || 'FOCUS';
+      
+      const periodMap: Record<FilterType, string> = {
+          'D': 'Day', 'W': 'Week', 'M': 'Month', '3M': 'Quarter', 'Y': 'Year'
+      };
+      
+      const report = await generateAIReport(filteredLogs, periodMap[filter], goal);
+      setAiReportContent(report);
+      setAiReportLoading(false);
+  };
+
   if (!hasOnboarded) {
       return <Onboarding onComplete={handleOnboardingComplete} />;
   }
@@ -648,7 +675,7 @@ const App: React.FC = () => {
           />
 
           {/* New Filter Location */}
-          <div className="flex justify-center mb-8">
+          <div className="flex justify-center mb-6">
             <div className="bg-slate-900 p-1.5 rounded-2xl flex items-center justify-between w-full border border-slate-800 shadow-sm">
                 {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
                 <button
@@ -657,6 +684,7 @@ const App: React.FC = () => {
                         try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
                         setFilter(f);
                         setViewDate(new Date()); 
+                        setAiReportContent(null); // Reset report on filter change
                     }}
                     className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-200 ${
                     filter === f ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
@@ -667,8 +695,39 @@ const App: React.FC = () => {
                 ))}
             </div>
           </div>
+          
+          {/* AI Report Trigger Button */}
+          {filteredLogs.length > 0 && (
+             <div className="mb-8">
+                 <button
+                    onClick={() => {
+                        try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
+                        setIsAIModalOpen(true);
+                    }}
+                    className="w-full relative overflow-hidden group bg-slate-900 border border-slate-700/50 hover:border-brand-500/50 rounded-2xl p-4 transition-all"
+                 >
+                    <div className="absolute inset-0 bg-brand-600/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="flex items-center justify-between relative z-10">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-brand-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                            </div>
+                            <div className="text-left">
+                                <h3 className="text-white font-black uppercase text-sm italic">AI Intelligence Brief</h3>
+                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wide">
+                                    Generate {filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Period'} Report
+                                </p>
+                            </div>
+                        </div>
+                        <div className="bg-brand-900/40 text-brand-300 px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border border-brand-500/20">
+                            Beta Free
+                        </div>
+                    </div>
+                 </button>
+             </div>
+          )}
 
-          {/* Action Bar */}
+          {/* Action Bar (Copy) */}
           {filteredLogs.length > 0 && (
             <div className="flex gap-3 mb-6">
               <button 
@@ -683,7 +742,7 @@ const App: React.FC = () => {
                  ) : (
                    <>
                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                     AI Audit / Export
+                     Export Raw Data
                    </>
                  )}
                </button>
@@ -720,6 +779,15 @@ const App: React.FC = () => {
         logsText={formatLogsForExport(filteredLogs)}
         onCopySuccess={handleCopySuccess}
         filter={filter}
+      />
+      
+      <AIFeedbackModal
+        isOpen={isAIModalOpen}
+        isLoading={aiReportLoading}
+        report={aiReportContent}
+        period={filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Quarterly'}
+        onClose={() => setIsAIModalOpen(false)}
+        onGenerate={handleGenerateAIReport}
       />
       
       <div className="h-[env(safe-area-inset-bottom)]" />
