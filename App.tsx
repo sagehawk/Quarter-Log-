@@ -594,22 +594,39 @@ const App: React.FC = () => {
       
       setAiReportLoading(true);
 
-      const content = await generateAIReport(filteredLogs, periodMap[filter], goal, 'FULL');
-      
-      // Save it
-      const key = getCurrentDateKey();
-      const newReport: AIReport = {
-          id: crypto.randomUUID(),
-          dateKey: key,
-          content: content,
-          summary: "Generated Manually", // Placeholder
-          timestamp: Date.now(),
-          period: filter
-      };
-      
-      setReports(prev => ({ ...prev, [key]: newReport }));
-      setAiReportContent(content);
-      setAiReportLoading(false);
+      try {
+        // Run parallel generation of Brief and Full reports to match auto-gen behavior
+        const [summary, content] = await Promise.all([
+            generateAIReport(filteredLogs, periodMap[filter], goal, 'BRIEF'),
+            generateAIReport(filteredLogs, periodMap[filter], goal, 'FULL')
+        ]);
+        
+        // Save it
+        const key = getCurrentDateKey();
+        const newReport: AIReport = {
+            id: crypto.randomUUID(),
+            dateKey: key,
+            content: content,
+            summary: summary.replace('Report Ready:', '').trim(),
+            timestamp: Date.now(),
+            period: filter
+        };
+        
+        setReports(prev => ({ ...prev, [key]: newReport }));
+        setAiReportContent(content);
+
+        setToast({ 
+            title: "Analysis Complete", 
+            message: summary.replace('Report Ready:', '').trim(), 
+            visible: true 
+        });
+
+      } catch (error) {
+        console.error("Manual AI generation failed", error);
+        setToast({ title: "Error", message: "Failed to generate report.", visible: true });
+      } finally {
+        setAiReportLoading(false);
+      }
   };
 
   // Open modal logic
