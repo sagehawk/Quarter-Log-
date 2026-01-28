@@ -7,7 +7,6 @@ import { Haptics, NotificationType, ImpactStyle } from '@capacitor/haptics';
 import LogList from './components/LogList';
 import EntryModal from './components/EntryModal';
 import SettingsModal from './components/SettingsModal';
-import PromptLibraryModal from './components/PromptLibraryModal';
 import AIFeedbackModal from './components/AIFeedbackModal';
 import Toast from './components/Toast';
 import StatsCard from './components/StatsCard';
@@ -63,7 +62,6 @@ const App: React.FC = () => {
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isManualEntry, setIsManualEntry] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isPromptLibraryOpen, setIsPromptLibraryOpen] = useState(false);
   
   // AI Report State
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
@@ -538,17 +536,6 @@ const App: React.FC = () => {
     return logs.filter(l => l.timestamp >= startTime && l.timestamp <= endTime);
   }, [logs, filter, viewDate]);
 
-  const handleCopyClick = () => {
-    if (filteredLogs.length === 0) return;
-    try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
-    setIsPromptLibraryOpen(true);
-  };
-
-  const handleCopySuccess = () => {
-    setCopyFeedback(true);
-    setTimeout(() => setCopyFeedback(false), 2000);
-  };
-
   const formatLogsForExport = (logsToExport: LogEntry[]) => {
     const sortedLogs = [...logsToExport].sort((a, b) => a.timestamp - b.timestamp);
     let text = "Time Log Export\n==========================\n\n";
@@ -564,6 +551,20 @@ const App: React.FC = () => {
       text += `${timeStr} - ${log.text}\n`;
     });
     return text;
+  };
+
+  const handleCopyClick = async () => {
+    if (filteredLogs.length === 0) return;
+    try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+    
+    const text = formatLogsForExport(filteredLogs);
+    try {
+        await navigator.clipboard.writeText(text);
+        setCopyFeedback(true);
+        setTimeout(() => setCopyFeedback(false), 2000);
+    } catch(e) {
+        setToast({ title: "Error", message: "Failed to copy logs.", visible: true });
+    }
   };
 
   // Generate Date Key for Current View
@@ -806,20 +807,20 @@ const App: React.FC = () => {
           )}
 
           {filteredLogs.length > 0 && (
-            <div className="flex gap-3 mb-6">
+            <div className="flex justify-end mb-2 px-2">
               <button 
                  onClick={handleCopyClick}
-                 className="glass-button w-full flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-slate-400 hover:text-white py-4 rounded-xl transition-all"
+                 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:text-slate-400 transition-colors py-2"
                >
                  {copyFeedback ? (
                    <>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span className="text-emerald-400">Copied</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span className="text-emerald-500">Copied</span>
                    </>
                  ) : (
                    <>
-                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                     Export Raw Data
+                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                     Copy Logs
                    </>
                  )}
                </button>
@@ -848,14 +849,6 @@ const App: React.FC = () => {
         onSave={() => {}} 
         onSaveSchedule={handleScheduleSave}
         onClose={() => setIsSettingsModalOpen(false)}
-      />
-
-      <PromptLibraryModal
-        isOpen={isPromptLibraryOpen}
-        onClose={() => setIsPromptLibraryOpen(false)}
-        logsText={formatLogsForExport(filteredLogs)}
-        onCopySuccess={handleCopySuccess}
-        filter={filter}
       />
       
       <AIFeedbackModal
