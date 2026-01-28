@@ -774,65 +774,46 @@ const App: React.FC = () => {
           </div>
           
           {filteredLogs.length > 0 && (
-             <div className="mb-8">
+             <div className="flex items-center justify-between mb-6 px-1 gap-4">
                  <button
                     onClick={() => {
                         try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
                         handleOpenAIModal();
                     }}
-                    className={`w-full relative overflow-hidden group border rounded-2xl p-4 transition-all ${savedReportForView ? 'bg-emerald-900/10 border-emerald-500/30' : 'bg-slate-900 border-slate-700/50 hover:border-brand-500/50'}`}
+                    className={`flex-1 flex items-center gap-2 py-3 px-4 rounded-xl transition-all border ${savedReportForView ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-brand-400 hover:border-brand-500/30 hover:bg-slate-800'}`}
                  >
-                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity ${savedReportForView ? 'bg-emerald-500/5' : 'bg-brand-600/5'}`}></div>
-                    <div className="flex items-center justify-between relative z-10">
-                        <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ${savedReportForView ? 'bg-gradient-to-br from-emerald-500 to-emerald-700' : 'bg-gradient-to-br from-brand-500 to-indigo-600'}`}>
-                                {savedReportForView ? (
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                                ) : (
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                                )}
-                            </div>
-                            <div className="text-left">
-                                <h3 className={`font-black uppercase text-sm italic flex items-center gap-2 ${savedReportForView ? 'text-emerald-100' : 'text-white'}`}>
-                                    {savedReportForView ? 'Report Available' : 'AI Intelligence Brief'}
-                                    {savedReportForView && savedReportForView.read === false && (
-                                        <span className="bg-brand-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider animate-pulse">
-                                            New
-                                        </span>
-                                    )}
-                                </h3>
-                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wide">
-                                    {savedReportForView ? 'Tap to view saved analysis' : `Generate ${filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Period'} Report`}
-                                </p>
-                            </div>
-                        </div>
-                        <div className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${savedReportForView ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-brand-900/40 text-brand-300 border-brand-500/20'}`}>
-                            {savedReportForView ? 'Saved' : 'Create'}
-                        </div>
+                    <div className={`p-1.5 rounded-lg ${savedReportForView ? 'bg-emerald-500/20' : 'bg-slate-800'}`}>
+                        {savedReportForView ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                        )}
+                    </div>
+                    <div className="flex flex-col items-start">
+                         <span className="text-[10px] font-black uppercase tracking-widest leading-none">
+                             {savedReportForView ? 'View Report' : 'AI Insight'}
+                         </span>
+                         {savedReportForView && savedReportForView.read === false && (
+                            <span className="text-[9px] text-emerald-400 font-bold leading-none mt-1 animate-pulse">New Analysis Available</span>
+                         )}
+                         {!savedReportForView && (
+                             <span className="text-[9px] opacity-60 font-medium leading-none mt-1">Generate Analysis</span>
+                         )}
                     </div>
                  </button>
-             </div>
-          )}
 
-          {filteredLogs.length > 0 && (
-            <div className="flex justify-end mb-2 px-2">
-              <button 
-                 onClick={handleCopyClick}
-                 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:text-slate-400 transition-colors py-2"
-               >
-                 {copyFeedback ? (
-                   <>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span className="text-emerald-500">Copied</span>
-                   </>
-                 ) : (
-                   <>
-                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                     Copy Logs
-                   </>
-                 )}
-               </button>
-            </div>
+                 <button 
+                    onClick={handleCopyClick}
+                    className="flex items-center justify-center w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 hover:text-white hover:border-slate-600 transition-all active:scale-95"
+                    title="Copy Logs"
+                 >
+                     {copyFeedback ? (
+                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                     ) : (
+                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                     )}
+                 </button>
+             </div>
           )}
 
           <div className="flex-1">
