@@ -1,7 +1,9 @@
+
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 
-const CHANNEL_ID = 'quarterlog_high_priority';
+// Incremented version to ensure channel settings (sound/vibration) are updated on user devices
+const CHANNEL_ID = 'quarterlog_timer_v3';
 
 export const checkNotificationPermission = async (): Promise<boolean> => {
   try {
@@ -41,18 +43,18 @@ export const configureNotificationChannel = async () => {
   if (Capacitor.getPlatform() !== 'android') return;
 
   try {
-    // Create a high-importance channel to ensure "Heads-up" notifications (Pop over screen)
-    // Sound is set to undefined to use the default system notification sound.
+    // Create a high-importance channel to ensure "Heads-up" notifications
+    // Using 'beep.wav' - Ensure this file exists in android/app/src/main/res/raw/
     await LocalNotifications.createChannel({
       id: CHANNEL_ID,
       name: 'QuarterLog Timer',
-      description: 'Notifications for the 15-minute timer',
+      description: 'Alerts for the 15-minute log timer',
       importance: 5, // 5 = High Importance (Heads-up notification + Sound + Vibration)
       visibility: 1, // 1 = Public (Visible on lock screen)
-      sound: undefined, // Uses default system sound
+      sound: 'beep.wav', // Custom sound filename (without extension in some versions, but 'beep.wav' is safe for Capacitor)
       vibration: true,
       lights: true,
-      lightColor: '#3b82f6'
+      lightColor: '#ff005c'
     });
   } catch (e) {
     console.error("Failed to create notification channel", e);
@@ -110,8 +112,8 @@ export const scheduleNotification = async (title: string, body: string, delayMs:
           body,
           id: 1, // Fixed ID allows us to easily cancel/update the specific timer notification
           schedule: { at: new Date(Date.now() + delayMs) },
-          sound: undefined, // Uses default system notification sound based on channel config
-          smallIcon: 'res://mipmap/ic_launcher',
+          sound: 'beep.wav', // Explicitly request the custom sound
+          smallIcon: 'ic_stat_icon_config_sample', // Ensure this matches capacitor.config
           channelId: CHANNEL_ID, // Use the high-priority channel
           actionTypeId: 'LOG_ACTIVITY',
           extra: null

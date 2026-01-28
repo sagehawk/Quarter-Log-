@@ -153,17 +153,21 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                 <div className="w-20 h-20 bg-brand-600/20 rounded-full flex items-center justify-center mx-auto mb-6 text-brand-500">
                     <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
                 </div>
-                <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">One Condition.</h1>
+                <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-2">Permissions</h1>
                 <p className="text-slate-400 font-bold uppercase tracking-wide text-xs mb-8 leading-relaxed max-w-xs mx-auto">
-                    To hold you accountable, we need permission to send system alerts (Sound & Vibration).
+                    We need permission to send critical alerts.
                 </p>
                 
                 <button onClick={handlePermissionRequest} className="w-full py-4 bg-brand-600 text-white font-black uppercase tracking-widest rounded-xl shadow-lg shadow-brand-900/50 hover:bg-brand-500 transition-colors">
                     Allow Alerts
                 </button>
-                <p className="text-[10px] text-slate-600 font-bold uppercase tracking-wide mt-4">
-                    Required for the app to function.
-                </p>
+                
+                <div className="mt-8 bg-slate-900 border border-slate-800 p-4 rounded-xl text-left">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Background Activity</p>
+                    <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                        Important: If the timer stops when your phone is locked, go to <span className="text-white font-bold">Settings > Battery</span> and set this app to <span className="text-white font-bold">Unrestricted</span>.
+                    </p>
+                </div>
             </>
         )}
 
