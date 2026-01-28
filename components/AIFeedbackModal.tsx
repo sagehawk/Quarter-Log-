@@ -29,14 +29,32 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
   // Robust Markdown Renderer
   const renderMarkdown = (text: string) => {
     return text.split('\n').map((line, i) => {
-      // 1. Headers (###)
-      if (line.trim().startsWith('###')) {
-          return <h3 key={i} className="text-xl font-black text-brand-400 mt-6 mb-3 uppercase tracking-wide italic">{line.replace(/^###\s?/, '')}</h3>;
+      const trimmed = line.trim();
+
+      // 1. Headers (###) - Handle potential numbering prefix (e.g. "2. ### Analysis")
+      // Regex: Optional number/dot/space, then ###, then content
+      const headerMatch = trimmed.match(/^(\d+\.?\s*)?###\s*(.+)/);
+      if (headerMatch) {
+          return <h3 key={i} className="text-xl font-black text-brand-400 mt-6 mb-3 uppercase tracking-wide italic">{headerMatch[2]}</h3>;
+      }
+
+      // 2. Score Line Special Rendering
+      // Matches "**Score**:" or "Score:" with optional numbering
+      const scoreMatch = trimmed.match(/^(\d+\.?\s*)?\**Score\**:\s*(.*)/i);
+      if (scoreMatch) {
+          const scoreValue = scoreMatch[2].trim();
+          return (
+             <div key={i} className="bg-slate-800/50 rounded-xl p-4 border border-white/5 mb-6 flex items-center justify-between">
+                <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">Productivity Score</span>
+                <span className="text-3xl font-black text-white italic tracking-tighter">{scoreValue}</span>
+             </div>
+          );
       }
       
-      // 2. Bullets (- or *)
-      if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-         const content = line.replace(/^[-*]\s?/, '');
+      // 3. Bullets (- or *)
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+         // Trim first to handle indentation, then strip the dash/star
+         const content = trimmed.replace(/^[-*]\s*/, '');
          return (
             <div key={i} className="flex gap-3 mb-2 pl-2">
                 <span className="text-brand-500 font-bold mt-1">•</span>
@@ -45,13 +63,13 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
          );
       }
 
-      // 3. Empty lines
-      if (line.trim() === '') return <div key={i} className="h-2"></div>;
+      // 4. Empty lines
+      if (trimmed === '') return <div key={i} className="h-2"></div>;
 
-      // 4. Standard Paragraph
+      // 5. Standard Paragraph
       return (
         <p key={i} className="text-slate-300 mb-2 leading-relaxed font-medium">
-            {parseInlineStyles(line)}
+            {parseInlineStyles(trimmed)}
         </p>
       );
     });

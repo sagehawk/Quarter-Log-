@@ -102,16 +102,19 @@ export const generateAIReport = async (
       Provide a report (max 200 words) acting strictly in your PERSONA.
       
       STRUCTURE (Use Markdown):
-      1. **Score**: (0-100) - Be generous if Kind, harsh if Tough.
-      2. ### Analysis
-         - (What went right and what went wrong, based on your persona)
-      3. ### Advice
-         - (One concrete step to take next)
+      **Score**: (0-100) - Be generous if Kind, harsh if Tough.
+
+      ### Analysis
+      - (What went right and what went wrong, based on your persona)
+
+      ### Advice
+      - (One concrete step to take next)
 
       FORMATTING RULES:
       - Use **Bold** for emphasis.
       - Use *Italics* for tone.
       - Use ### for Section Headers.
+      - Do NOT number the headers.
       `;
   }
 
