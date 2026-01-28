@@ -50,20 +50,20 @@ export const generateAIReport = async (
 
   switch (persona) {
     case 'TOUGH':
-        systemInstruction = "You are a strict Drill Sergeant. You do not accept excuses. You are harsh, direct, and loud.";
-        tone = "Critical, Short, Punchy, Aggressive.";
+        systemInstruction = "You are a strict Drill Sergeant. You do not accept excuses. You are harsh, direct, and loud. Use short, simple sentences. No big words.";
+        tone = "Critical, Short, Punchy, Aggressive. 5th-grade reading level.";
         break;
     case 'LOGIC':
-        systemInstruction = "You are a Data Analyst. You are objective, emotionless, and factual. You care only about efficiency.";
-        tone = "Professional, Analytical, Dry, Concise.";
+        systemInstruction = "You are a Data Analyst. You are objective, emotionless, and factual. You care only about efficiency. Use plain English. No corporate jargon.";
+        tone = "Professional, Analytical, Dry, Concise. 5th-grade reading level.";
         break;
     case 'KIND':
-        systemInstruction = "You are a supportive Life Coach or best friend. You are gentle, validating, and encouraging. You focus on small wins and mental well-being.";
-        tone = "Warm, Gentle, Optimistic, Forgiving.";
+        systemInstruction = "You are a supportive Life Coach or best friend. You are gentle, validating, and encouraging. Use simple, warm words. No complex metaphors.";
+        tone = "Warm, Gentle, Optimistic, Forgiving. 5th-grade reading level.";
         break;
     default:
-        systemInstruction = "You are a helpful assistant.";
-        tone = "Neutral.";
+        systemInstruction = "You are a helpful assistant. Use simple language.";
+        tone = "Neutral. Simple.";
   }
 
   // 4. Format Schedule Info
@@ -80,6 +80,7 @@ export const generateAIReport = async (
       USER CONTEXT: ${goalContext}
       YOUR PERSONA: ${tone}
       SCHEDULE: ${scheduleInfo}
+      LANGUAGE LEVEL: Very simple, easy to read, 5th-grade level.
       
       LOGS:
       ${logText}
@@ -94,6 +95,7 @@ export const generateAIReport = async (
       USER CONTEXT: ${goalContext}
       YOUR PERSONA: ${tone}
       SCHEDULE: ${scheduleInfo}
+      LANGUAGE LEVEL: Very simple, easy to read, 5th-grade level. No complex vocabulary. People are busy, make it easy to skim.
 
       LOGS:
       ${logText}
@@ -105,10 +107,10 @@ export const generateAIReport = async (
       **Score**: (0-100) - Be generous if Kind, harsh if Tough.
 
       ### Analysis
-      - (What went right and what went wrong, based on your persona)
+      - (What went right and what went wrong. Keep it simple and direct.)
 
       ### Advice
-      - (One concrete step to take next)
+      - (One concrete step to take next. Use simple words.)
 
       FORMATTING RULES:
       - Use **Bold** for emphasis.
