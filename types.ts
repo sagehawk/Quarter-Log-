@@ -1,3 +1,4 @@
+
 export interface LogEntry {
   id: string;
   timestamp: number; // Date.now()
@@ -18,6 +19,15 @@ export interface ScheduleConfig {
 }
 
 export type UserGoal = 'FOCUS' | 'BUSINESS' | 'LIFE';
+
+export interface AIReport {
+  id: string;
+  dateKey: string; // e.g., "D_2023-10-25" or "W_2023-W42"
+  content: string;
+  summary: string; // Brief version for notifications/previews
+  timestamp: number;
+  period: string;
+}
 
 export const DEFAULT_INTERVAL_MINUTES = 15;
 export const DEFAULT_INTERVAL_MS = DEFAULT_INTERVAL_MINUTES * 60 * 1000;

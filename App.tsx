@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -12,8 +13,8 @@ import Toast from './components/Toast';
 import StatsCard from './components/StatsCard';
 import Onboarding from './components/Onboarding';
 import StatusCard from './components/StatusCard';
-import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal } from './types';
-import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel } from './utils/notifications';
+import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport } from './types';
+import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification } from './utils/notifications';
 import { generateAIReport } from './utils/aiService';
 
 const STORAGE_KEY_LOGS = 'quarterlog_entries';
@@ -21,6 +22,7 @@ const STORAGE_KEY_SCHEDULE = 'quarterlog_schedule';
 const STORAGE_KEY_ONBOARDED = 'quarterlog_onboarded';
 const STORAGE_KEY_GOAL = 'quarterlog_goal';
 const STORAGE_KEY_TIMER_TARGET = 'quarterlog_timer_target';
+const STORAGE_KEY_REPORTS = 'quarterlog_ai_reports';
 
 // Updated filter types
 type FilterType = 'D' | 'W' | 'M' | '3M' | 'Y';
@@ -45,19 +47,19 @@ self.onmessage = function(e) {
 
 const App: React.FC = () => {
   // State
-  const [hasOnboarded, setHasOnboarded] = useState<boolean>(true); // Default true to avoid flicker, corrected in effect
+  const [hasOnboarded, setHasOnboarded] = useState<boolean>(true); 
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
   const [timeLeft, setTimeLeft] = useState(DEFAULT_INTERVAL_MS);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [reports, setReports] = useState<Record<string, AIReport>>({});
   const [schedule, setSchedule] = useState<ScheduleConfig>({
-    enabled: true, // Always default to true
+    enabled: true, 
     startTime: '09:00',
     endTime: '17:00',
-    daysOfWeek: [1, 2, 3, 4, 5] // Mon-Fri default
+    daysOfWeek: [1, 2, 3, 4, 5] 
   });
-  // Pause state to override schedule auto-start
-  const [isPaused, setIsPaused] = useState(false);
   
+  const [isPaused, setIsPaused] = useState(false);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isManualEntry, setIsManualEntry] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -79,6 +81,7 @@ const App: React.FC = () => {
   // Refs
   const endTimeRef = useRef<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
+  const hasCheckedAutoReport = useRef(false);
 
   // Load initial data
   useEffect(() => {
@@ -93,11 +96,16 @@ const App: React.FC = () => {
       try { setLogs(JSON.parse(storedLogs)); } catch (e) { console.error(e); }
     }
 
+    const storedReports = localStorage.getItem(STORAGE_KEY_REPORTS);
+    if (storedReports) {
+      try { setReports(JSON.parse(storedReports)); } catch (e) { console.error(e); }
+    }
+
     const storedSchedule = localStorage.getItem(STORAGE_KEY_SCHEDULE);
     if (storedSchedule) {
       try { 
           const parsed = JSON.parse(storedSchedule);
-          setSchedule({ ...parsed, enabled: true }); // Enforce enabled
+          setSchedule({ ...parsed, enabled: true }); 
       } catch (e) { console.error(e); }
     }
     
@@ -116,19 +124,15 @@ const App: React.FC = () => {
         if (e.data.type === 'tick') triggerTick();
       };
       
-      // Check for persisted timer
       const savedTarget = localStorage.getItem(STORAGE_KEY_TIMER_TARGET);
       if (savedTarget) {
           const targetTime = parseInt(savedTarget, 10);
           const now = Date.now();
           if (targetTime > now) {
-              // Timer is still running
               endTimeRef.current = targetTime;
               setStatus(AppStatus.RUNNING);
               workerRef.current.postMessage({ command: 'start' });
           } else {
-              // Timer expired while closed
-              // We should prompt the user
               endTimeRef.current = null;
               localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
               setStatus(AppStatus.WAITING_FOR_INPUT);
@@ -147,7 +151,67 @@ const App: React.FC = () => {
     localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs));
   }, [logs]);
 
-  // Handle Scroll Effect for Header
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(reports));
+  }, [reports]);
+
+  // --- Auto-Generate Logic for Yesterday ---
+  useEffect(() => {
+    if (!hasOnboarded || logs.length === 0 || hasCheckedAutoReport.current) return;
+
+    // We only automate "Yesterday's" report for now to save tokens and avoid spam
+    // 1. Calculate Yesterday's Key
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dateKey = `D_${yesterday.toISOString().substring(0, 10)}`;
+
+    // 2. Check if we already have it
+    if (reports[dateKey]) {
+        hasCheckedAutoReport.current = true;
+        return;
+    }
+
+    // 3. Check if we have logs for yesterday
+    const startOfDay = new Date(yesterday);
+    startOfDay.setHours(0,0,0,0);
+    const endOfDay = new Date(yesterday);
+    endOfDay.setHours(23,59,59,999);
+    
+    const yesterdaysLogs = logs.filter(l => l.timestamp >= startOfDay.getTime() && l.timestamp <= endOfDay.getTime());
+
+    if (yesterdaysLogs.length > 0) {
+        hasCheckedAutoReport.current = true; // Mark checked so we don't loop
+        
+        const runAutoGen = async () => {
+            const goal = localStorage.getItem(STORAGE_KEY_GOAL) as UserGoal || 'FOCUS';
+            
+            // Generate BRIEF for Notification
+            const summary = await generateAIReport(yesterdaysLogs, 'Day', goal, 'BRIEF');
+            await sendNotification("Daily Report Ready", summary.replace('Report Ready:', '').trim(), false);
+            setToast({ title: "Report Ready", message: "Yesterday's analysis is available.", visible: true });
+
+            // Generate FULL for Storage (Background)
+            const fullContent = await generateAIReport(yesterdaysLogs, 'Day', goal, 'FULL');
+            
+            const newReport: AIReport = {
+                id: crypto.randomUUID(),
+                dateKey,
+                content: fullContent,
+                summary,
+                timestamp: Date.now(),
+                period: 'D'
+            };
+
+            setReports(prev => ({ ...prev, [dateKey]: newReport }));
+        };
+        runAutoGen();
+    } else {
+        hasCheckedAutoReport.current = true;
+    }
+
+  }, [logs, hasOnboarded, reports]);
+
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
@@ -156,19 +220,12 @@ const App: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Check if current time matches schedule
   const isWithinSchedule = useCallback(() => {
-    // If onboarding is not done, we don't start
     const onboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED);
     if (!onboarded) return false;
 
-    // Schedule is now always enabled if onboarded
-    
     const now = new Date();
     const currentDay = now.getDay();
-    
-    // Check Day (0 = Sun, 6 = Sat) - standard JS
-    // Our schedule uses standard JS getDay integers (0-6)
     if (!schedule.daysOfWeek.includes(currentDay)) return false;
 
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -183,12 +240,7 @@ const App: React.FC = () => {
   const handleTimerComplete = useCallback(async () => {
     workerRef.current?.postMessage({ command: 'stop' });
     setStatus(AppStatus.WAITING_FOR_INPUT);
-    
-    // Clear persisted timer
     localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
-    
-    // Timer is done. Notification should be visible on user device.
-    // If they open app, show modal.
     setIsManualEntry(false);
     setIsEntryModalOpen(true);
   }, []);
@@ -205,32 +257,22 @@ const App: React.FC = () => {
   useEffect(() => { tickRef.current = tickLogic; }, [tickLogic]);
   const triggerTick = () => tickRef.current();
 
-  // START TIMER
   const startTimer = useCallback(async (overrideTime?: number) => {
     const timeToUse = overrideTime ?? DEFAULT_INTERVAL_MS;
-    
-    // Unpause if paused
     setIsPaused(false);
-    
     setStatus(AppStatus.RUNNING);
     const now = Date.now();
     const targetTime = now + timeToUse;
     endTimeRef.current = targetTime;
-    
-    // Persist Target Time
     localStorage.setItem(STORAGE_KEY_TIMER_TARGET, targetTime.toString());
-    
     await cancelNotification();
     await scheduleNotification("What are you doing?", "Tap to log. Be honest.", timeToUse);
-    
     workerRef.current?.postMessage({ command: 'start' });
     tickLogic(); 
   }, [tickLogic]);
 
   const pauseTimer = useCallback(async () => {
-    // Set paused state to prevent auto-restart
     setIsPaused(true);
-    
     await cancelNotification();
     workerRef.current?.postMessage({ command: 'stop' });
     setStatus(AppStatus.IDLE);
@@ -246,30 +288,14 @@ const App: React.FC = () => {
       }
   };
 
-  // Auto-Start Logic
   useEffect(() => {
     if (!hasOnboarded) return;
-
-    // Check every second if we should be running but aren't
     const checkInterval = setInterval(() => {
         const shouldRun = isWithinSchedule();
-        
-        // If we should run, and we are IDLE, start.
-        // ONLY if not manually paused.
         if (shouldRun && status === AppStatus.IDLE && !isPaused) {
             startTimer();
         } 
-        // If we shouldn't run (outside hours), and we ARE running, stop.
-        // NOTE: We do not force stop if user manually started it (conceptually).
-        // But for simplicity, we follow the schedule unless overridden.
-        // If the user manually starts outside schedule, 'isWithinSchedule' is false.
-        // We probably shouldn't kill it if they manually started it outside hours.
-        // But requirement says "Timer only auto-restarts within these hours".
-        // It doesn't say "Force stop outside".
-        // Let's assume if it's running, let it run until completion.
-        // BUT, if the user explicitly pauses, we respect that.
     }, 2000);
-
     return () => clearInterval(checkInterval);
   }, [isWithinSchedule, status, startTimer, pauseTimer, hasOnboarded, isPaused]);
 
@@ -286,11 +312,8 @@ const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEY_ONBOARDED, 'true');
       localStorage.setItem(STORAGE_KEY_GOAL, goal);
       localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
-      
       setSchedule(configWithEnabled);
       setHasOnboarded(true);
-      
-      // Auto start if within time
       setTimeout(() => {
          const now = new Date();
          const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -298,15 +321,12 @@ const App: React.FC = () => {
          const startTotal = startH * 60 + startM;
          const [endH, endM] = config.endTime.split(':').map(Number);
          const endTotal = endH * 60 + endM;
-         
          if (currentMinutes >= startTotal && currentMinutes < endTotal) {
              startTimer();
          }
       }, 500);
   };
 
-  // --- Navigation Logic ---
-  
   const handleNavigate = (direction: -1 | 1) => {
     const newDate = new Date(viewDate);
     if (filter === 'D') newDate.setDate(newDate.getDate() + direction);
@@ -390,8 +410,6 @@ const App: React.FC = () => {
   }, [viewDate, filter, logs]);
 
 
-  // --- Logging Logic ---
-
   const handleManualLogStart = () => {
     try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
     setIsManualEntry(true);
@@ -406,23 +424,14 @@ const App: React.FC = () => {
     };
     setLogs(prev => [newLog, ...prev]);
     setIsEntryModalOpen(false);
-    
     setToast(prev => ({ ...prev, visible: false }));
     try { await Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
-
-    // Manual entry doesn't affect timer unless we want it to reset the loop
-    // Per requirements, user logs -> timer restarts.
-    
-    // Reset timer loop if we are within schedule
-    // Clear old timer persistence
     localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
-    
     setTimeLeft(DEFAULT_INTERVAL_MS);
     if (isWithinSchedule()) {
        await startTimer(DEFAULT_INTERVAL_MS);
     } else {
        setStatus(AppStatus.IDLE);
-       // Ensure paused state is cleared if they logged
        setIsPaused(false);
     }
   }, [startTimer, isWithinSchedule, isManualEntry]);
@@ -430,8 +439,6 @@ const App: React.FC = () => {
   const handleLogClose = () => {
     setIsEntryModalOpen(false);
     setToast(prev => ({ ...prev, visible: false }));
-    // If user closed without logging after timer finished, we basically "skip"
-    // But we need to restart timer if in schedule
     if (!isManualEntry) {
        setTimeLeft(DEFAULT_INTERVAL_MS);
        if (isWithinSchedule()) {
@@ -453,19 +460,15 @@ const App: React.FC = () => {
   useEffect(() => {
     const appStateSub = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
       if (isActive) {
-        // App came to foreground. 
-        // 1. Check if we have a persisted timer
         const savedTarget = localStorage.getItem(STORAGE_KEY_TIMER_TARGET);
         if (savedTarget) {
             const target = parseInt(savedTarget);
             const now = Date.now();
             if (target > now) {
-                // Resume visuals
                 endTimeRef.current = target;
                 setStatus(AppStatus.RUNNING);
                 workerRef.current?.postMessage({ command: 'start' });
             } else {
-                // Timer finished while backgrounded
                 handleTimerComplete();
             }
         }
@@ -487,7 +490,6 @@ const App: React.FC = () => {
     };
   }, [status, handleTimerComplete, handleLogSave]);
 
-  // --- Filtering Logic (Memoized) ---
   const filteredLogs = useMemo(() => {
     const current = new Date(viewDate);
     let startTime = 0;
@@ -562,19 +564,62 @@ const App: React.FC = () => {
     return text;
   };
 
+  // Generate Date Key for Current View
+  const getCurrentDateKey = () => {
+     const current = new Date(viewDate);
+     if (filter === 'D') return `D_${current.toISOString().substring(0, 10)}`;
+     if (filter === 'M') return `M_${current.toISOString().substring(0, 7)}`;
+     if (filter === 'Y') return `Y_${current.getFullYear()}`;
+     if (filter === 'W') {
+        const day = current.getDay();
+        const diff = current.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(current);
+        monday.setDate(diff);
+        return `W_${monday.toISOString().substring(0, 10)}`;
+     }
+     return `Q_${current.getFullYear()}_${Math.floor(current.getMonth()/3)}`;
+  };
+
+  const savedReportForView = useMemo(() => {
+      const key = getCurrentDateKey();
+      return reports[key] || null;
+  }, [viewDate, filter, reports]);
+
   // --- AI Report Logic ---
   const handleGenerateAIReport = async () => {
-      setAiReportLoading(true);
-      // Fetch goal from storage (or pass via prop if available)
       const goal = localStorage.getItem(STORAGE_KEY_GOAL) as UserGoal || 'FOCUS';
-      
       const periodMap: Record<FilterType, string> = {
           'D': 'Day', 'W': 'Week', 'M': 'Month', '3M': 'Quarter', 'Y': 'Year'
       };
       
-      const report = await generateAIReport(filteredLogs, periodMap[filter], goal);
-      setAiReportContent(report);
+      setAiReportLoading(true);
+
+      const content = await generateAIReport(filteredLogs, periodMap[filter], goal, 'FULL');
+      
+      // Save it
+      const key = getCurrentDateKey();
+      const newReport: AIReport = {
+          id: crypto.randomUUID(),
+          dateKey: key,
+          content: content,
+          summary: "Generated Manually", // Placeholder
+          timestamp: Date.now(),
+          period: filter
+      };
+      
+      setReports(prev => ({ ...prev, [key]: newReport }));
+      setAiReportContent(content);
       setAiReportLoading(false);
+  };
+
+  // Open modal logic
+  const handleOpenAIModal = () => {
+      if (savedReportForView) {
+          setAiReportContent(savedReportForView.content);
+      } else {
+          setAiReportContent(null);
+      }
+      setIsAIModalOpen(true);
   };
 
   if (!hasOnboarded) {
@@ -592,7 +637,6 @@ const App: React.FC = () => {
         }}
       />
 
-      {/* Header */}
       <header 
         className={`
           fixed top-0 w-full z-40 transition-all duration-500 ease-in-out border-b
@@ -634,10 +678,8 @@ const App: React.FC = () => {
         onClose={() => setToast(prev => ({ ...prev, visible: false }))} 
       />
 
-      {/* Main Content */}
       <main className="max-w-xl mx-auto p-5 pt-32 flex flex-col min-h-[calc(100vh-80px)]">
         
-        {/* Status Dashboard */}
         <section className="flex-none mb-8">
             <StatusCard 
                 isActive={status === AppStatus.RUNNING} 
@@ -647,7 +689,6 @@ const App: React.FC = () => {
             />
         </section>
 
-        {/* Logs */}
         <section className="flex-1 flex flex-col">
           
           <div className="flex items-center justify-between mb-5">
@@ -674,7 +715,6 @@ const App: React.FC = () => {
             canGoForward={canGoForward}
           />
 
-          {/* New Filter Location */}
           <div className="flex justify-center mb-6">
             <div className="bg-slate-900 p-1.5 rounded-2xl flex items-center justify-between w-full border border-slate-800 shadow-sm">
                 {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
@@ -684,7 +724,6 @@ const App: React.FC = () => {
                         try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
                         setFilter(f);
                         setViewDate(new Date()); 
-                        setAiReportContent(null); // Reset report on filter change
                     }}
                     className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-200 ${
                     filter === f ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
@@ -696,38 +735,42 @@ const App: React.FC = () => {
             </div>
           </div>
           
-          {/* AI Report Trigger Button */}
           {filteredLogs.length > 0 && (
              <div className="mb-8">
                  <button
                     onClick={() => {
                         try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
-                        setIsAIModalOpen(true);
+                        handleOpenAIModal();
                     }}
-                    className="w-full relative overflow-hidden group bg-slate-900 border border-slate-700/50 hover:border-brand-500/50 rounded-2xl p-4 transition-all"
+                    className={`w-full relative overflow-hidden group border rounded-2xl p-4 transition-all ${savedReportForView ? 'bg-emerald-900/10 border-emerald-500/30' : 'bg-slate-900 border-slate-700/50 hover:border-brand-500/50'}`}
                  >
-                    <div className="absolute inset-0 bg-brand-600/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity ${savedReportForView ? 'bg-emerald-500/5' : 'bg-brand-600/5'}`}></div>
                     <div className="flex items-center justify-between relative z-10">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-brand-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ${savedReportForView ? 'bg-gradient-to-br from-emerald-500 to-emerald-700' : 'bg-gradient-to-br from-brand-500 to-indigo-600'}`}>
+                                {savedReportForView ? (
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                                )}
                             </div>
                             <div className="text-left">
-                                <h3 className="text-white font-black uppercase text-sm italic">AI Intelligence Brief</h3>
+                                <h3 className={`font-black uppercase text-sm italic ${savedReportForView ? 'text-emerald-100' : 'text-white'}`}>
+                                    {savedReportForView ? 'Report Available' : 'AI Intelligence Brief'}
+                                </h3>
                                 <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wide">
-                                    Generate {filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Period'} Report
+                                    {savedReportForView ? 'Tap to view saved analysis' : `Generate ${filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Period'} Report`}
                                 </p>
                             </div>
                         </div>
-                        <div className="bg-brand-900/40 text-brand-300 px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border border-brand-500/20">
-                            Beta Free
+                        <div className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${savedReportForView ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-brand-900/40 text-brand-300 border-brand-500/20'}`}>
+                            {savedReportForView ? 'Saved' : 'Create'}
                         </div>
                     </div>
                  </button>
              </div>
           )}
 
-          {/* Action Bar (Copy) */}
           {filteredLogs.length > 0 && (
             <div className="flex gap-3 mb-6">
               <button 
@@ -785,6 +828,7 @@ const App: React.FC = () => {
         isOpen={isAIModalOpen}
         isLoading={aiReportLoading}
         report={aiReportContent}
+        isSaved={!!savedReportForView}
         period={filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Quarterly'}
         onClose={() => setIsAIModalOpen(false)}
         onGenerate={handleGenerateAIReport}

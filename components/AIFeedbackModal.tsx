@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
@@ -6,6 +7,7 @@ interface AIFeedbackModalProps {
   isLoading: boolean;
   report: string | null;
   period: string;
+  isSaved?: boolean;
   onClose: () => void;
   onGenerate: () => void;
 }
@@ -15,42 +17,64 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
   isLoading, 
   report, 
   period,
+  isSaved = false,
   onClose,
   onGenerate 
 }) => {
   
   if (!isOpen) return null;
 
-  // Simple Markdown Renderer (for bolding and bullets)
+  // Robust Markdown Renderer
   const renderMarkdown = (text: string) => {
     return text.split('\n').map((line, i) => {
-      // Headers
-      if (line.startsWith('###')) return <h3 key={i} className="text-lg font-bold text-brand-400 mt-4 mb-2">{line.replace('###', '')}</h3>;
-      if (line.startsWith('**')) return <p key={i} className="font-bold text-white mb-2">{line.replace(/\*\*/g, '')}</p>;
+      // 1. Headers (###)
+      if (line.trim().startsWith('###')) {
+          return <h3 key={i} className="text-xl font-black text-brand-400 mt-6 mb-3 uppercase tracking-wide italic">{line.replace(/^###\s?/, '')}</h3>;
+      }
       
-      // Bullets
+      // 2. Bullets (- or *)
       if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+         const content = line.replace(/^[-*]\s?/, '');
          return (
-            <div key={i} className="flex gap-2 mb-1 pl-2">
-                <span className="text-brand-500">•</span>
-                <span className="text-slate-300">
-                    {line.replace(/^[-*]\s/, '').split('**').map((part, j) => 
-                        j % 2 === 1 ? <strong key={j} className="text-white">{part}</strong> : part
-                    )}
-                </span>
+            <div key={i} className="flex gap-3 mb-2 pl-2">
+                <span className="text-brand-500 font-bold mt-1">•</span>
+                <span className="text-slate-300 leading-relaxed">{parseInlineStyles(content)}</span>
             </div>
          );
       }
 
-      // Standard Paragraph with Bold support
+      // 3. Empty lines
+      if (line.trim() === '') return <div key={i} className="h-2"></div>;
+
+      // 4. Standard Paragraph
       return (
-        <p key={i} className="text-slate-300 mb-2 leading-relaxed">
-            {line.split('**').map((part, j) => 
-                j % 2 === 1 ? <strong key={j} className="text-white">{part}</strong> : part
-            )}
+        <p key={i} className="text-slate-300 mb-2 leading-relaxed font-medium">
+            {parseInlineStyles(line)}
         </p>
       );
     });
+  };
+
+  // Helper to handle **bold** and *italics*
+  const parseInlineStyles = (text: string) => {
+      // Split by bold (**...**)
+      const parts = text.split(/(\*\*.*?\*\*)/g);
+      return parts.map((part, index) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+              // It's bold
+              return <strong key={index} className="text-white font-extrabold">{part.slice(2, -2)}</strong>;
+          }
+          
+          // Check for italics inside the non-bold parts
+          // Note: This is a simple parser, might not handle nested perfectly, but sufficient for this AI output
+          const subParts = part.split(/(\*.*?\*)/g); 
+          return subParts.map((sub, subIndex) => {
+             if (sub.startsWith('*') && sub.endsWith('*')) {
+                 return <em key={`${index}-${subIndex}`} className="text-brand-200 italic">{sub.slice(1, -1)}</em>;
+             }
+             return sub;
+          });
+      });
   };
 
   return (
@@ -63,14 +87,21 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
       <div className="relative w-full max-w-lg bg-slate-900 border-2 border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-slide-up max-h-[85vh]">
         
         {/* Header */}
-        <div className="p-6 pb-2 flex justify-between items-start bg-slate-900 z-10">
+        <div className="p-6 pb-2 flex justify-between items-start bg-slate-900 z-10 shrink-0">
             <div>
                 <h2 className="text-2xl font-black text-white uppercase tracking-tighter italic">
-                    AI Analysis <span className="text-brand-500 text-sm align-top not-italic ml-1 bg-brand-900/50 px-1.5 py-0.5 rounded">BETA</span>
+                    AI Analysis
                 </h2>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-wide">
-                    {period} Report
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                    <span className="text-slate-400 text-xs font-bold uppercase tracking-wide">
+                        {period} Report
+                    </span>
+                    {isSaved && (
+                        <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-black uppercase px-2 py-0.5 rounded">
+                            Saved
+                        </span>
+                    )}
+                </div>
             </div>
             <button onClick={onClose} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 text-slate-400">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -85,7 +116,7 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
                     <p className="text-brand-400 font-bold uppercase tracking-widest animate-pulse text-sm">Crunching Data...</p>
                 </div>
             ) : report ? (
-                <div className="prose prose-invert prose-sm">
+                <div className="prose prose-invert prose-sm max-w-none">
                     {renderMarkdown(report)}
                 </div>
             ) : (
@@ -94,7 +125,7 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                     </div>
                     <p className="text-slate-400 mb-6 font-medium text-sm px-4">
-                        Generate a customized report for this {period.toLowerCase()}. The AI will analyze your logs based on your goal.
+                        Generate a customized report for this {period.toLowerCase()}. The AI will analyze your logs based on your goal, identify wins, and expose inefficiencies.
                     </p>
                     
                     <button 
@@ -110,8 +141,8 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
             )}
         </div>
         
-        {report && !isLoading && (
-            <div className="p-4 bg-slate-900 border-t border-slate-800">
+        {report && !isLoading && !isSaved && (
+            <div className="p-4 bg-slate-900 border-t border-slate-800 shrink-0">
                 <button 
                     onClick={() => {
                         try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
