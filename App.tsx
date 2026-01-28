@@ -13,7 +13,7 @@ import StatsCard from './components/StatsCard';
 import Onboarding from './components/Onboarding';
 import StatusCard from './components/StatusCard';
 import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport } from './types';
-import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification } from './utils/notifications';
+import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification, scheduleWakeUpNotification, cancelWakeUpNotification } from './utils/notifications';
 import { generateAIReport } from './utils/aiService';
 
 const STORAGE_KEY_LOGS = 'quarterlog_entries';
@@ -81,6 +81,7 @@ const App: React.FC = () => {
   const endTimeRef = useRef<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const hasCheckedAutoReport = useRef(false);
+  const hasCheckedAutoStart = useRef(false);
 
   // Load initial data
   useEffect(() => {
@@ -159,6 +160,33 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(reports));
   }, [reports]);
+
+  // Check for auto-start on load
+  useEffect(() => {
+    if (hasCheckedAutoStart.current || !schedule.enabled || !hasOnboarded) return;
+    
+    const now = new Date();
+    // Check if today is active
+    if (!schedule.daysOfWeek.includes(now.getDay())) {
+        hasCheckedAutoStart.current = true;
+        return;
+    }
+
+    const [startH, startM] = schedule.startTime.split(':').map(Number);
+    const startDate = new Date();
+    startDate.setHours(startH, startM, 0, 0);
+
+    const firstEndTime = new Date(startDate.getTime() + DEFAULT_INTERVAL_MS);
+    
+    // If we are in the "First Interval" of the day and timer is IDLE
+    if (now >= startDate && now < firstEndTime && status === AppStatus.IDLE) {
+       console.log("Auto-start sync detected");
+       const remaining = firstEndTime.getTime() - now.getTime();
+       startTimer(remaining);
+    }
+    
+    hasCheckedAutoStart.current = true;
+  }, [schedule, hasOnboarded, startTimer, status]);
 
   // --- Auto-Generate Logic for Yesterday ---
   useEffect(() => {
@@ -313,6 +341,12 @@ const App: React.FC = () => {
     setSchedule(configWithEnabled);
     localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
     setIsSettingsModalOpen(false);
+
+    if (configWithEnabled.enabled) {
+      scheduleWakeUpNotification(configWithEnabled.startTime, configWithEnabled.daysOfWeek, DEFAULT_INTERVAL_MS);        
+    } else {
+      cancelWakeUpNotification();
+    }
   };
 
   const handleOnboardingComplete = (goal: UserGoal, config: ScheduleConfig) => {
@@ -326,6 +360,9 @@ const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
       setSchedule(configWithEnabled);
       setHasOnboarded(true);
+      
+      scheduleWakeUpNotification(configWithEnabled.startTime, configWithEnabled.daysOfWeek, DEFAULT_INTERVAL_MS);
+
       setTimeout(() => {
          const now = new Date();
          const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -445,8 +482,11 @@ const App: React.FC = () => {
     } else {
        setStatus(AppStatus.IDLE);
        setIsPaused(false);
+       if (schedule.enabled) {
+          scheduleWakeUpNotification(schedule.startTime, schedule.daysOfWeek, DEFAULT_INTERVAL_MS);
+       }
     }
-  }, [startTimer, isWithinSchedule, isManualEntry]);
+  }, [startTimer, isWithinSchedule, isManualEntry, schedule]);
 
   const handleLogClose = () => {
     setIsEntryModalOpen(false);
@@ -458,6 +498,9 @@ const App: React.FC = () => {
        } else {
           setStatus(AppStatus.IDLE);
           setIsPaused(false);
+          if (schedule.enabled) {
+              scheduleWakeUpNotification(schedule.startTime, schedule.daysOfWeek, DEFAULT_INTERVAL_MS);
+          }
        }
     }
   };

@@ -136,6 +136,79 @@ export const cancelNotification = async () => {
   }
 };
 
+export const scheduleWakeUpNotification = async (startTime: string, daysOfWeek: number[], durationMs: number) => {
+  try {
+    if (Capacitor.getPlatform() === 'web') return;
+
+    // Calculate next occurrence
+    const now = new Date();
+    const [hours, minutes] = startTime.split(':').map(Number);
+    
+    let nextDate = new Date();
+    nextDate.setHours(hours, minutes, 0, 0);
+
+    // If time has passed for today, start checking from tomorrow
+    if (nextDate <= now) {
+      nextDate.setDate(nextDate.getDate() + 1);
+    }
+
+    // Find the next valid day
+    let attempts = 0;
+    while (!daysOfWeek.includes(nextDate.getDay()) && attempts < 7) {
+      nextDate.setDate(nextDate.getDate() + 1);
+      attempts++;
+    }
+
+    if (attempts >= 7) return; // No valid days
+
+    // Cancel existing wake up
+    await cancelWakeUpNotification();
+
+    // 1. Schedule "Timer Started" notification at the start time
+    await LocalNotifications.schedule({
+      notifications: [{
+        title: "Good Morning",
+        body: "Your daily timer has started automatically.",
+        id: 2, 
+        schedule: { at: nextDate },
+        sound: 'beep.wav',
+        smallIcon: 'ic_stat_icon_config_sample',
+        channelId: CHANNEL_ID,
+      }]
+    });
+
+    // 2. Pre-schedule the first "Time's Up" notification
+    // This makes it act as if the timer was running, even if the app is closed.
+    const endTime = new Date(nextDate.getTime() + durationMs);
+    
+    await LocalNotifications.schedule({
+      notifications: [{
+        title: "Time's up.",
+        body: "What did you do?",
+        id: 1, // Main Timer ID
+        schedule: { at: endTime },
+        sound: 'beep.wav',
+        smallIcon: 'ic_stat_icon_config_sample',
+        channelId: CHANNEL_ID,
+        actionTypeId: 'LOG_ACTIVITY',
+      }]
+    });
+
+    console.log("Scheduled auto-start for:", nextDate);
+  } catch (e) {
+    console.error("Failed to schedule wake up", e);
+  }
+};
+
+export const cancelWakeUpNotification = async () => {
+    try {
+        if (Capacitor.getPlatform() === 'web') return;
+        await LocalNotifications.cancel({ notifications: [{ id: 2 }] });
+    } catch (e) {
+        // Ignore
+    }
+};
+
 export const sendNotification = async (title: string, body: string, isTest: boolean = false) => {
   // Use a very short delay for immediate notifications to ensure execution order
   return scheduleNotification(title, body, 100); 
