@@ -27,6 +27,7 @@ export interface AIReport {
   summary: string; // Brief version for notifications/previews
   timestamp: number;
   period: string;
+  logCount: number; // NEW: Tracks log count at generation time
 }
 
 export const DEFAULT_INTERVAL_MINUTES = 15;

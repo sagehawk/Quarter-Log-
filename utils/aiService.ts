@@ -1,11 +1,12 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { LogEntry, UserGoal } from "../types";
+import { LogEntry, UserGoal, ScheduleConfig } from "../types";
 
 export const generateAIReport = async (
   logs: LogEntry[],
   period: string, // 'Day', 'Week', 'Month'
   goal: UserGoal,
+  schedule: ScheduleConfig,
   type: 'FULL' | 'BRIEF' = 'FULL'
 ): Promise<string> => {
   
@@ -47,7 +48,12 @@ export const generateAIReport = async (
       break;
   }
 
-  // 3. Construct Prompt based on Type
+  // 3. Format Schedule Info
+  const scheduleInfo = schedule.enabled 
+    ? `Working Hours: ${schedule.startTime} to ${schedule.endTime}. Active Days: ${schedule.daysOfWeek.join(',')}.` 
+    : "Schedule: Flexible/24-7.";
+
+  // 4. Construct Prompt based on Type
   let prompt = "";
   
   if (type === 'BRIEF') {
@@ -55,6 +61,7 @@ export const generateAIReport = async (
       Analyze these logs for a ${period}.
       GOAL: ${goal}
       TONE: ${tone}
+      SCHEDULE: ${scheduleInfo}
       
       LOGS:
       ${logText}
@@ -69,6 +76,7 @@ export const generateAIReport = async (
       Analyze these logs for a ${period}.
       GOAL: ${goal}
       TONE: ${tone}
+      SCHEDULE: ${scheduleInfo}
 
       LOGS:
       ${logText}

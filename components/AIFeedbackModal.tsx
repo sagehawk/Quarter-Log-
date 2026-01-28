@@ -8,6 +8,7 @@ interface AIFeedbackModalProps {
   report: string | null;
   period: string;
   isSaved?: boolean;
+  canUpdate?: boolean; // New Prop
   onClose: () => void;
   onGenerate: () => void;
 }
@@ -18,6 +19,7 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
   report, 
   period,
   isSaved = false,
+  canUpdate = false,
   onClose,
   onGenerate 
 }) => {
@@ -141,8 +143,8 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
             )}
         </div>
         
-        {/* Footer Actions - Always show Regenerate if report exists and not loading */}
-        {report && !isLoading && (
+        {/* Footer Actions - Show if not loading AND (not saved OR (saved AND update available)) */}
+        {report && !isLoading && (!isSaved || (isSaved && canUpdate)) && (
             <div className="p-4 bg-slate-900 border-t border-slate-800 shrink-0">
                 <button 
                     onClick={() => {

@@ -186,12 +186,12 @@ const App: React.FC = () => {
             const goal = localStorage.getItem(STORAGE_KEY_GOAL) as UserGoal || 'FOCUS';
             
             // Generate BRIEF for Notification
-            const summary = await generateAIReport(yesterdaysLogs, 'Day', goal, 'BRIEF');
+            const summary = await generateAIReport(yesterdaysLogs, 'Day', goal, schedule, 'BRIEF');
             await sendNotification("Daily Report Ready", summary.replace('Report Ready:', '').trim(), false);
             setToast({ title: "Report Ready", message: "Yesterday's analysis is available.", visible: true });
 
             // Generate FULL for Storage (Background)
-            const fullContent = await generateAIReport(yesterdaysLogs, 'Day', goal, 'FULL');
+            const fullContent = await generateAIReport(yesterdaysLogs, 'Day', goal, schedule, 'FULL');
             
             const newReport: AIReport = {
                 id: crypto.randomUUID(),
@@ -199,7 +199,8 @@ const App: React.FC = () => {
                 content: fullContent,
                 summary,
                 timestamp: Date.now(),
-                period: 'D'
+                period: 'D',
+                logCount: yesterdaysLogs.length // Save count
             };
 
             setReports(prev => ({ ...prev, [dateKey]: newReport }));
@@ -209,7 +210,7 @@ const App: React.FC = () => {
         hasCheckedAutoReport.current = true;
     }
 
-  }, [logs, hasOnboarded, reports]);
+  }, [logs, hasOnboarded, reports, schedule]);
 
 
   useEffect(() => {
@@ -585,6 +586,13 @@ const App: React.FC = () => {
       return reports[key] || null;
   }, [viewDate, filter, reports]);
 
+  // Determine if we can update the report
+  const canUpdateReport = useMemo(() => {
+     if (!savedReportForView) return false;
+     // If log count differs, we have new entries (or deletions)
+     return filteredLogs.length !== savedReportForView.logCount;
+  }, [savedReportForView, filteredLogs]);
+
   // --- AI Report Logic ---
   const handleGenerateAIReport = async () => {
       const goal = localStorage.getItem(STORAGE_KEY_GOAL) as UserGoal || 'FOCUS';
@@ -595,11 +603,8 @@ const App: React.FC = () => {
       setAiReportLoading(true);
 
       try {
-        // Run parallel generation of Brief and Full reports to match auto-gen behavior
-        const [summary, content] = await Promise.all([
-            generateAIReport(filteredLogs, periodMap[filter], goal, 'BRIEF'),
-            generateAIReport(filteredLogs, periodMap[filter], goal, 'FULL')
-        ]);
+        // MANUAL GENERATION: Only generate FULL report, no brief notification.
+        const content = await generateAIReport(filteredLogs, periodMap[filter], goal, schedule, 'FULL');
         
         // Save it
         const key = getCurrentDateKey();
@@ -607,19 +612,17 @@ const App: React.FC = () => {
             id: crypto.randomUUID(),
             dateKey: key,
             content: content,
-            summary: summary.replace('Report Ready:', '').trim(),
+            summary: savedReportForView?.summary || "Manual Analysis", // Preserve summary if exists or use placeholder
             timestamp: Date.now(),
-            period: filter
+            period: filter,
+            logCount: filteredLogs.length // Capture current count
         };
         
         setReports(prev => ({ ...prev, [key]: newReport }));
         setAiReportContent(content);
 
-        setToast({ 
-            title: "Analysis Complete", 
-            message: summary.replace('Report Ready:', '').trim(), 
-            visible: true 
-        });
+        // Feedback for completion
+        try { Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
 
       } catch (error) {
         console.error("Manual AI generation failed", error);
@@ -846,6 +849,7 @@ const App: React.FC = () => {
         isLoading={aiReportLoading}
         report={aiReportContent}
         isSaved={!!savedReportForView}
+        canUpdate={canUpdateReport}
         period={filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Quarterly'}
         onClose={() => setIsAIModalOpen(false)}
         onGenerate={handleGenerateAIReport}
