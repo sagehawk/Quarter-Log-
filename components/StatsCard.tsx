@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useRef } from 'react';
 import { LogEntry, ScheduleConfig } from '../types';
 
@@ -75,6 +76,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
         const eMin = parseInt(schedule.endTime.split(':')[1], 10);
         if (eMin > 0) e += 1; 
         if (e <= s) e = 24; 
+        
         return { start: s, end: e };
     };
 
@@ -134,7 +136,29 @@ const StatsCard: React.FC<StatsCardProps> = ({
 
     // --- Range & Bucket Logic ---
     if (filter === 'D') {
-        const { start, end } = getScheduleRange();
+        let { start, end } = getScheduleRange();
+        
+        // Dynamic Expansion: Check if logs exist outside schedule
+        if (processedLogs.length > 0) {
+            let minLogH = 24;
+            let maxLogH = 0;
+            processedLogs.forEach(l => {
+                const h = new Date(l.timestamp).getHours();
+                if (h < minLogH) minLogH = h;
+                if (h > maxLogH) maxLogH = h;
+            });
+            
+            // Expand start
+            if (minLogH < start) start = minLogH;
+            
+            // Expand end (maxLogH is inclusive, end is exclusive boundary)
+            if (maxLogH >= end) end = maxLogH + 1;
+        }
+
+        // Clamp
+        start = Math.max(0, start);
+        end = Math.min(24, end);
+
         const startDate = new Date(now);
         startDate.setHours(start, 0, 0, 0);
         const count = Math.max(1, end - start);
@@ -231,11 +255,11 @@ const StatsCard: React.FC<StatsCardProps> = ({
         // Determine if label should be shown
         let showLabel = !!bucket.label;
         if (filter === 'D') {
-            // First, Last, and every 2 hours (e.g., 0, 2, 4, 6...)
+            // First, Last, and every 2 hours
             const h = bucket.date.getHours();
             const isFirst = index === 0;
             const isLast = index === keys.length - 1;
-            const isTwoHour = h % 2 === 0; // Updated from % 4 to % 2
+            const isTwoHour = h % 2 === 0; 
             showLabel = isFirst || isLast || isTwoHour;
         }
 
