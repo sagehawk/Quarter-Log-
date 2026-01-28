@@ -141,7 +141,8 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
             )}
         </div>
         
-        {report && !isLoading && !isSaved && (
+        {/* Footer Actions - Always show Regenerate if report exists and not loading */}
+        {report && !isLoading && (
             <div className="p-4 bg-slate-900 border-t border-slate-800 shrink-0">
                 <button 
                     onClick={() => {
@@ -150,7 +151,7 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
                     }}
                     className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold uppercase tracking-wide rounded-xl transition-all text-xs"
                 >
-                    Regenerate
+                    {isSaved ? 'Update Analysis' : 'Regenerate'}
                 </button>
             </div>
         )}
