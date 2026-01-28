@@ -13,7 +13,7 @@ import StatsCard from './components/StatsCard';
 import Onboarding from './components/Onboarding';
 import StatusCard from './components/StatusCard';
 import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport } from './types';
-import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification, scheduleWakeUpNotification, cancelWakeUpNotification } from './utils/notifications';
+import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification } from './utils/notifications';
 import { generateAIReport } from './utils/aiService';
 
 const STORAGE_KEY_LOGS = 'quarterlog_entries';
@@ -81,7 +81,6 @@ const App: React.FC = () => {
   const endTimeRef = useRef<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const hasCheckedAutoReport = useRef(false);
-  const hasCheckedAutoStart = useRef(false);
 
   // Load initial data
   useEffect(() => {
@@ -133,16 +132,10 @@ const App: React.FC = () => {
               setStatus(AppStatus.RUNNING);
               workerRef.current.postMessage({ command: 'start' });
           } else {
-              // Delay opening modal to allow Notification Action to process first (if app opened via action)
-              setTimeout(() => {
-                  // Re-check if target still exists (it might have been cleared by handleLogSave)
-                  if (localStorage.getItem(STORAGE_KEY_TIMER_TARGET)) {
-                      endTimeRef.current = null;
-                      localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
-                      setStatus(AppStatus.WAITING_FOR_INPUT);
-                      setIsEntryModalOpen(true);
-                  }
-              }, 1000);
+              endTimeRef.current = null;
+              localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
+              setStatus(AppStatus.WAITING_FOR_INPUT);
+              setIsEntryModalOpen(true);
           }
       }
 
@@ -160,33 +153,6 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(reports));
   }, [reports]);
-
-  // Check for auto-start on load
-  useEffect(() => {
-    if (hasCheckedAutoStart.current || !schedule.enabled || !hasOnboarded) return;
-    
-    const now = new Date();
-    // Check if today is active
-    if (!schedule.daysOfWeek.includes(now.getDay())) {
-        hasCheckedAutoStart.current = true;
-        return;
-    }
-
-    const [startH, startM] = schedule.startTime.split(':').map(Number);
-    const startDate = new Date();
-    startDate.setHours(startH, startM, 0, 0);
-
-    const firstEndTime = new Date(startDate.getTime() + DEFAULT_INTERVAL_MS);
-    
-    // If we are in the "First Interval" of the day and timer is IDLE
-    if (now >= startDate && now < firstEndTime && status === AppStatus.IDLE) {
-       console.log("Auto-start sync detected");
-       const remaining = firstEndTime.getTime() - now.getTime();
-       startTimer(remaining);
-    }
-    
-    hasCheckedAutoStart.current = true;
-  }, [schedule, hasOnboarded, startTimer, status]);
 
   // --- Auto-Generate Logic for Yesterday ---
   useEffect(() => {
@@ -341,12 +307,6 @@ const App: React.FC = () => {
     setSchedule(configWithEnabled);
     localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
     setIsSettingsModalOpen(false);
-
-    if (configWithEnabled.enabled) {
-      scheduleWakeUpNotification(configWithEnabled.startTime, configWithEnabled.daysOfWeek, DEFAULT_INTERVAL_MS);        
-    } else {
-      cancelWakeUpNotification();
-    }
   };
 
   const handleOnboardingComplete = (goal: UserGoal, config: ScheduleConfig) => {
@@ -360,9 +320,6 @@ const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
       setSchedule(configWithEnabled);
       setHasOnboarded(true);
-      
-      scheduleWakeUpNotification(configWithEnabled.startTime, configWithEnabled.daysOfWeek, DEFAULT_INTERVAL_MS);
-
       setTimeout(() => {
          const now = new Date();
          const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -482,11 +439,8 @@ const App: React.FC = () => {
     } else {
        setStatus(AppStatus.IDLE);
        setIsPaused(false);
-       if (schedule.enabled) {
-          scheduleWakeUpNotification(schedule.startTime, schedule.daysOfWeek, DEFAULT_INTERVAL_MS);
-       }
     }
-  }, [startTimer, isWithinSchedule, isManualEntry, schedule]);
+  }, [startTimer, isWithinSchedule, isManualEntry]);
 
   const handleLogClose = () => {
     setIsEntryModalOpen(false);
@@ -498,9 +452,6 @@ const App: React.FC = () => {
        } else {
           setStatus(AppStatus.IDLE);
           setIsPaused(false);
-          if (schedule.enabled) {
-              scheduleWakeUpNotification(schedule.startTime, schedule.daysOfWeek, DEFAULT_INTERVAL_MS);
-          }
        }
     }
   };
@@ -524,12 +475,7 @@ const App: React.FC = () => {
                 setStatus(AppStatus.RUNNING);
                 workerRef.current?.postMessage({ command: 'start' });
             } else {
-                // Delay to allow notification action to process
-                setTimeout(() => {
-                    if (localStorage.getItem(STORAGE_KEY_TIMER_TARGET)) {
-                        handleTimerComplete();
-                    }
-                }, 1000);
+                handleTimerComplete();
             }
         }
       }
@@ -735,7 +681,7 @@ const App: React.FC = () => {
           pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5
           flex justify-between items-center
           ${isScrolled 
-            ? 'bg-slate-950/70 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/20' 
+            ? 'bg-brand-950/80 backdrop-blur-xl border-white/5 shadow-2xl shadow-black/20' 
             : 'bg-transparent border-transparent'}
         `}
       >
@@ -745,7 +691,7 @@ const App: React.FC = () => {
            </div>
            <div>
              <h1 className="font-black text-2xl tracking-tighter uppercase text-white leading-none drop-shadow-sm italic">Time Log</h1>
-             <p className={`text-[10px] font-extrabold tracking-widest uppercase mt-0.5 transition-colors duration-300 ${isScrolled ? 'text-slate-400' : 'text-brand-400'}`}>Stop Wasting Time</p>
+             <p className={`text-[10px] font-extrabold tracking-widest uppercase mt-0.5 transition-colors duration-300 ${isScrolled ? 'text-brand-300' : 'text-brand-400'}`}>Stop Wasting Time</p>
            </div>
         </div>
         
@@ -755,7 +701,7 @@ const App: React.FC = () => {
                 try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
                 setIsSettingsModalOpen(true);
             }}
-            className="text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 p-2.5 rounded-xl transition-all hover:shadow-lg border border-transparent hover:border-white/10"
+            className="text-brand-100 hover:text-white bg-white/5 hover:bg-white/10 p-2.5 rounded-xl transition-all hover:shadow-lg border border-transparent hover:border-white/10"
             title="Settings"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>

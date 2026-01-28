@@ -165,7 +165,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                 <div className="mt-8 bg-slate-900 border border-slate-800 p-4 rounded-xl text-left">
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Background Activity</p>
                     <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                        Important: If the timer stops when your phone is locked, go to <span className="text-white font-bold">Settings &gt; Battery</span> and set this app to <span className="text-white font-bold">Unrestricted</span>.
+                        Important: If the timer stops when your phone is locked, go to <span className="text-white font-bold">Settings > Battery</span> and set this app to <span className="text-white font-bold">Unrestricted</span>.
                     </p>
                 </div>
             </>
