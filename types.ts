@@ -20,6 +20,8 @@ export interface ScheduleConfig {
 
 export type UserGoal = 'FOCUS' | 'BUSINESS' | 'LIFE';
 
+export type AIPersona = 'TOUGH' | 'LOGIC' | 'KIND';
+
 export interface AIReport {
   id: string;
   dateKey: string; // e.g., "D_2023-10-25" or "W_2023-W42"

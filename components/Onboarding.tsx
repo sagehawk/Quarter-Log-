@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { UserGoal, ScheduleConfig } from '../types';
@@ -78,23 +79,23 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         {/* Step 1: Goal */}
         {step === 1 && (
             <>
-                <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">Choose Your Enemy</h1>
-                <p className="text-slate-400 font-bold uppercase tracking-wide text-xs mb-8">We will calibrate the AI to defeat this.</p>
+                <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">How are you feeling?</h1>
+                <p className="text-slate-400 font-bold uppercase tracking-wide text-xs mb-8">We will help you fix this.</p>
                 
                 <div className="space-y-4">
                     <button onClick={() => handleGoalSelect('FOCUS')} className="w-full bg-slate-900 border border-slate-800 hover:border-brand-500 hover:bg-slate-800 p-6 rounded-2xl transition-all group text-left">
-                        <div className="text-brand-400 font-black uppercase tracking-wider text-xl mb-1 group-hover:text-white">Distraction</div>
-                        <div className="text-slate-400 text-sm font-medium">"I waste time scrolling social media."</div>
+                        <div className="text-brand-400 font-black uppercase tracking-wider text-2xl mb-1 group-hover:text-white">I can't focus</div>
+                        <div className="text-slate-400 text-sm font-medium">"I get distracted easily."</div>
                     </button>
                     
                     <button onClick={() => handleGoalSelect('BUSINESS')} className="w-full bg-slate-900 border border-slate-800 hover:border-emerald-500 hover:bg-slate-800 p-6 rounded-2xl transition-all group text-left">
-                        <div className="text-emerald-400 font-black uppercase tracking-wider text-xl mb-1 group-hover:text-white">Inefficiency</div>
-                        <div className="text-slate-400 text-sm font-medium">"I work hard but make no money."</div>
+                        <div className="text-emerald-400 font-black uppercase tracking-wider text-2xl mb-1 group-hover:text-white">I'm stuck</div>
+                        <div className="text-slate-400 text-sm font-medium">"I'm not making progress."</div>
                     </button>
 
                     <button onClick={() => handleGoalSelect('LIFE')} className="w-full bg-slate-900 border border-slate-800 hover:border-amber-500 hover:bg-slate-800 p-6 rounded-2xl transition-all group text-left">
-                        <div className="text-amber-400 font-black uppercase tracking-wider text-xl mb-1 group-hover:text-white">Burnout</div>
-                        <div className="text-slate-400 text-sm font-medium">"I am overwhelmed and exhausted."</div>
+                        <div className="text-amber-400 font-black uppercase tracking-wider text-2xl mb-1 group-hover:text-white">I'm tired</div>
+                        <div className="text-slate-400 text-sm font-medium">"I feel exhausted."</div>
                     </button>
                 </div>
             </>

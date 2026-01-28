@@ -1,11 +1,12 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { LogEntry, UserGoal, ScheduleConfig } from "../types";
+import { LogEntry, UserGoal, ScheduleConfig, AIPersona } from "../types";
 
 export const generateAIReport = async (
   logs: LogEntry[],
   period: string, // 'Day', 'Week', 'Month'
   goal: UserGoal,
+  persona: AIPersona,
   schedule: ScheduleConfig,
   type: 'FULL' | 'BRIEF' = 'FULL'
 ): Promise<string> => {
@@ -29,69 +30,83 @@ export const generateAIReport = async (
     .map(l => `[${new Date(l.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}] ${l.text}`)
     .join('\n');
 
-  // 2. Define Persona
-  let systemInstruction = "";
-  let tone = "";
-
+  // 2. Define Context based on Goal (What we are fighting)
+  let goalContext = "";
   switch (goal) {
     case 'FOCUS':
-      systemInstruction = "You are a ruthless Drill Sergeant specializing in productivity. Your enemy is Distraction.";
-      tone = "Direct, critical, short, punchy. No fluff.";
+      goalContext = "The user struggles with distraction and focus.";
       break;
     case 'BUSINESS':
-      systemInstruction = "You are a high-end Management Consultant. Your enemy is Stagnation/Low ROI.";
-      tone = "Professional, analytical, dollar-focused. Calculate opportunity cost.";
+      goalContext = "The user feels stuck and wants to be more effective.";
       break;
     case 'LIFE':
-      systemInstruction = "You are a holistic Wellness & Performance Coach. Your enemy is Burnout.";
-      tone = "Empathetic but firm. Focus on energy management.";
+      goalContext = "The user is tired and potentially facing burnout.";
       break;
   }
 
-  // 3. Format Schedule Info
+  // 3. Define Persona/Tone (How we speak)
+  let systemInstruction = "";
+  let tone = "";
+
+  switch (persona) {
+    case 'TOUGH':
+        systemInstruction = "You are a strict Drill Sergeant. You do not accept excuses. You are harsh, direct, and loud.";
+        tone = "Critical, Short, Punchy, Aggressive.";
+        break;
+    case 'LOGIC':
+        systemInstruction = "You are a Data Analyst. You are objective, emotionless, and factual. You care only about efficiency.";
+        tone = "Professional, Analytical, Dry, Concise.";
+        break;
+    case 'KIND':
+        systemInstruction = "You are a supportive Life Coach or best friend. You are gentle, validating, and encouraging. You focus on small wins and mental well-being.";
+        tone = "Warm, Gentle, Optimistic, Forgiving.";
+        break;
+    default:
+        systemInstruction = "You are a helpful assistant.";
+        tone = "Neutral.";
+  }
+
+  // 4. Format Schedule Info
   const scheduleInfo = schedule.enabled 
     ? `Working Hours: ${schedule.startTime} to ${schedule.endTime}. Active Days: ${schedule.daysOfWeek.join(',')}.` 
     : "Schedule: Flexible/24-7.";
 
-  // 4. Construct Prompt based on Type
+  // 5. Construct Prompt based on Type
   let prompt = "";
   
   if (type === 'BRIEF') {
       prompt = `
       Analyze these logs for a ${period}.
-      GOAL: ${goal}
-      TONE: ${tone}
+      USER CONTEXT: ${goalContext}
+      YOUR PERSONA: ${tone}
       SCHEDULE: ${scheduleInfo}
       
       LOGS:
       ${logText}
 
       TASK:
-      Write a single, 1-sentence notification summary (max 15 words).
-      Start with "Report Ready:" and then give a punchy summary of how they did.
-      Example: "Report Ready: You wasted 3 hours on social media today."
+      Write a single, 1-sentence notification summary (max 15 words) acting in your PERSONA.
+      Start with "Report Ready:" and then give the summary.
       `;
   } else {
       prompt = `
       Analyze these logs for a ${period}.
-      GOAL: ${goal}
-      TONE: ${tone}
+      USER CONTEXT: ${goalContext}
+      YOUR PERSONA: ${tone}
       SCHEDULE: ${scheduleInfo}
 
       LOGS:
       ${logText}
 
       TASK:
-      Provide a high-impact report (max 250 words).
+      Provide a report (max 200 words) acting strictly in your PERSONA.
       
       STRUCTURE (Use Markdown):
-      1. **Score**: (0-100)
-      2. ### The Good
-         - (Bullet point big win)
-      3. ### The Bad
-         - (Bullet point main waste/risk)
-      4. ### Action Plan
-         - (One concrete advice)
+      1. **Score**: (0-100) - Be generous if Kind, harsh if Tough.
+      2. ### Analysis
+         - (What went right and what went wrong, based on your persona)
+      3. ### Advice
+         - (One concrete step to take next)
 
       FORMATTING RULES:
       - Use **Bold** for emphasis.

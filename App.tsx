@@ -20,6 +20,7 @@ const STORAGE_KEY_LOGS = 'quarterlog_entries';
 const STORAGE_KEY_SCHEDULE = 'quarterlog_schedule';
 const STORAGE_KEY_ONBOARDED = 'quarterlog_onboarded';
 const STORAGE_KEY_GOAL = 'quarterlog_goal';
+const STORAGE_KEY_PERSONA = 'quarterlog_persona';
 const STORAGE_KEY_TIMER_TARGET = 'quarterlog_timer_target';
 const STORAGE_KEY_REPORTS = 'quarterlog_ai_reports';
 
@@ -182,14 +183,15 @@ const App: React.FC = () => {
         
         const runAutoGen = async () => {
             const goal = localStorage.getItem(STORAGE_KEY_GOAL) as UserGoal || 'FOCUS';
+            const persona = localStorage.getItem(STORAGE_KEY_PERSONA) as any || 'LOGIC';
             
             // Generate BRIEF for Notification
-            const summary = await generateAIReport(yesterdaysLogs, 'Day', goal, schedule, 'BRIEF');
+            const summary = await generateAIReport(yesterdaysLogs, 'Day', goal, persona, schedule, 'BRIEF');
             await sendNotification("Daily Report Ready", summary.replace('Report Ready:', '').trim(), false);
             setToast({ title: "Report Ready", message: "Yesterday's analysis is available.", visible: true });
 
             // Generate FULL for Storage (Background)
-            const fullContent = await generateAIReport(yesterdaysLogs, 'Day', goal, schedule, 'FULL');
+            const fullContent = await generateAIReport(yesterdaysLogs, 'Day', goal, persona, schedule, 'FULL');
             
             const newReport: AIReport = {
                 id: crypto.randomUUID(),
@@ -311,6 +313,10 @@ const App: React.FC = () => {
       const configWithEnabled = { ...config, enabled: true };
       localStorage.setItem(STORAGE_KEY_ONBOARDED, 'true');
       localStorage.setItem(STORAGE_KEY_GOAL, goal);
+      // Set Default Persona based on Goal
+      const defaultPersona = goal === 'LIFE' ? 'KIND' : goal === 'BUSINESS' ? 'LOGIC' : 'TOUGH';
+      localStorage.setItem(STORAGE_KEY_PERSONA, defaultPersona);
+
       localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
       setSchedule(configWithEnabled);
       setHasOnboarded(true);
@@ -598,6 +604,8 @@ const App: React.FC = () => {
   // --- AI Report Logic ---
   const handleGenerateAIReport = async () => {
       const goal = localStorage.getItem(STORAGE_KEY_GOAL) as UserGoal || 'FOCUS';
+      const persona = localStorage.getItem(STORAGE_KEY_PERSONA) as any || 'LOGIC';
+      
       const periodMap: Record<FilterType, string> = {
           'D': 'Day', 'W': 'Week', 'M': 'Month', '3M': 'Quarter', 'Y': 'Year'
       };
@@ -606,7 +614,7 @@ const App: React.FC = () => {
 
       try {
         // MANUAL GENERATION: Only generate FULL report, no brief notification.
-        const content = await generateAIReport(filteredLogs, periodMap[filter], goal, schedule, 'FULL');
+        const content = await generateAIReport(filteredLogs, periodMap[filter], goal, persona, schedule, 'FULL');
         
         // Save it
         const key = getCurrentDateKey();

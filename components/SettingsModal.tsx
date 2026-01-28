@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
+import { Share } from '@capacitor/share';
 import { keepAwake } from '../utils/sound';
 import { sendNotification, requestNotificationPermission } from '../utils/notifications';
-import { LogEntry, ScheduleConfig, UserGoal } from '../types';
+import { LogEntry, ScheduleConfig, UserGoal, AIPersona } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -28,11 +30,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     daysOfWeek: [1, 2, 3, 4, 5]
   });
   const [goal, setGoal] = useState<UserGoal>('FOCUS');
+  const [persona, setPersona] = useState<AIPersona>('LOGIC');
 
   useEffect(() => {
     if (isOpen) {
         const storedGoal = localStorage.getItem('quarterlog_goal') as UserGoal;
         if (storedGoal) setGoal(storedGoal);
+        
+        const storedPersona = localStorage.getItem('quarterlog_persona') as AIPersona;
+        if (storedPersona) setPersona(storedPersona);
+        
         if (schedule) {
             setLocalSchedule({ ...schedule, enabled: true }); // Enforce enabled
         }
@@ -42,6 +49,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleGoalChange = (newGoal: UserGoal) => {
       setGoal(newGoal);
       localStorage.setItem('quarterlog_goal', newGoal);
+  };
+
+  const handlePersonaChange = (newPersona: AIPersona) => {
+      setPersona(newPersona);
+      localStorage.setItem('quarterlog_persona', newPersona);
   };
 
   const handleTestAlert = () => {
@@ -89,6 +101,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     onClose();
   };
 
+  const handleShare = async () => {
+      try {
+          await Share.share({
+              title: 'Time Log: Stop Wasting Time',
+              text: 'I am using this app to audit my time and improve productivity. Check it out:',
+              url: 'https://play.google.com/store/apps/details?id=com.quarterlog.app',
+              dialogTitle: 'Share App',
+          });
+      } catch (e) {
+          // Ignore dismissals
+      }
+  };
+
+  const handleRate = () => {
+      window.open('https://play.google.com/store/apps/details?id=com.quarterlog.app', '_system');
+  };
+
   if (!isOpen) return null;
 
   const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -103,25 +132,81 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         <h2 className="text-2xl font-black text-white mb-6 text-center uppercase tracking-widest italic">Settings</h2>
         
         {/* Goal Section */}
-        <div className="mb-8">
-            <label className="text-[10px] uppercase font-black text-slate-500 block mb-3 tracking-wider">What are you fighting?</label>
-            <div className="grid grid-cols-3 gap-2">
-                {(['FOCUS', 'BUSINESS', 'LIFE'] as UserGoal[]).map((g) => (
-                    <button
-                        key={g}
-                        onClick={() => handleGoalChange(g)}
-                        className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-wider border-2 transition-all ${
-                            goal === g 
-                            ? 'bg-brand-600 border-brand-500 text-white shadow-lg' 
-                            : 'bg-slate-800 border-transparent text-slate-500 hover:bg-slate-700'
-                        }`}
-                    >
-                        {g === 'FOCUS' ? 'Distraction' : g === 'BUSINESS' ? 'Stagnation' : 'Burnout'}
-                    </button>
-                ))}
+        <div className="mb-6">
+            <label className="text-[10px] uppercase font-black text-slate-500 block mb-3 tracking-wider">How are you feeling?</label>
+            <div className="grid grid-cols-1 gap-2">
+                <button
+                    onClick={() => handleGoalChange('FOCUS')}
+                    className={`py-3 px-4 rounded-xl text-left transition-all border-2 ${
+                        goal === 'FOCUS' 
+                        ? 'bg-brand-600 border-brand-500 text-white shadow-lg' 
+                        : 'bg-slate-800 border-transparent text-slate-400 hover:bg-slate-700'
+                    }`}
+                >
+                    <div className="text-sm font-black uppercase tracking-wider">I can't focus</div>
+                </button>
+                <button
+                    onClick={() => handleGoalChange('BUSINESS')}
+                    className={`py-3 px-4 rounded-xl text-left transition-all border-2 ${
+                        goal === 'BUSINESS' 
+                        ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' 
+                        : 'bg-slate-800 border-transparent text-slate-400 hover:bg-slate-700'
+                    }`}
+                >
+                     <div className="text-sm font-black uppercase tracking-wider">I'm stuck</div>
+                </button>
+                <button
+                    onClick={() => handleGoalChange('LIFE')}
+                    className={`py-3 px-4 rounded-xl text-left transition-all border-2 ${
+                        goal === 'LIFE' 
+                        ? 'bg-amber-600 border-amber-500 text-white shadow-lg' 
+                        : 'bg-slate-800 border-transparent text-slate-400 hover:bg-slate-700'
+                    }`}
+                >
+                     <div className="text-sm font-black uppercase tracking-wider">I'm tired</div>
+                </button>
+            </div>
+        </div>
+
+        {/* Persona Section */}
+        <div className="mb-6">
+            <label className="text-[10px] uppercase font-black text-slate-500 block mb-3 tracking-wider">How should the AI talk?</label>
+            <div className="flex gap-2">
+                <button
+                    onClick={() => handlePersonaChange('TOUGH')}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider border-2 transition-all ${
+                        persona === 'TOUGH' 
+                        ? 'bg-red-900/50 border-red-500 text-red-100' 
+                        : 'bg-slate-800 border-transparent text-slate-500 hover:bg-slate-700'
+                    }`}
+                >
+                    Tough
+                </button>
+                <button
+                    onClick={() => handlePersonaChange('LOGIC')}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider border-2 transition-all ${
+                        persona === 'LOGIC' 
+                        ? 'bg-blue-900/50 border-blue-500 text-blue-100' 
+                        : 'bg-slate-800 border-transparent text-slate-500 hover:bg-slate-700'
+                    }`}
+                >
+                    Logic
+                </button>
+                <button
+                    onClick={() => handlePersonaChange('KIND')}
+                    className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider border-2 transition-all ${
+                        persona === 'KIND' 
+                        ? 'bg-pink-900/50 border-pink-400 text-pink-100' 
+                        : 'bg-slate-800 border-transparent text-slate-500 hover:bg-slate-700'
+                    }`}
+                >
+                    Be Kind
+                </button>
             </div>
             <p className="text-[10px] text-slate-500 mt-2 text-center font-bold uppercase tracking-wide">
-               Changes the AI Prompt logic.
+               {persona === 'TOUGH' && "Drill Sergeant mode."}
+               {persona === 'LOGIC' && "Just the facts."}
+               {persona === 'KIND' && "Supportive and gentle."}
              </p>
         </div>
 
@@ -241,6 +326,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
         </div>
         
+        {/* Divider */}
+        <div className="h-0.5 bg-slate-800 my-6"></div>
+
+        {/* Share & Rate Section */}
+        <div className="grid grid-cols-2 gap-3 mb-2">
+            <button 
+                onClick={handleShare}
+                className="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95 group"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 group-hover:text-white"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                <span className="text-[10px] font-black uppercase text-slate-400 group-hover:text-white tracking-widest">Share App</span>
+            </button>
+             <button 
+                onClick={handleRate}
+                className="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95 group"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 group-hover:text-amber-400"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                <span className="text-[10px] font-black uppercase text-slate-400 group-hover:text-white tracking-widest">Rate Us</span>
+            </button>
+        </div>
+
         <div className="mt-6 pt-4 border-t-2 border-slate-800">
             <button
               type="button"
