@@ -132,10 +132,16 @@ const App: React.FC = () => {
               setStatus(AppStatus.RUNNING);
               workerRef.current.postMessage({ command: 'start' });
           } else {
-              endTimeRef.current = null;
-              localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
-              setStatus(AppStatus.WAITING_FOR_INPUT);
-              setIsEntryModalOpen(true);
+              // Delay opening modal to allow Notification Action to process first (if app opened via action)
+              setTimeout(() => {
+                  // Re-check if target still exists (it might have been cleared by handleLogSave)
+                  if (localStorage.getItem(STORAGE_KEY_TIMER_TARGET)) {
+                      endTimeRef.current = null;
+                      localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
+                      setStatus(AppStatus.WAITING_FOR_INPUT);
+                      setIsEntryModalOpen(true);
+                  }
+              }, 1000);
           }
       }
 
@@ -475,7 +481,12 @@ const App: React.FC = () => {
                 setStatus(AppStatus.RUNNING);
                 workerRef.current?.postMessage({ command: 'start' });
             } else {
-                handleTimerComplete();
+                // Delay to allow notification action to process
+                setTimeout(() => {
+                    if (localStorage.getItem(STORAGE_KEY_TIMER_TARGET)) {
+                        handleTimerComplete();
+                    }
+                }, 1000);
             }
         }
       }
