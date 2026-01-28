@@ -28,6 +28,7 @@ export interface AIReport {
   timestamp: number;
   period: string;
   logCount: number; // NEW: Tracks log count at generation time
+  read?: boolean; // Tracks if the user has opened/seen this report
 }
 
 export const DEFAULT_INTERVAL_MINUTES = 15;

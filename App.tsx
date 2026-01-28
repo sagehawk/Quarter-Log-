@@ -200,7 +200,8 @@ const App: React.FC = () => {
                 summary,
                 timestamp: Date.now(),
                 period: 'D',
-                logCount: yesterdaysLogs.length // Save count
+                logCount: yesterdaysLogs.length,
+                read: false // Mark as unread so user sees indicator
             };
 
             setReports(prev => ({ ...prev, [dateKey]: newReport }));
@@ -615,7 +616,8 @@ const App: React.FC = () => {
             summary: savedReportForView?.summary || "Manual Analysis", // Preserve summary if exists or use placeholder
             timestamp: Date.now(),
             period: filter,
-            logCount: filteredLogs.length // Capture current count
+            logCount: filteredLogs.length, // Capture current count
+            read: true // Manual generation implies user is viewing it immediately
         };
         
         setReports(prev => ({ ...prev, [key]: newReport }));
@@ -636,6 +638,13 @@ const App: React.FC = () => {
   const handleOpenAIModal = () => {
       if (savedReportForView) {
           setAiReportContent(savedReportForView.content);
+          
+          // If it was unread, mark it as read now that we are opening it
+          if (savedReportForView.read === false) {
+             const updatedReport = { ...savedReportForView, read: true };
+             setReports(prev => ({ ...prev, [savedReportForView.dateKey]: updatedReport }));
+          }
+
       } else {
           setAiReportContent(null);
       }
@@ -775,8 +784,13 @@ const App: React.FC = () => {
                                 )}
                             </div>
                             <div className="text-left">
-                                <h3 className={`font-black uppercase text-sm italic ${savedReportForView ? 'text-emerald-100' : 'text-white'}`}>
+                                <h3 className={`font-black uppercase text-sm italic flex items-center gap-2 ${savedReportForView ? 'text-emerald-100' : 'text-white'}`}>
                                     {savedReportForView ? 'Report Available' : 'AI Intelligence Brief'}
+                                    {savedReportForView && savedReportForView.read === false && (
+                                        <span className="bg-brand-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider animate-pulse">
+                                            New
+                                        </span>
+                                    )}
                                 </h3>
                                 <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wide">
                                     {savedReportForView ? 'Tap to view saved analysis' : `Generate ${filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Period'} Report`}
