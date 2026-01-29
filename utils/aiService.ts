@@ -14,128 +14,96 @@ export const generateAIReport = async (
   const apiKey = process.env.API_KEY;
 
   if (!apiKey) {
-    return "API Key is missing. Please create a .env file and add API_KEY=your_key_here to enable intelligence.";
+    return "API Key is missing. Tactical analysis disabled.";
   }
 
-  // Initialize client here to ensure we use the latest key
   const ai = new GoogleGenAI({ apiKey });
 
   if (!logs || logs.length === 0) {
-    return "No activity logs found for this period.";
+    return "No field data. The leaderboard remains empty.";
   }
 
-  // 1. Format Logs
+  // 1. Calculate Win Rate
+  const totalLogs = logs.length;
+  const wins = logs.filter(l => l.type === 'WIN').length;
+  const losses = logs.filter(l => l.type === 'LOSS').length;
+  const winRate = totalLogs > 0 ? Math.round((wins / totalLogs) * 100) : 0;
+
+  // 2. Format Logs
   const logText = logs
     .sort((a, b) => a.timestamp - b.timestamp)
-    .map(l => `[${new Date(l.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}] ${l.text}`)
+    .map(l => `[${l.type || 'NEUTRAL'}] ${l.text}`)
     .join('\n');
 
-  // 2. Define Context based on Goal (What we are fighting)
-  let goalContext = "";
-  switch (goal) {
-    case 'FOCUS':
-      goalContext = "The user struggles with distraction and focus.";
-      break;
-    case 'BUSINESS':
-      goalContext = "The user feels stuck and wants to be more effective.";
-      break;
-    case 'LIFE':
-      goalContext = "The user is tired and potentially facing burnout.";
-      break;
-  }
+  // 3. Define Context
+  const systemInstruction = `You are "The Cornerman." Your job is to build a winner. You analyze a user's 15-minute "Win/Loss" blocks. 
+  Winning raises testosterone and momentum. Losing triggers a downward spiral. 
+  Your tone is High-Status, Tactical, and Direct. 
+  You use terms like: Momentum, The Leaderboard, Hierarchy, Biological Edge, and Stacking Wins. 
+  You are not a therapist. You are a coach for a high-performance athlete/executive. 
+  Speak in short, powerful sentences. 5th-grade reading level.`;
 
-  // 3. Define Persona/Tone (How we speak)
-  let systemInstruction = "";
-  let tone = "";
+  const tone = "Tactical, Dominant, Direct, Momentum-focused. 5th-grade reading level.";
 
-  switch (persona) {
-    case 'TOUGH':
-        systemInstruction = "You are a strict Drill Sergeant. You do not accept excuses. You are harsh, direct, and loud. Use short, simple sentences. No big words.";
-        tone = "Critical, Short, Punchy, Aggressive. 5th-grade reading level.";
-        break;
-    case 'LOGIC':
-        systemInstruction = "You are a Data Analyst. You are objective, emotionless, and factual. You care only about efficiency. Use plain English. No corporate jargon.";
-        tone = "Professional, Analytical, Dry, Concise. 5th-grade reading level.";
-        break;
-    case 'KIND':
-        systemInstruction = "You are a supportive Life Coach or best friend. You are gentle, validating, and encouraging. Use simple, warm words. No complex metaphors.";
-        tone = "Warm, Gentle, Optimistic, Forgiving. 5th-grade reading level.";
-        break;
-    default:
-        systemInstruction = "You are a helpful assistant. Use simple language.";
-        tone = "Neutral. Simple.";
-  }
-
-  // 4. Format Schedule Info
-  const scheduleInfo = schedule.enabled 
-    ? `Working Hours: ${schedule.startTime} to ${schedule.endTime}. Active Days: ${schedule.daysOfWeek.join(',')}.` 
-    : "Schedule: Flexible/24-7.";
-
-  // 5. Construct Prompt based on Type
+  // 4. Construct Prompt
   let prompt = "";
   
   if (type === 'BRIEF') {
       prompt = `
-      Analyze these logs for a ${period}.
-      USER CONTEXT: ${goalContext}
+      Analyze these tactical logs for a ${period}.
+      WIN RATE: ${winRate}% (${wins} Wins, ${losses} Losses)
       YOUR PERSONA: ${tone}
-      SCHEDULE: ${scheduleInfo}
-      LANGUAGE LEVEL: Very simple, easy to read, 5th-grade level.
       
       LOGS:
       ${logText}
 
       TASK:
-      Write a single, 1-sentence notification summary (max 15 words) acting in your PERSONA.
+      Write a single, 1-sentence tactical summary (max 15 words).
       Start with "Report Ready:" and then give the summary.
+      Focus on the momentum.
       `;
   } else {
       prompt = `
-      Analyze these logs for a ${period}.
-      USER CONTEXT: ${goalContext}
+      Analyze these tactical logs for a ${period}.
+      WIN RATE: ${winRate}% (${wins} Wins, ${losses} Losses)
       YOUR PERSONA: ${tone}
-      SCHEDULE: ${scheduleInfo}
-      LANGUAGE LEVEL: Very simple, easy to read, 5th-grade level. No complex vocabulary. People are busy, make it easy to skim.
 
       LOGS:
       ${logText}
 
       TASK:
-      Provide a report (max 200 words) acting strictly in your PERSONA.
+      Provide a tactical report (max 200 words).
       
       STRUCTURE (Use Markdown):
-      **Score**: (0-100) - Be generous if Kind, harsh if Tough.
+      **Momentum Score**: ${winRate}%
 
-      ### Analysis
-      - (What went right and what went wrong. Keep it simple and direct.)
+      ### Tactical Analysis
+      - (Analyze the Win/Loss distribution. Identify where momentum was gained or bled out.)
 
-      ### Advice
-      - (One concrete step to take next. Use simple words.)
+      ### The Command
+      - (Give one direct order to improve status or protect the streak.)
 
       FORMATTING RULES:
       - Use **Bold** for emphasis.
-      - Use *Italics* for tone.
+      - Use *Italics* for tactical terminology.
       - Use ### for Section Headers.
-      - Do NOT number the headers.
+      - No corporate jargon. Primal and biological focus.
       `;
   }
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: prompt,
       config: {
         systemInstruction: systemInstruction,
-        temperature: 0.7,
+        temperature: 0.8,
       }
     });
 
-    return response.text || "Could not generate report.";
+    return response.text || "Could not analyze the battlefield.";
   } catch (error: any) {
     console.error("AI Generation Error:", error);
-    if (error.message?.includes("API key")) {
-        return "Invalid API Key. Please check your .env configuration.";
-    }
-    return "Error connecting to AI. Please try again later.";
+    return "The Cornerman is currently unavailable. Hold your position.";
   }
 };

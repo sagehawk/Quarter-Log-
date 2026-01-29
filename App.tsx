@@ -16,13 +16,13 @@ import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIR
 import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification } from './utils/notifications';
 import { generateAIReport } from './utils/aiService';
 
-const STORAGE_KEY_LOGS = 'quarterlog_entries';
-const STORAGE_KEY_SCHEDULE = 'quarterlog_schedule';
-const STORAGE_KEY_ONBOARDED = 'quarterlog_onboarded';
-const STORAGE_KEY_GOAL = 'quarterlog_goal';
-const STORAGE_KEY_PERSONA = 'quarterlog_persona';
-const STORAGE_KEY_TIMER_TARGET = 'quarterlog_timer_target';
-const STORAGE_KEY_REPORTS = 'quarterlog_ai_reports';
+const STORAGE_KEY_LOGS = 'ironlog_entries';
+const STORAGE_KEY_SCHEDULE = 'ironlog_schedule';
+const STORAGE_KEY_ONBOARDED = 'ironlog_onboarded';
+const STORAGE_KEY_GOAL = 'ironlog_goal';
+const STORAGE_KEY_PERSONA = 'ironlog_persona';
+const STORAGE_KEY_TIMER_TARGET = 'ironlog_timer_target';
+const STORAGE_KEY_REPORTS = 'ironlog_ai_reports';
 
 // Updated filter types
 type FilterType = 'D' | 'W' | 'M' | '3M' | 'Y';
@@ -268,7 +268,7 @@ const App: React.FC = () => {
     endTimeRef.current = targetTime;
     localStorage.setItem(STORAGE_KEY_TIMER_TARGET, targetTime.toString());
     await cancelNotification();
-    await scheduleNotification("What are you doing?", "Tap to log. Be honest.", timeToUse);
+    await scheduleNotification("Win or Loss?", "Declare your status. Stay in the cycle.", timeToUse);
     workerRef.current?.postMessage({ command: 'start' });
     tickLogic(); 
   }, [tickLogic]);
@@ -422,16 +422,37 @@ const App: React.FC = () => {
     setIsEntryModalOpen(true);
   };
 
-  const handleLogSave = useCallback(async (text: string, isFromNotification: boolean = false) => {
+  const handleLogSave = useCallback(async (text: string, type: 'WIN' | 'LOSS' = 'WIN', isFromNotification: boolean = false) => {
     const newLog: LogEntry = {
       id: crypto.randomUUID(),
       timestamp: Date.now(),
       text,
+      type,
     };
+    const updatedLogs = [newLog, ...logs];
     setLogs(prev => [newLog, ...prev]);
     setIsEntryModalOpen(false);
     setToast(prev => ({ ...prev, visible: false }));
-    try { await Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
+    
+    // Check for Down-Regulation (3 losses in a row)
+    const lastThree = updatedLogs.slice(0, 3);
+    if (lastThree.length === 3 && lastThree.every(l => l.type === 'LOSS')) {
+        setToast({
+            title: "EMERGENCY RESET",
+            message: "Downward spiral detected. Go do 20 squats and a power pose NOW.",
+            visible: true
+        });
+        try { await Haptics.notification({ type: NotificationType.Error }); } catch(e) {}
+    } else {
+        try { 
+            if (type === 'WIN') {
+                await Haptics.notification({ type: NotificationType.Success });
+            } else {
+                await Haptics.impact({ style: ImpactStyle.Heavy });
+            }
+        } catch(e) {}
+    }
+
     localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
     setTimeLeft(DEFAULT_INTERVAL_MS);
     if (isWithinSchedule()) {
@@ -440,7 +461,7 @@ const App: React.FC = () => {
        setStatus(AppStatus.IDLE);
        setIsPaused(false);
     }
-  }, [startTimer, isWithinSchedule, isManualEntry]);
+  }, [startTimer, isWithinSchedule, isManualEntry, logs]);
 
   const handleLogClose = () => {
     setIsEntryModalOpen(false);
@@ -665,13 +686,13 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen font-sans pb-[env(safe-area-inset-bottom)]">
+    <div className="min-h-screen font-sans pb-[env(safe-area-inset-bottom)] bg-black text-white">
       
       {/* Fixed Background */}
       <div 
         className="fixed inset-0 -z-50"
         style={{
-          background: 'linear-gradient(135deg, #4a001b 0%, #0f172a 100%)'
+          background: 'radial-gradient(circle at top right, #1e1b4b 0%, #000000 100%)'
         }}
       />
 
@@ -681,17 +702,17 @@ const App: React.FC = () => {
           pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5
           flex justify-between items-center
           ${isScrolled 
-            ? 'bg-brand-950/80 backdrop-blur-xl border-white/5 shadow-2xl shadow-black/20' 
+            ? 'bg-black/80 backdrop-blur-xl border-yellow-500/10 shadow-2xl shadow-black/20' 
             : 'bg-transparent border-transparent'}
         `}
       >
         <div className="relative flex items-center gap-3">
-           <div className={`w-10 h-10 rounded-xl overflow-hidden transition-all duration-500 shadow-lg ${isScrolled ? 'shadow-brand-900/40 ring-0' : 'shadow-brand-500/20 ring-1 ring-white/10'}`}>
-             <img src="https://i.imgur.com/43DnpQe.png" alt="App Icon" className="w-full h-full object-cover" />
+           <div className={`w-10 h-10 rounded-xl overflow-hidden transition-all duration-500 shadow-lg ${isScrolled ? 'shadow-yellow-500/20 ring-0' : 'shadow-yellow-500/10 ring-1 ring-white/10'}`}>
+             <img src="https://i.imgur.com/43DnpQe.png" alt="App Icon" className="w-full h-full object-cover grayscale contrast-125" />
            </div>
            <div>
-             <h1 className="font-black text-2xl tracking-tighter uppercase text-white leading-none drop-shadow-sm italic">Time Log</h1>
-             <p className={`text-[10px] font-extrabold tracking-widest uppercase mt-0.5 transition-colors duration-300 ${isScrolled ? 'text-brand-300' : 'text-brand-400'}`}>Stop Wasting Time</p>
+             <h1 className="font-black text-2xl tracking-tighter uppercase text-white leading-none drop-shadow-sm italic">IronLog</h1>
+             <p className={`text-[9px] font-black tracking-[0.3em] uppercase mt-1 transition-colors duration-300 ${isScrolled ? 'text-yellow-500/80' : 'text-yellow-500/40'}`}>Momentum is Everything</p>
            </div>
         </div>
         
@@ -701,7 +722,7 @@ const App: React.FC = () => {
                 try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
                 setIsSettingsModalOpen(true);
             }}
-            className="text-brand-100 hover:text-white bg-white/5 hover:bg-white/10 p-2.5 rounded-xl transition-all hover:shadow-lg border border-transparent hover:border-white/10"
+            className="text-white/60 hover:text-yellow-500 bg-white/5 hover:bg-yellow-500/10 p-2.5 rounded-xl transition-all border border-transparent hover:border-yellow-500/20"
             title="Settings"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
@@ -730,13 +751,13 @@ const App: React.FC = () => {
         <section className="flex-1 flex flex-col">
           
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-xl font-black text-white tracking-wide uppercase italic">Timeline</h2>
+            <h2 className="text-xl font-black text-white tracking-tight uppercase italic">Battle History</h2>
             <button 
               onClick={handleManualLogStart}
-              className="text-slate-500 hover:text-white px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 opacity-60 hover:opacity-100"
+              className="text-white/40 hover:text-yellow-500 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-white/5 border border-white/5 hover:border-yellow-500/20"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              Log Now
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Manual Win
             </button>
           </div>
           
@@ -754,7 +775,7 @@ const App: React.FC = () => {
           />
 
           <div className="flex justify-center mb-6">
-            <div className="bg-slate-900 p-1.5 rounded-2xl flex items-center justify-between w-full border border-slate-800 shadow-sm">
+            <div className="bg-white/5 p-1 rounded-2xl flex items-center justify-between w-full border border-white/5">
                 {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
                 <button
                     key={f}
@@ -763,8 +784,8 @@ const App: React.FC = () => {
                         setFilter(f);
                         setViewDate(new Date()); 
                     }}
-                    className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-200 ${
-                    filter === f ? 'bg-brand-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                    className={`flex-1 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${
+                    filter === f ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-white/40 hover:text-white hover:bg-white/5'
                     }`}
                 >
                     {f}
@@ -780,9 +801,9 @@ const App: React.FC = () => {
                         try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
                         handleOpenAIModal();
                     }}
-                    className={`flex-1 flex items-center gap-2 py-3 px-4 rounded-xl transition-all border ${savedReportForView ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-brand-400 hover:border-brand-500/30 hover:bg-slate-800'}`}
+                    className={`flex-1 flex items-center gap-3 py-3.5 px-5 rounded-2xl transition-all border ${savedReportForView ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20' : 'bg-white/5 border-white/5 text-white/40 hover:text-yellow-500 hover:border-yellow-500/30 hover:bg-white/10'}`}
                  >
-                    <div className={`p-1.5 rounded-lg ${savedReportForView ? 'bg-emerald-500/20' : 'bg-slate-800'}`}>
+                    <div className={`p-1.5 rounded-lg transition-colors ${savedReportForView ? 'bg-yellow-500/20' : 'bg-white/5'}`}>
                         {savedReportForView ? (
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                         ) : (
@@ -790,27 +811,27 @@ const App: React.FC = () => {
                         )}
                     </div>
                     <div className="flex flex-col items-start">
-                         <span className="text-[10px] font-black uppercase tracking-widest leading-none">
-                             {savedReportForView ? 'View Report' : 'AI Insight'}
+                         <span className="text-[10px] font-black uppercase tracking-[0.2em] leading-none">
+                             {savedReportForView ? 'The Cornerman' : 'Get Insight'}
                          </span>
                          {savedReportForView && savedReportForView.read === false && (
-                            <span className="text-[9px] text-emerald-400 font-bold leading-none mt-1 animate-pulse">New Analysis Available</span>
+                            <span className="text-[8px] text-yellow-500/60 font-black uppercase tracking-widest leading-none mt-1.5 animate-pulse">New Tactical Analysis</span>
                          )}
                          {!savedReportForView && (
-                             <span className="text-[9px] opacity-60 font-medium leading-none mt-1">Generate Analysis</span>
+                             <span className="text-[8px] opacity-40 font-black uppercase tracking-widest leading-none mt-1.5">Analyze Performance</span>
                          )}
                     </div>
                  </button>
 
                  <button 
                     onClick={handleCopyClick}
-                    className="flex items-center justify-center w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 text-slate-500 hover:text-white hover:border-slate-600 transition-all active:scale-95"
-                    title="Copy Logs"
+                    className="flex items-center justify-center w-14 h-14 rounded-2xl bg-white/5 border border-white/5 text-white/40 hover:text-white hover:border-white/20 transition-all active:scale-95 shadow-inner"
+                    title="Export Logs"
                  >
                      {copyFeedback ? (
-                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-500"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500"><polyline points="20 6 9 17 4 12"></polyline></svg>
                      ) : (
-                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                      )}
                  </button>
              </div>

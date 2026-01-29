@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Time Log: Easy Activity Tracker</title>
+    <title>IronLog: Momentum is Everything</title>
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#4a001b" />
-    <link rel="apple-touch-icon" href="https://i.imgur.com/0fFibCf.png">
+    <meta name="theme-color" content="#000000" />
+    <link rel="apple-touch-icon" href="https://i.imgur.com/43DnpQe.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
@@ -17,21 +17,21 @@
           extend: {
             colors: {
               brand: {
-                50: '#fff0f5',
-                100: '#ffdee9',
-                400: '#ff66a3',
-                500: '#ff3380',
-                600: '#ff005c', // Electric Pink to match logo
-                900: '#990038',
-                950: '#4a001b', // Deep Velvet Pink
+                50: '#fefce8',
+                100: '#fef9c3',
+                400: '#facc15',
+                500: '#eab308',
+                600: '#ca8a04', 
+                900: '#713f12',
+                950: '#422006',
               }
             },
             fontFamily: {
               sans: ['"Kanit"', 'sans-serif'],
             },
             animation: {
-              'fade-in': 'fadeIn 0.3s ease-out forwards',
-              'slide-up': 'slideUp 0.3s ease-out forwards',
+              'fade-in': 'fadeIn 0.4s ease-out forwards',
+              'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
             },
             keyframes: {
               fadeIn: {
@@ -39,7 +39,7 @@
                 '100%': { opacity: '1' },
               },
               slideUp: {
-                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '0%': { transform: 'translateY(40px)', opacity: '0' },
                 '100%': { transform: 'translateY(0)', opacity: '1' },
               }
             }
@@ -58,18 +58,16 @@
       }
       
       html {
-        background-color: #4a001b; /* Matches top of gradient to hide grey overscroll */
+        background-color: #000000;
         height: 100%;
       }
 
       body {
-        /* Gradient moved to App.tsx for better mobile support */
         background-color: transparent;
-        color: #e2e8f0;
+        color: #ffffff;
         -webkit-tap-highlight-color: transparent;
         min-height: 100%;
         margin: 0;
-        /* Removed padding-top: env(safe-area-inset-top) to allow full-screen background */
       }
 
       /* Allow interaction with inputs */

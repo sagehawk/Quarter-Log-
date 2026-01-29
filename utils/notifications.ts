@@ -47,14 +47,14 @@ export const configureNotificationChannel = async () => {
     // Using 'beep.wav' - Ensure this file exists in android/app/src/main/res/raw/
     await LocalNotifications.createChannel({
       id: CHANNEL_ID,
-      name: 'QuarterLog Timer',
-      description: 'Alerts for the 15-minute log timer',
+      name: 'IronLog Tactical',
+      description: 'Tactical alerts for the 15-minute cycle',
       importance: 5, // 5 = High Importance (Heads-up notification + Sound + Vibration)
       visibility: 1, // 1 = Public (Visible on lock screen)
       sound: 'beep.wav', // Custom sound filename (without extension in some versions, but 'beep.wav' is safe for Capacitor)
       vibration: true,
       lights: true,
-      lightColor: '#ff005c'
+      lightColor: '#eab308'
     });
   } catch (e) {
     console.error("Failed to create notification channel", e);
@@ -72,10 +72,10 @@ export const registerNotificationActions = async () => {
           actions: [
             {
               id: 'log_input',
-              title: 'Log Activity',
+              title: 'Declare Status',
               input: true,
-              inputPlaceholder: 'What did you do?',
-              inputButtonTitle: 'Save'
+              inputPlaceholder: 'WIN or LOSS?',
+              inputButtonTitle: 'STACK'
             }
           ]
         }

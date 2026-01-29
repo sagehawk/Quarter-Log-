@@ -23,53 +23,53 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, o
   };
 
   return (
-    <div className="w-full bg-black/20 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden group">
+    <div className="w-full bg-white/5 backdrop-blur-md border border-white/10 rounded-[2rem] p-6 shadow-2xl relative overflow-hidden group">
         {/* Glow Effect */}
-        <div className={`absolute -right-10 -top-10 w-32 h-32 rounded-full blur-3xl transition-opacity duration-1000 ${isActive ? 'bg-emerald-500/20 opacity-100' : 'bg-brand-500/10 opacity-50'}`}></div>
+        <div className={`absolute -right-10 -top-10 w-40 h-40 rounded-full blur-[80px] transition-opacity duration-1000 ${isActive ? 'bg-yellow-500/20 opacity-100' : 'bg-white/5 opacity-50'}`}></div>
 
         <div className="relative z-10">
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start mb-6">
                 <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${isActive ? 'text-emerald-400' : 'text-slate-400'}`}>
-                            {isActive ? 'Audit Active' : 'Audit Paused'}
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-yellow-500 animate-pulse shadow-[0_0_10px_rgba(234,179,8,1)]' : 'bg-white/20'}`}></span>
+                        <span className={`text-[10px] font-black uppercase tracking-[0.3em] italic ${isActive ? 'text-yellow-500' : 'text-white/20'}`}>
+                            {isActive ? 'Cycle Active' : 'Cycle Paused'}
                         </span>
                     </div>
-                    <h2 className="text-brand-100 text-xs font-bold uppercase tracking-wide opacity-80">
-                        {isActive ? 'Next Reality Check In' : 'Waiting for schedule'}
+                    <h2 className="text-white/40 text-[9px] font-black uppercase tracking-[0.2em] italic">
+                        {isActive ? 'Next Tactical Decision In' : 'Standing by for cycle'}
                     </h2>
                 </div>
                 <div className="text-right">
-                     <div className="text-[10px] font-black uppercase text-brand-200 tracking-wider opacity-60">Schedule</div>
-                     <div className="text-xs font-bold text-brand-100 tabular-nums">
-                         {schedule.startTime} - {schedule.endTime}
+                     <div className="text-[9px] font-black uppercase text-white/20 tracking-widest italic mb-1">Operational Window</div>
+                     <div className="text-[10px] font-black text-white/60 tracking-tighter italic">
+                         {schedule.startTime} — {schedule.endTime}
                      </div>
                 </div>
             </div>
 
             <div className="flex items-end justify-between">
                 <div className="flex items-baseline gap-1">
-                    <span className={`text-5xl font-black tabular-nums ${isActive ? 'text-white' : 'text-slate-300'}`}>
-                        {minutes}<span className="text-2xl text-slate-400 ml-1 tracking-normal">m</span> {String(seconds).padStart(2, '0')}<span className="text-2xl text-slate-400 ml-1 tracking-normal">s</span>
+                    <span className={`text-6xl font-black tracking-tighter italic tabular-nums ${isActive ? 'text-white' : 'text-white/20'}`}>
+                        {minutes}<span className="text-2xl text-white/20 ml-1 tracking-normal not-italic">m</span> {String(seconds).padStart(2, '0')}<span className="text-2xl text-white/20 ml-1 tracking-normal not-italic">s</span>
                     </span>
                 </div>
                 
                 <button 
                   onClick={handleToggle}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 ${isActive ? 'bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 border border-white/5' : 'bg-brand-600 hover:bg-brand-500 text-white shadow-brand-900/40'}`}
+                  className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-xl active:scale-95 border ${isActive ? 'bg-white/5 hover:bg-white/10 text-white/60 border-white/10' : 'bg-yellow-500 hover:bg-yellow-400 text-black border-yellow-400 shadow-yellow-500/20'}`}
                 >
                     {isActive ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>
                     ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" className="ml-1"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none" className="ml-1"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                     )}
                 </button>
             </div>
             
-            <div className="mt-4 h-1 w-full bg-slate-800/50 rounded-full overflow-hidden">
+            <div className="mt-6 h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
                 <div 
-                    className={`h-full transition-all duration-1000 ease-linear ${isActive ? 'bg-white' : 'bg-slate-500'}`}
+                    className={`h-full transition-all duration-1000 ease-linear ${isActive ? 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-white/10'}`}
                     style={{ width: `${Math.min(100, (timeLeft / (15 * 60 * 1000)) * 100)}%` }}
                 />
             </div>

@@ -3,6 +3,7 @@ export interface LogEntry {
   id: string;
   timestamp: number; // Date.now()
   text: string;
+  type?: 'WIN' | 'LOSS';
 }
 
 export enum AppStatus {

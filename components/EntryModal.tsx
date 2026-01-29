@@ -3,7 +3,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 interface EntryModalProps {
   isOpen: boolean;
-  onSave: (text: string) => void;
+  onSave: (text: string, type: 'WIN' | 'LOSS') => void;
   onClose: () => void;
   isManual?: boolean;
 }
@@ -12,6 +12,7 @@ const MAX_CHARS = 500;
 
 const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManual = false }) => {
   const [text, setText] = useState('');
+  const [type, setType] = useState<'WIN' | 'LOSS' | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -20,6 +21,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
         inputRef.current?.focus();
       }, 100);
       setText('');
+      setType(null);
       // Subtle impact on open
       try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
     }
@@ -27,9 +29,10 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (text.trim()) {
-      onSave(text);
+    if (type) {
+      onSave(text.trim() || (type === 'WIN' ? 'Staked a win.' : 'Took a loss.'), type);
       setText('');
+      setType(null);
     }
   };
 
@@ -39,61 +42,93 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-brand-950/90 backdrop-blur-lg animate-fade-in"
+        className="absolute inset-0 bg-black/95 backdrop-blur-md animate-fade-in"
         onClick={onClose}
       />
       
-      <div className="relative w-full max-w-lg bg-slate-900 border-2 border-white/10 rounded-3xl shadow-2xl p-6 md:p-8 transform transition-all animate-slide-up">
-        <div className="flex justify-between items-start mb-6">
-           <div>
-              <h2 className="text-3xl font-black text-white mb-1 uppercase tracking-tight italic">
-                {isManual ? 'Log Activity' : 'What did you do?'}
-              </h2>
-              <p className="text-slate-400 text-sm font-bold uppercase tracking-wide">
-                {isManual ? 'Detailed or brief—even 1-2 words is fine.' : 'Be honest. Even 1-2 words is enough.'}
-              </p>
-           </div>
-           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 ${isManual ? 'bg-brand-500/10 border-brand-500/30 text-brand-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
-             {isManual ? (
-               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-             ) : (
-               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-             )}
-           </div>
+      <div className="relative w-full max-w-lg bg-[#0a0a0a] border border-yellow-500/20 rounded-[2rem] shadow-[0_0_50px_rgba(234,179,8,0.1)] p-6 md:p-8 transform transition-all animate-slide-up">
+        <div className="text-center mb-8">
+           <h2 className="text-4xl font-black text-white mb-2 uppercase tracking-tighter italic">
+             {isManual ? 'Manual Entry' : 'Win or Loss?'}
+           </h2>
+           <p className="text-yellow-500/60 text-xs font-black uppercase tracking-[0.2em]">
+             {isManual ? 'Declare your status' : 'Did you handle this block like a winner?'}
+           </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mb-8">
+            <button
+              type="button"
+              onClick={() => {
+                setType('WIN');
+                try { Haptics.impact({ style: ImpactStyle.Heavy }); } catch(e) {}
+              }}
+              className={`group relative overflow-hidden flex flex-col items-center justify-center gap-3 py-8 rounded-2xl border-2 transition-all duration-300 ${
+                type === 'WIN' 
+                ? 'bg-yellow-500 border-yellow-400 text-black scale-[1.02] shadow-[0_0_30px_rgba(234,179,8,0.4)]' 
+                : 'bg-yellow-500/5 border-yellow-500/20 text-yellow-500/40 hover:border-yellow-500/40 hover:bg-yellow-500/10'
+              }`}
+            >
+                <div className={`p-3 rounded-xl transition-colors ${type === 'WIN' ? 'bg-black/10' : 'bg-yellow-500/10 group-hover:bg-yellow-500/20'}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </div>
+                <span className="text-xl font-black uppercase tracking-tighter italic">WIN</span>
+                {type === 'WIN' && <div className="absolute top-0 right-0 p-2"><div className="w-2 h-2 bg-black rounded-full animate-pulse" /></div>}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setType('LOSS');
+                try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
+              }}
+              className={`group relative overflow-hidden flex flex-col items-center justify-center gap-3 py-8 rounded-2xl border-2 transition-all duration-300 ${
+                type === 'LOSS' 
+                ? 'bg-red-600 border-red-500 text-white scale-[1.02] shadow-[0_0_30px_rgba(220,38,38,0.4)]' 
+                : 'bg-red-500/5 border-red-500/20 text-red-500/40 hover:border-red-500/40 hover:bg-red-500/10'
+              }`}
+            >
+                <div className={`p-3 rounded-xl transition-colors ${type === 'LOSS' ? 'bg-white/10' : 'bg-red-500/10 group-hover:bg-red-500/20'}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                </div>
+                <span className="text-xl font-black uppercase tracking-tighter italic">LOSS</span>
+                {type === 'LOSS' && <div className="absolute top-0 right-0 p-2"><div className="w-2 h-2 bg-white rounded-full animate-pulse" /></div>}
+            </button>
         </div>
         
         <form onSubmit={handleSubmit}>
-          <div className="relative">
+          <div className="relative mb-6">
             <textarea
                 ref={inputRef}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 maxLength={MAX_CHARS}
-                className="w-full bg-black/40 text-white rounded-2xl border-2 border-white/10 p-5 min-h-[160px] focus:ring-0 focus:border-brand-500 outline-none placeholder-slate-600 text-xl font-bold mb-2 resize-none shadow-inner"
-                placeholder="e.g. EMAILS, MEETING, PROJECT WORK, LUNCH..."
+                className="w-full bg-white/5 text-white rounded-2xl border border-white/10 p-5 min-h-[120px] focus:ring-0 focus:border-yellow-500/50 outline-none placeholder-white/20 text-lg font-bold resize-none transition-all shadow-inner"
+                placeholder="Optional details (e.g. focused work, gym, distraction...)"
             />
-            <div className={`text-right text-[10px] font-bold uppercase tracking-wider mb-6 ${text.length >= MAX_CHARS ? 'text-brand-500' : 'text-slate-600'}`}>
-                {text.length} / {MAX_CHARS} Characters
+            <div className={`absolute bottom-3 right-4 text-[9px] font-black uppercase tracking-widest ${text.length >= MAX_CHARS ? 'text-red-500' : 'text-white/20'}`}>
+                {text.length} / {MAX_CHARS}
             </div>
           </div>
           
-          <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={() => {
-                  try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
-                  onClose();
-              }}
-              className="flex-1 py-4 px-4 rounded-xl font-black text-slate-400 hover:text-white hover:bg-white/5 transition-all uppercase tracking-wider"
-            >
-              {isManual ? 'Cancel' : 'Skip'}
-            </button>
+          <div className="flex flex-col gap-3">
             <button
               type="submit"
-              disabled={!text.trim()}
-              className="flex-1 py-4 px-4 rounded-xl font-black bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-brand-900/40 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none transition-all uppercase tracking-widest text-lg"
+              disabled={!type}
+              className={`w-full py-5 rounded-2xl font-black transition-all uppercase tracking-[0.2em] text-lg shadow-xl ${
+                type 
+                ? 'bg-white text-black hover:-translate-y-1 active:translate-y-0' 
+                : 'bg-white/5 text-white/20 cursor-not-allowed'
+              }`}
             >
-              Save Entry
+              STACK RECORD
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full py-3 rounded-xl font-black text-white/30 hover:text-white transition-all uppercase tracking-widest text-[10px]"
+            >
+              Cancel
             </button>
           </div>
         </form>
