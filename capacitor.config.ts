@@ -9,15 +9,10 @@ const config: CapacitorConfig = {
   },
   plugins: {
     LocalNotifications: {
-      smallIcon: "ic_stat_icon_config_sample",
+      smallIcon: "ic_notification",
       iconColor: "#488AFF",
       sound: "beep.wav",
     },
-    StatusBar: {
-      overlaysWebView: true,
-      style: 'DARK',
-      backgroundColor: '#00000000'
-    }
   },
 };
 
