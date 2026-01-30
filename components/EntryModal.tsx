@@ -30,7 +30,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (type) {
-      onSave(text.trim() || (type === 'WIN' ? 'Staked a win.' : 'Took a loss.'), type);
+      onSave(text.trim() || (type === 'WIN' ? 'Stacked a win.' : 'Took a loss.'), type);
       setText('');
       setType(null);
     }

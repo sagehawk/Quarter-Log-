@@ -1,194 +1,204 @@
-
 import React, { useState } from 'react';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { UserGoal, ScheduleConfig } from '../types';
 import { requestNotificationPermission } from '../utils/notifications';
 
 interface OnboardingProps {
-  onComplete: (goal: UserGoal, schedule: ScheduleConfig) => void;
+  onComplete: (goals: UserGoal[], schedule: ScheduleConfig) => void;
 }
 
 const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [step, setStep] = useState(1);
-  const [goal, setGoal] = useState<UserGoal | null>(null);
+  const [goals, setGoals] = useState<UserGoal[]>([]);
   
-  // Schedule State
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('17:00');
-  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]); // Mon-Fri default
+  // Default Schedule - active immediately
+  const [schedule] = useState<ScheduleConfig>({
+      enabled: true,
+      startTime: '00:00', // Default to all day or standard hours, user can tweak later
+      endTime: '23:59',
+      daysOfWeek: [0, 1, 2, 3, 4, 5, 6]
+  });
 
   const handleNext = () => {
-    try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+    try { Haptics.impact({ style: ImpactStyle.Heavy }); } catch(e) {}
     setStep(prev => prev + 1);
   };
 
-  const handleGoalSelect = (selectedGoal: UserGoal) => {
-    try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
-    setGoal(selectedGoal);
-    setTimeout(() => setStep(2), 200);
+  const toggleGoal = (selectedGoal: UserGoal) => {
+    try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+    setGoals(prev => {
+        if (prev.includes(selectedGoal)) {
+            return prev.filter(g => g !== selectedGoal);
+        } else {
+            return [...prev, selectedGoal];
+        }
+    });
   };
 
-  const toggleDay = (dayIndex: number) => {
-    try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
-    setDaysOfWeek(prev => {
-      if (prev.includes(dayIndex)) {
-        // Don't allow removing the last day
-        if (prev.length === 1) return prev;
-        return prev.filter(d => d !== dayIndex);
-      }
-      return [...prev, dayIndex].sort();
-    });
+  const handleConfirmGoals = () => {
+      if (goals.length === 0) return;
+      try { Haptics.impact({ style: ImpactStyle.Heavy }); } catch(e) {}
+      setStep(3);
   };
 
   const handlePermissionRequest = async () => {
     try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
     const granted = await requestNotificationPermission();
     if (granted) {
-      setTimeout(() => setStep(4), 500);
+      handleFinish();
     } else {
-        alert("Notifications are required for the audit to work.");
+        alert("If I can't interrupt you, I can't help you win.");
     }
   };
 
   const handleFinish = () => {
-     if (goal) {
+     if (goals.length > 0) {
          try { Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
-         onComplete(goal, {
-             enabled: true,
-             startTime,
-             endTime,
-             daysOfWeek
-         });
+         onComplete(goals, schedule);
      }
   };
 
-  const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const isSelected = (g: UserGoal) => goals.includes(g);
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+    <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-6 text-center animate-fade-in font-sans text-white">
       
       {/* Background Gradient */}
-      <div className="absolute inset-0 bg-radial-at-tr from-yellow-500/5 to-black" />
+      <div className="absolute inset-0 bg-radial-at-tr from-yellow-600/10 to-black" />
 
       {/* Progress */}
-      <div className="absolute top-12 left-0 w-full flex justify-center gap-2 safe-top">
+      <div className="absolute top-12 left-0 w-full flex justify-center gap-2 safe-top z-20">
         {[1, 2, 3, 4].map(i => (
-            <div key={i} className={`h-1 rounded-full transition-all duration-500 ${i <= step ? 'w-10 bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'w-2 bg-white/5'}`} />
+            <div key={i} className={`h-1 rounded-full transition-all duration-500 ${i <= step ? 'w-12 bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.6)]' : 'w-2 bg-white/10'}`} />
         ))}
       </div>
 
-      <div className="max-w-md w-full animate-slide-up mt-8 relative z-10">
+      <div className="max-w-md w-full animate-slide-up mt-8 relative z-10 flex flex-col h-full justify-center">
         
-        {/* Step 1: Goal */}
+        {/* Step 1: Biological Reality Check */}
         {step === 1 && (
-            <>
-                <h1 className="text-5xl font-black text-white italic uppercase tracking-tighter mb-4 leading-none">Declare Your<br /><span className="text-yellow-500">Mission</span></h1>
-                <p className="text-white/30 font-black uppercase tracking-[0.3em] text-[10px] mb-12 italic">The Cornerman needs to know your stakes.</p>
+            <div className="space-y-8">
+                <div>
+                    <h1 className="text-4xl font-black italic uppercase tracking-tighter mb-6 leading-none">
+                        Your Brain is a <br/><span className="text-yellow-500">Leaderboard</span>
+                    </h1>
+                    <div className="space-y-6 text-left">
+                        <p className="text-white/80 font-bold text-lg leading-relaxed">
+                            Testosterone isn't just about muscle. It is the chemical that makes <span className="text-yellow-500">effort feel good</span>.
+                        </p>
+                        <div className="bg-white/5 border-l-4 border-red-600 p-6 rounded-r-xl">
+                            <p className="text-white/60 font-medium text-sm uppercase tracking-wider mb-2 text-red-500 font-black">The Pain</p>
+                            <p className="text-white/90 text-sm leading-relaxed font-bold">
+                                When you slack off, your brain signals that you are a "loser." Your T-levels can plunge by 40%, forcing you into a downward spiral of anxiety and hesitation.
+                            </p>
+                        </div>
+                        <p className="text-white/80 font-bold text-lg leading-relaxed">
+                            We are here to trigger the <span className="text-yellow-500 italic">Testosterone Momentum Effect</span>. Every win raises your level.
+                        </p>
+                    </div>
+                </div>
                 
-                <div className="space-y-4">
-                    <button onClick={() => handleGoalSelect('FOCUS')} className="w-full bg-white/5 border border-white/5 hover:border-yellow-500/40 hover:bg-white/10 p-6 rounded-[2rem] transition-all group text-left">
-                        <div className="text-yellow-500 font-black uppercase tracking-widest text-xl mb-1 italic group-hover:text-white">CONQUER DRIFT</div>
-                        <div className="text-white/40 text-[10px] font-black uppercase tracking-widest italic">"I am bleeding time to distractions."</div>
+                <button onClick={handleNext} className="w-full py-5 bg-white text-black font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-yellow-500 transition-all shadow-2xl italic text-lg mt-8">
+                    Accept Reality
+                </button>
+            </div>
+        )}
+
+        {/* Step 2: The Winner vs Loser Switch (The Stack) */}
+        {step === 2 && (
+            <div className="space-y-6">
+                <h1 className="text-4xl font-black italic uppercase tracking-tighter mb-2">
+                    Select Your <br/><span className="text-yellow-500">Arena</span>
+                </h1>
+                <p className="text-white/40 font-black uppercase tracking-[0.2em] text-[10px] mb-6 italic">Stack multiple protocols if you are built for it.</p>
+                
+                <div className="space-y-3">
+                    <button 
+                        onClick={() => toggleGoal('FOCUS')} 
+                        className={`w-full p-5 rounded-[2rem] transition-all group text-left active:scale-95 border ${isSelected('FOCUS') ? 'bg-yellow-500 border-yellow-400 shadow-lg shadow-yellow-500/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                    >
+                        <div className={`font-black uppercase tracking-widest text-lg mb-1 italic ${isSelected('FOCUS') ? 'text-black' : 'text-yellow-500'}`}>COGNITIVE DRIVE</div>
+                        <div className={`text-[9px] font-black uppercase tracking-widest italic ${isSelected('FOCUS') ? 'text-black/60' : 'text-white/40'}`}>"End the distraction spiral."</div>
                     </button>
                     
-                    <button onClick={() => handleGoalSelect('BUSINESS')} className="w-full bg-white/5 border border-white/5 hover:border-yellow-500/40 hover:bg-white/10 p-6 rounded-[2rem] transition-all group text-left">
-                        <div className="text-yellow-500 font-black uppercase tracking-widest text-xl mb-1 italic group-hover:text-white">SCALE DOMINANCE</div>
-                        <div className="text-white/40 text-[10px] font-black uppercase tracking-widest italic">"I am not making high-status progress."</div>
+                    <button 
+                        onClick={() => toggleGoal('BUSINESS')} 
+                        className={`w-full p-5 rounded-[2rem] transition-all group text-left active:scale-95 border ${isSelected('BUSINESS') ? 'bg-yellow-500 border-yellow-400 shadow-lg shadow-yellow-500/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                    >
+                        <div className={`font-black uppercase tracking-widest text-lg mb-1 italic ${isSelected('BUSINESS') ? 'text-black' : 'text-yellow-500'}`}>CEO DOMINANCE</div>
+                        <div className={`text-[9px] font-black uppercase tracking-widest italic ${isSelected('BUSINESS') ? 'text-black/60' : 'text-white/40'}`}>"Eliminate low-status tasks."</div>
                     </button>
 
-                    <button onClick={() => handleGoalSelect('LIFE')} className="w-full bg-white/5 border border-white/5 hover:border-yellow-500/40 hover:bg-white/10 p-6 rounded-[2rem] transition-all group text-left">
-                        <div className="text-yellow-500 font-black uppercase tracking-widest text-xl mb-1 italic group-hover:text-white">PROTECT MOMENTUM</div>
-                        <div className="text-white/40 text-[10px] font-black uppercase tracking-widest italic">"I am exhausted and losing my edge."</div>
+                    <button 
+                        onClick={() => toggleGoal('LIFE')} 
+                        className={`w-full p-5 rounded-[2rem] transition-all group text-left active:scale-95 border ${isSelected('LIFE') ? 'bg-yellow-500 border-yellow-400 shadow-lg shadow-yellow-500/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}
+                    >
+                        <div className={`font-black uppercase tracking-widest text-lg mb-1 italic ${isSelected('LIFE') ? 'text-black' : 'text-yellow-500'}`}>SOCIAL MOMENTUM</div>
+                        <div className={`text-[9px] font-black uppercase tracking-widest italic ${isSelected('LIFE') ? 'text-black/60' : 'text-white/40'}`}>"Kill social anxiety."</div>
                     </button>
                 </div>
-            </>
-        )}
 
-        {/* Step 2: Schedule */}
-        {step === 2 && (
-            <>
-                <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-4">Operational Window</h1>
-                <p className="text-white/30 font-black uppercase tracking-[0.2em] text-[10px] mb-12 italic">Define the hours where winning counts.</p>
-                
-                <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/10 mb-8 shadow-2xl">
-                   {/* Days Selector */}
-                   <div className="mb-8">
-                      <label className="text-[9px] font-black uppercase text-white/20 block mb-4 text-left italic tracking-[0.3em]">Active Battlegrounds</label>
-                      <div className="flex justify-between gap-1.5">
-                        {days.map((day, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => toggleDay(idx)}
-                            className={`w-10 h-10 rounded-xl text-xs font-black transition-all duration-300 ${
-                              daysOfWeek.includes(idx)
-                                ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20 scale-110'
-                                : 'bg-white/5 text-white/20 hover:bg-white/10'
-                            }`}
-                          >
-                            {day}
-                          </button>
-                        ))}
-                      </div>
-                   </div>
-
-                   {/* Time Selector */}
-                   <div className="flex gap-4">
-                       <div className="flex-1 text-left">
-                           <label className="text-[9px] font-black uppercase text-white/20 block mb-3 italic tracking-[0.3em]">START OPS</label>
-                           <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-black/40 text-white font-black text-xl p-4 rounded-xl border border-white/10 focus:border-yellow-500 outline-none transition-all" />
-                       </div>
-                       <div className="flex-1 text-left">
-                           <label className="text-[9px] font-black uppercase text-white/20 block mb-3 italic tracking-[0.3em]">END OPS</label>
-                           <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-black/40 text-white font-black text-xl p-4 rounded-xl border border-white/10 focus:border-yellow-500 outline-none transition-all" />
-                       </div>
-                   </div>
-                </div>
-
-                <button onClick={handleNext} className="w-full py-5 bg-white text-black font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-yellow-500 transition-all shadow-2xl italic text-lg">
-                    Confirm Schedule
+                <button 
+                    onClick={handleConfirmGoals} 
+                    disabled={goals.length === 0}
+                    className={`w-full py-4 mt-4 font-black uppercase tracking-[0.2em] rounded-2xl transition-all italic text-lg ${goals.length > 0 ? 'bg-white text-black hover:bg-white/90 shadow-2xl' : 'bg-white/10 text-white/20 cursor-not-allowed'}`}
+                >
+                    Confirm Protocol
                 </button>
-            </>
+            </div>
         )}
 
-        {/* Step 3: Permissions */}
+        {/* Step 3: The 15-Minute Contract */}
         {step === 3 && (
-            <>
-                <div className="w-24 h-24 bg-yellow-500/10 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-yellow-500 border border-yellow-500/20 shadow-2xl">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+            <div className="space-y-8">
+                <div>
+                    <div className="w-20 h-20 bg-yellow-500/10 rounded-[2rem] flex items-center justify-center mx-auto mb-8 text-yellow-500 border border-yellow-500/20 shadow-[0_0_30px_rgba(234,179,8,0.2)]">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <h1 className="text-3xl font-black italic uppercase tracking-tighter mb-6">
+                        The 15-Minute<br/><span className="text-yellow-500">Contract</span>
+                    </h1>
+                    <div className="bg-white/5 p-6 rounded-2xl text-left space-y-4 border border-white/10">
+                        <p className="text-white/90 font-bold text-sm leading-relaxed">
+                            Every 15 minutes, I will ask you one question:
+                        </p>
+                        <p className="text-2xl font-black text-center py-4 bg-black/40 rounded-xl border border-white/5 italic">
+                            <span className="text-yellow-500">WIN</span> <span className="text-white/30 text-sm align-middle px-2">OR</span> <span className="text-red-500">LOSS</span>
+                        </p>
+                        <p className="text-white/60 text-xs font-medium leading-relaxed">
+                            Logging a "Win" physically raises your T-levels. We are forcing your brain to identify as a winner, 4 times an hour.
+                        </p>
+                    </div>
                 </div>
-                <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-4">Comms Authorization</h1>
-                <p className="text-white/30 font-black uppercase tracking-[0.2em] text-[10px] mb-12 italic leading-relaxed max-w-xs mx-auto">
-                    The Cornerman requires high-priority access to alert you for tactical decisions.
-                </p>
                 
-                <button onClick={handlePermissionRequest} className="w-full py-5 bg-yellow-500 text-black font-black uppercase tracking-[0.3em] rounded-2xl shadow-2xl shadow-yellow-500/20 hover:bg-yellow-400 transition-all italic text-lg">
-                    Authorize Alerts
+                <button onClick={handleNext} className="w-full py-5 bg-white text-black font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-yellow-500 transition-all shadow-2xl italic text-lg">
+                    Sign The Contract
                 </button>
-                
-                <div className="mt-12 bg-white/5 border border-white/5 p-6 rounded-[2rem] text-left">
-                    <p className="text-[9px] text-white/20 font-black uppercase tracking-[0.3em] mb-3 italic">Operational Reliability</p>
-                    <p className="text-[10px] text-white/40 font-black uppercase tracking-widest leading-relaxed italic">
-                        Critical: Set battery optimization to <span className="text-white">Unrestricted</span> to prevent cycle failure.
+            </div>
+        )}
+
+        {/* Step 4: The Permission */}
+        {step === 4 && (
+            <div className="space-y-8">
+                <div>
+                    <div className="w-24 h-24 bg-yellow-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-black shadow-[0_0_50px_rgba(234,179,8,0.4)] animate-pulse">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                    </div>
+                    <h1 className="text-4xl font-black italic uppercase tracking-tighter mb-4">
+                        The Weapon<br/><span className="text-yellow-500">Request</span>
+                    </h1>
+                    <p className="text-white/60 font-bold text-sm mb-8 leading-relaxed max-w-xs mx-auto">
+                        "To change your chemistry, I need to be able to interrupt your losing streaks. If I can't reach you, I can't help you win."
                     </p>
                 </div>
-            </>
-        )}
-
-        {/* Step 4: Kickout */}
-        {step === 4 && (
-            <>
-                <div className="w-24 h-24 bg-yellow-500/10 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-yellow-500 border border-yellow-500/20 shadow-2xl animate-pulse">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                </div>
-                <h1 className="text-5xl font-black text-white italic uppercase tracking-tighter mb-4 leading-none">System<br /><span className="text-yellow-500">Primed</span></h1>
-                <p className="text-white/30 font-black uppercase tracking-[0.2em] text-[10px] mb-12 italic leading-relaxed max-w-xs mx-auto">
-                    The cycle is active. Momentum starts now.
-                </p>
                 
-                <button onClick={handleFinish} className="w-full py-5 bg-white text-black font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-yellow-500 transition-all italic text-lg">
-                    Begin Mission
+                <button onClick={handlePermissionRequest} className="w-full py-5 bg-yellow-500 text-black font-black uppercase tracking-[0.2em] rounded-2xl shadow-2xl hover:bg-white transition-all italic text-lg">
+                    Grant Access
                 </button>
-            </>
+                <p className="text-[9px] text-white/30 font-black uppercase tracking-widest mt-6">
+                    We start the first sprint immediately.
+                </p>
+            </div>
         )}
       </div>
     </div>

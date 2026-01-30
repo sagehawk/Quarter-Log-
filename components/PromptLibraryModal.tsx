@@ -26,23 +26,31 @@ interface PromptLibraryModalProps {
 }
 
 const PromptLibraryModal: React.FC<PromptLibraryModalProps> = ({ isOpen, onClose, logsText, onCopySuccess }) => {
-  const [goal, setGoal] = useState<UserGoal>('FOCUS');
+  const [goals, setGoals] = useState<UserGoal[]>(['FOCUS']);
 
   useEffect(() => {
     if (isOpen) {
-        const storedGoal = localStorage.getItem('quarterlog_goal') as UserGoal;
-        if (storedGoal && PROMPTS[storedGoal]) {
-            setGoal(storedGoal);
+        const storedGoal = localStorage.getItem('ironlog_goal'); // Updated key to match App.tsx
+        if (storedGoal) {
+             try {
+                const parsed = JSON.parse(storedGoal);
+                if (Array.isArray(parsed)) {
+                    setGoals(parsed);
+                } else {
+                    setGoals([storedGoal as UserGoal]);
+                }
+            } catch (e) {
+                setGoals([storedGoal as UserGoal]);
+            }
         }
     }
   }, [isOpen]);
 
-  const currentPrompt = PROMPTS[goal];
-
   const handleCopy = async () => {
     try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
     
-    const finalContent = `${currentPrompt.text}\n\n---\n\n${logsText}`;
+    const combinedPrompts = goals.map(g => PROMPTS[g]?.text).filter(Boolean).join('\n\nALSO:\n');
+    const finalContent = `${combinedPrompts}\n\n---\n\n${logsText}`;
 
     try {
       await navigator.clipboard.writeText(finalContent);
@@ -68,17 +76,20 @@ const PromptLibraryModal: React.FC<PromptLibraryModalProps> = ({ isOpen, onClose
         <div className="p-8 pb-4 text-center">
             <h2 className="text-2xl font-black text-white uppercase tracking-tight italic mb-2">AI Audit Ready</h2>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-wide">
-                Based on your goal: <span className="text-brand-400">{goal}</span>
+                Based on your active stack
             </p>
         </div>
 
-        <div className="px-6 py-2">
-            <div className="bg-slate-800/50 rounded-2xl p-6 border border-white/5">
-                <h3 className="text-white font-black uppercase tracking-wider text-sm mb-3">{currentPrompt.title}</h3>
-                <p className="text-slate-300 text-sm leading-relaxed font-medium">
-                    "{currentPrompt.text}"
-                </p>
-            </div>
+        <div className="px-6 py-2 max-h-[50vh] overflow-y-auto custom-scrollbar">
+            {goals.map(goal => (
+                <div key={goal} className="bg-slate-800/50 rounded-2xl p-6 border border-white/5 mb-3">
+                    <h3 className="text-white font-black uppercase tracking-wider text-sm mb-3">{PROMPTS[goal]?.title}</h3>
+                    <p className="text-slate-300 text-sm leading-relaxed font-medium">
+                        "{PROMPTS[goal]?.text}"
+                    </p>
+                </div>
+            ))}
+            
             <p className="text-center text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-4 mb-2">
                 Copied to clipboard with your logs
             </p>

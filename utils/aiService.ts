@@ -1,12 +1,11 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { LogEntry, UserGoal, ScheduleConfig, AIPersona } from "../types";
 
 export const generateAIReport = async (
   logs: LogEntry[],
   period: string, // 'Day', 'Week', 'Month'
-  goal: UserGoal,
-  persona: AIPersona,
+  goals: UserGoal[],
+  persona: AIPersona, // Keeping argument for compatibility, but ignoring it logic-wise
   schedule: ScheduleConfig,
   type: 'FULL' | 'BRIEF' = 'FULL'
 ): Promise<string> => {
@@ -35,15 +34,41 @@ export const generateAIReport = async (
     .map(l => `[${l.type || 'NEUTRAL'}] ${l.text}`)
     .join('\n');
 
-  // 3. Define Context
-  const systemInstruction = `You are "The Cornerman." Your job is to build a winner. You analyze a user's 15-minute "Win/Loss" blocks. 
-  Winning raises testosterone and momentum. Losing triggers a downward spiral. 
-  Your tone is High-Status, Tactical, and Direct. 
-  You use terms like: Momentum, The Leaderboard, Hierarchy, Biological Edge, and Stacking Wins. 
-  You are not a therapist. You are a coach for a high-performance athlete/executive. 
-  Speak in short, powerful sentences. 5th-grade reading level.`;
+  // 3. Define Context & Persona based on Battlefields (Goals)
+  const goalDefinitions: Record<UserGoal, { persona: string, context: string }> = {
+    'FOCUS': {
+      persona: "COMMANDING OFFICER (Fierce, high-status, intolerant of distraction)",
+      context: "User fights distraction/procrastination. Call out wasted time as 'bleeding status'."
+    },
+    'BUSINESS': {
+      persona: "CFO / HIGH-PERFORMANCE INVESTOR (Cold, rational, ROI-obsessed)",
+      context: "User fights low-value work. Identify 'busy work' vs 'wealth-generating wins'."
+    },
+    'LIFE': {
+      persona: "SOCIAL ARCHITECT / ALPHA MENTOR (Focus on energy, dominance, social momentum)",
+      context: "User fights anxiety/passivity. Call out hesitation as 'submission'."
+    }
+  };
 
-  const tone = "Tactical, Dominant, Direct, Momentum-focused. 5th-grade reading level.";
+  // Default to FOCUS if empty
+  const activeGoals = goals.length > 0 ? goals : ['FOCUS' as UserGoal];
+
+  const combinedPersona = activeGoals.map(g => goalDefinitions[g].persona).join(" + ");
+  const combinedContext = activeGoals.map(g => goalDefinitions[g].context).join(" ");
+
+  const systemInstruction = `
+  You are a hybrid AI System: ${combinedPersona}.
+  
+  YOUR CORE DIRECTIVE: Build the "Winner Effect."
+  
+  THE TRAP: Do NOT label the user as a "loser" or "pathetic." This lowers testosterone and causes a downward spiral.
+  
+  THE STRATEGY:
+  1. THE ROAST (The Pain): If they lost, call it out truthfully but tactically. "You handed 15 minutes to a screen. You are bleeding status."
+  2. THE MISSION (The Win): Immediately frame the NEXT block as a Must-Win to trigger a confidence refeed. "The next 15 minutes is where you turn it around. Execute now."
+  
+  TONE: Fierce, Truthful, High-Status, Short Sentences. No corporate jargon. No therapy speak.
+  `;
 
   // 4. Construct Prompt
   let prompt = "";
@@ -52,21 +77,20 @@ export const generateAIReport = async (
       prompt = `
       Analyze these tactical logs for a ${period}.
       WIN RATE: ${winRate}% (${wins} Wins, ${losses} Losses)
-      YOUR PERSONA: ${tone}
+      CONTEXT: ${combinedContext}
       
       LOGS:
       ${logText}
 
       TASK:
-      Write a single, 1-sentence tactical summary (max 15 words).
+      Write a single, 1-sentence tactical summary (max 15 words) using your persona.
       Start with "Report Ready:" and then give the summary.
-      Focus on the momentum.
       `;
   } else {
       prompt = `
       Analyze these tactical logs for a ${period}.
       WIN RATE: ${winRate}% (${wins} Wins, ${losses} Losses)
-      YOUR PERSONA: ${tone}
+      CONTEXT: ${combinedContext}
 
       LOGS:
       ${logText}
@@ -78,16 +102,16 @@ export const generateAIReport = async (
       **Momentum Score**: ${winRate}%
 
       ### Tactical Analysis
-      - (Analyze the Win/Loss distribution. Identify where momentum was gained or bled out.)
+      - (Analyze the Wins vs Losses. Be fierce but strategic. Identify where momentum was lost or gained.)
 
       ### The Command
-      - (Give one direct order to improve status or protect the streak.)
+      - (Give one direct, actionable order for the next block to protect the streak or break the downward spiral.)
 
       FORMATTING RULES:
       - Use **Bold** for emphasis.
-      - Use *Italics* for tactical terminology.
+      - Use *Italics* for tone.
       - Use ### for Section Headers.
-      - No corporate jargon. Primal and biological focus.
+      - Do NOT use bullet points for the main paragraphs, keep it punchy.
       `;
   }
 
@@ -104,6 +128,6 @@ export const generateAIReport = async (
     return response.text || "Could not analyze the battlefield.";
   } catch (error: any) {
     console.error("AI Generation Error:", error);
-    return "The Cornerman is currently unavailable. Hold your position.";
+    return "The Accountability Engine is offline. Maintain position.";
   }
 };

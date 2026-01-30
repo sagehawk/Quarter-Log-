@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Share } from '@capacitor/share';
 import { keepAwake } from '../utils/sound';
 import { sendNotification, requestNotificationPermission } from '../utils/notifications';
-import { LogEntry, ScheduleConfig, UserGoal, AIPersona } from '../types';
+import { LogEntry, ScheduleConfig, UserGoal } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -29,14 +28,48 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     endTime: '17:00',
     daysOfWeek: [1, 2, 3, 4, 5]
   });
+  const [goals, setGoals] = useState<UserGoal[]>([]);
 
   useEffect(() => {
     if (isOpen) {
+        const storedGoal = localStorage.getItem('ironlog_goal'); // Updated key
+        if (storedGoal) {
+            try {
+                const parsed = JSON.parse(storedGoal);
+                if (Array.isArray(parsed)) {
+                    setGoals(parsed);
+                } else {
+                    setGoals([storedGoal as UserGoal]);
+                }
+            } catch (e) {
+                setGoals([storedGoal as UserGoal]);
+            }
+        } else {
+            setGoals(['FOCUS']);
+        }
+
         if (schedule) {
             setLocalSchedule({ ...schedule, enabled: true });
         }
     }
   }, [isOpen, schedule]);
+
+  const toggleGoal = (goal: UserGoal) => {
+      setGoals(prev => {
+          let newGoals: UserGoal[];
+          if (prev.includes(goal)) {
+              newGoals = prev.filter(g => g !== goal);
+          } else {
+              newGoals = [...prev, goal];
+          }
+          
+          // Ensure at least one goal is always selected (fallback to clicked if it was the last one being removed, or just allow empty? Let's allow empty or enforce 1. Enforcing 1 is safer).
+          if (newGoals.length === 0) newGoals = [goal]; 
+
+          localStorage.setItem('ironlog_goal', JSON.stringify(newGoals));
+          return newGoals;
+      });
+  };
 
   const handleTestAlert = () => {
     if (countdown !== null) return;
@@ -58,7 +91,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
         await sendNotification("Cycle Alert", "Declare your status: WIN or LOSS.", true);
     } catch (e) {
-        alert("Failed to send test: " + e);
+        console.error("Failed to send test: " + e);
     }
   };
 
@@ -85,10 +118,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleShare = async () => {
       try {
           await Share.share({
-              title: 'IronLog: Momentum is Everything',
+              title: 'Winner Effect: Log the Win',
               text: 'Stacking wins and building momentum. Join the leaderboard:',
               url: 'https://play.google.com/store/apps/details?id=com.quarterlog.app',
-              dialogTitle: 'Share IronLog',
+              dialogTitle: 'Share Winner Effect',
           });
       } catch (e) {}
   };
@@ -96,6 +129,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleRate = () => {
       window.open('https://play.google.com/store/apps/details?id=com.quarterlog.app', '_system');
   };
+
+  const isSelected = (g: UserGoal) => goals.includes(g);
 
   if (!isOpen) return null;
 
@@ -111,6 +146,48 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="text-center mb-10">
             <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">Tactical Configuration</h2>
             <p className="text-yellow-500/40 text-[9px] font-black uppercase tracking-[0.3em] mt-2 italic">Refine your operational edge</p>
+        </div>
+
+        {/* Battlefield Selection */}
+        <div className="mb-10">
+            <div className="flex items-center justify-between mb-4">
+                <span className="text-white font-black uppercase text-xs tracking-[0.2em] italic border-l-2 border-yellow-500 pl-3">Active Protocol Stack</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+                <button
+                    onClick={() => toggleGoal('FOCUS')}
+                    className={`p-4 rounded-2xl text-left transition-all border ${
+                        isSelected('FOCUS') 
+                        ? 'bg-yellow-500 text-black border-yellow-400 shadow-lg shadow-yellow-500/20' 
+                        : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
+                    }`}
+                >
+                    <div className="text-xs font-black uppercase tracking-widest italic">COGNITIVE DRIVE</div>
+                    <div className={`text-[9px] font-bold uppercase tracking-wider mt-1 ${isSelected('FOCUS') ? 'text-black/60' : 'text-white/20'}`}>System: Commanding Officer</div>
+                </button>
+                <button
+                    onClick={() => toggleGoal('BUSINESS')}
+                    className={`p-4 rounded-2xl text-left transition-all border ${
+                        isSelected('BUSINESS') 
+                        ? 'bg-yellow-500 text-black border-yellow-400 shadow-lg shadow-yellow-500/20' 
+                        : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
+                    }`}
+                >
+                     <div className="text-xs font-black uppercase tracking-widest italic">CEO DOMINANCE</div>
+                     <div className={`text-[9px] font-bold uppercase tracking-wider mt-1 ${isSelected('BUSINESS') ? 'text-black/60' : 'text-white/20'}`}>System: CFO Audit</div>
+                </button>
+                <button
+                    onClick={() => toggleGoal('LIFE')}
+                    className={`p-4 rounded-2xl text-left transition-all border ${
+                        isSelected('LIFE') 
+                        ? 'bg-yellow-500 text-black border-yellow-400 shadow-lg shadow-yellow-500/20' 
+                        : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
+                    }`}
+                >
+                     <div className="text-xs font-black uppercase tracking-widest italic">SOCIAL MOMENTUM</div>
+                     <div className={`text-[9px] font-bold uppercase tracking-wider mt-1 ${isSelected('LIFE') ? 'text-black/60' : 'text-white/20'}`}>System: Social Architect</div>
+                </button>
+            </div>
         </div>
         
         {/* Schedule Section */}
@@ -250,157 +327,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               className="w-full py-4 rounded-xl font-black uppercase text-white/20 hover:text-white transition-colors tracking-[0.3em] text-[10px] italic"
             >
               CLOSE COMMAND
-            </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-        <div className="h-0.5 bg-slate-800 my-6"></div>
-
-        {/* Schedule Section */}
-        {onSaveSchedule && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-slate-200 font-extrabold uppercase text-sm tracking-wide">Schedule</span>
-          </div>
-
-          <div className="transition-all duration-300 opacity-100 max-h-96">
-             <div className="bg-black/30 rounded-2xl p-4 space-y-4 border border-white/5">
-                
-                {/* Days */}
-                <div>
-                  <label className="text-[10px] uppercase font-black text-slate-500 block mb-2 tracking-wider">Active Days</label>
-                  <div className="flex justify-between gap-1">
-                    {days.map((day, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => toggleDay(idx)}
-                        className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
-                          localSchedule.daysOfWeek.includes(idx)
-                            ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/50 scale-105'
-                            : 'bg-slate-800 text-slate-500 hover:bg-slate-700'
-                        }`}
-                      >
-                        {day}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Times */}
-                <div className="flex gap-3">
-                   <div className="flex-1">
-                      <label className="text-[10px] uppercase font-black text-slate-500 block mb-1 tracking-wider">Start Time</label>
-                      <input 
-                        type="time" 
-                        value={localSchedule.startTime}
-                        onChange={(e) => setLocalSchedule(p => ({ ...p, startTime: e.target.value }))}
-                        className="w-full bg-slate-800 text-white font-bold text-sm rounded-xl px-3 py-3 border border-white/10 outline-none focus:border-brand-500"
-                      />
-                   </div>
-                   <div className="flex-1">
-                      <label className="text-[10px] uppercase font-black text-slate-500 block mb-1 tracking-wider">End Time</label>
-                      <input 
-                        type="time" 
-                        value={localSchedule.endTime}
-                        onChange={(e) => setLocalSchedule(p => ({ ...p, endTime: e.target.value }))}
-                        className="w-full bg-slate-800 text-white font-bold text-sm rounded-xl px-3 py-3 border border-white/10 outline-none focus:border-brand-500"
-                      />
-                   </div>
-                </div>
-
-             </div>
-             <p className="text-[10px] text-slate-500 mt-3 text-center font-bold uppercase tracking-wide">
-               Timer only auto-restarts within these hours.
-             </p>
-          </div>
-        </div>
-        )}
-
-        {/* Divider */}
-        <div className="h-0.5 bg-slate-800 my-6"></div>
-
-        {/* Test & Troubleshoot Section */}
-        <div className="space-y-4">
-            
-            {/* Test Button */}
-            <button
-              type="button"
-              onClick={handleTestAlert}
-              disabled={countdown !== null}
-              className={`w-full py-4 px-4 rounded-xl font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
-                countdown !== null 
-                  ? 'bg-brand-600 text-white shadow-lg' 
-                  : 'text-amber-400 bg-amber-500/10 border-2 border-amber-500/20 hover:bg-amber-500/20'
-              }`}
-            >
-              {countdown !== null ? (
-                <span className="text-sm animate-pulse">Wait... {countdown}s</span>
-              ) : (
-                <span className="text-sm flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                  Test Notification
-                </span>
-              )}
-            </button>
-
-            {/* Troubleshoot Toggle */}
-            <button 
-                onClick={() => setShowTroubleshoot(!showTroubleshoot)}
-                className="w-full text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-white flex items-center justify-center gap-1.5 py-2"
-            >
-                {showTroubleshoot ? 'Hide Help' : 'Troubleshooting & Permissions'}
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${showTroubleshoot ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
-
-            {/* Expanded Guide */}
-            {showTroubleshoot && (
-                <div className="bg-slate-800/50 rounded-xl p-4 text-xs text-slate-300 space-y-4 border border-white/5 animate-fade-in font-medium">
-                    <div>
-                        <strong className="text-white block mb-1 font-bold uppercase">1. Notifications</strong>
-                        <p className="mb-2">Ensure notifications are allowed.</p>
-                        <button onClick={checkPermissions} className="text-[10px] bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded text-white font-bold uppercase">
-                            Check Permission
-                        </button>
-                    </div>
-                    <div>
-                        <strong className="text-white block mb-1 font-bold uppercase">2. Run in Background</strong>
-                        <p>Disable <span className="text-amber-300 font-bold">Battery Optimization</span>.</p>
-                    </div>
-                </div>
-            )}
-        </div>
-        
-        {/* Divider */}
-        <div className="h-0.5 bg-slate-800 my-6"></div>
-
-        {/* Share & Rate Section */}
-        <div className="grid grid-cols-2 gap-3 mb-2">
-            <button 
-                onClick={handleShare}
-                className="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95 group"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 group-hover:text-white"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                <span className="text-[10px] font-black uppercase text-slate-400 group-hover:text-white tracking-widest">Share App</span>
-            </button>
-             <button 
-                onClick={handleRate}
-                className="bg-slate-800 hover:bg-slate-700 p-4 rounded-xl flex flex-col items-center gap-2 transition-all active:scale-95 group"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 group-hover:text-amber-400"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                <span className="text-[10px] font-black uppercase text-slate-400 group-hover:text-white tracking-widest">Rate Us</span>
-            </button>
-        </div>
-
-        <div className="mt-6 pt-4 border-t-2 border-slate-800">
-            <button
-              type="button"
-              onClick={handleSaveAndClose}
-              className="w-full py-4 px-4 rounded-xl font-black uppercase text-slate-400 hover:bg-white/5 hover:text-white transition-colors tracking-widest"
-            >
-              Close
             </button>
         </div>
       </div>

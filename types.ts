@@ -4,6 +4,13 @@ export interface LogEntry {
   timestamp: number; // Date.now()
   text: string;
   type?: 'WIN' | 'LOSS';
+  isFrozenWin?: boolean;
+}
+
+export interface FreezeState {
+  isFrozen: boolean;
+  recoveryWins: number;
+  lastLossTimestamp: number | null;
 }
 
 export enum AppStatus {
