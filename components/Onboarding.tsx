@@ -58,14 +58,23 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
      }
   };
 
+  const calculateTotalBlocks = () => {
+      const [startH, startM] = schedule.startTime.split(':').map(Number);
+      const [endH, endM] = schedule.endTime.split(':').map(Number);
+      const startTotal = startH * 60 + startM;
+      const endTotal = endH * 60 + endM;
+      const duration = endTotal - startTotal;
+      return Math.max(0, Math.floor(duration / 15));
+  };
+
   const isSelected = (g: UserGoal) => goals.includes(g);
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center p-6 text-center font-sans text-white overflow-hidden">
+    <div className="fixed inset-0 z-[200] bg-[#050505] flex flex-col items-center justify-center p-6 text-center font-sans text-white overflow-hidden">
       
       {/* Cinematic Background */}
-      <div className="absolute inset-0 bg-black" />
-      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#2e3248] via-[#050505] to-[#000000]" />
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJnoiPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI2cpIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=')] opacity-[0.05] pointer-events-none mix-blend-overlay" />
 
       {/* Progress Bars */}
       <div className="absolute top-12 left-0 w-full flex justify-center gap-1.5 safe-top z-20 px-10">
@@ -159,36 +168,36 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
         {/* Step 3: The Rank System */}
         {step === 3 && (
-            <div className="space-y-10 animate-fade-in">
+            <div className="space-y-6 animate-fade-in">
                 <div className="text-center">
-                    <h1 className="text-5xl font-black italic uppercase tracking-tighter leading-none mb-6">
+                    <h1 className="text-4xl font-black italic uppercase tracking-tighter leading-none mb-4">
                         Your Starting<br/><span className="text-slate-400">Rank</span>
                     </h1>
                     
-                    <div className="relative inline-flex items-center justify-center p-8 mb-6">
+                    <div className="relative inline-flex items-center justify-center p-6 mb-4">
                         <div className="absolute inset-0 bg-slate-500/10 blur-2xl rounded-full animate-pulse" />
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="w-32 h-32 text-slate-400 drop-shadow-2xl">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="w-24 h-24 text-slate-400 drop-shadow-2xl">
                             <path d={RANKS[0].icon} />
                         </svg>
                     </div>
                     
-                    <h2 className="text-3xl font-black uppercase tracking-[0.2em] text-slate-400 mb-2">{RANKS[0].name}</h2>
-                    <p className="text-white/40 text-xs font-bold uppercase tracking-widest max-w-xs mx-auto">
+                    <h2 className="text-2xl font-black uppercase tracking-[0.2em] text-slate-400 mb-1">{RANKS[0].name}</h2>
+                    <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest max-w-xs mx-auto">
                         0 Wins Recorded. Status: Unproven.
                     </p>
                 </div>
 
-                <div className="bg-white/5 p-6 rounded-2xl text-left border border-white/10 relative overflow-hidden">
-                    <div className="relative z-10 space-y-4">
-                        <p className="text-white/80 font-bold text-sm leading-relaxed">
+                <div className="bg-white/5 p-5 rounded-2xl text-left border border-white/10 relative overflow-hidden">
+                    <div className="relative z-10 space-y-3">
+                        <p className="text-white/80 font-bold text-xs leading-relaxed">
                             Every 15 minutes, you will receive a tactical query.
                         </p>
-                        <div className="flex items-center justify-between bg-black/40 p-4 rounded-xl border border-white/5">
-                            <span className="text-yellow-500 font-black text-xl italic">WIN</span>
-                            <span className="text-white/20 text-xs font-mono">VS</span>
-                            <span className="text-red-500 font-black text-xl italic">LOSS</span>
+                        <div className="flex items-center justify-between bg-black/40 p-3 rounded-xl border border-white/5">
+                            <span className="text-yellow-500 font-black text-lg italic">WIN</span>
+                            <span className="text-white/20 text-[10px] font-mono">VS</span>
+                            <span className="text-red-500 font-black text-lg italic">LOSS</span>
                         </div>
-                        <p className="text-white/50 text-xs font-medium leading-relaxed">
+                        <p className="text-white/50 text-[10px] font-medium leading-relaxed">
                             Log wins to climb the hierarchy. Log losses and you will freeze.
                         </p>
                     </div>
@@ -233,6 +242,14 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                             onChange={(e) => setSchedule({...schedule, endTime: e.target.value})}
                             className="w-full bg-black/50 text-white font-black text-3xl p-4 rounded-xl border border-white/10 focus:border-yellow-500 outline-none transition-all text-center"
                         />
+                    </div>
+
+                    {/* Total Opportunities Display */}
+                    <div className="pt-2 text-center">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Daily Capacity</p>
+                        <div className="text-2xl font-black text-white italic tracking-tighter">
+                            {calculateTotalBlocks()} <span className="text-sm text-yellow-500">Wins Possible</span>
+                        </div>
                     </div>
                 </div>
 

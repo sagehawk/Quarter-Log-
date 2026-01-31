@@ -3,7 +3,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 
 // Incremented version to ensure channel settings (sound/vibration) are updated on user devices
-const CHANNEL_ID = 'quarterlog_timer_v3';
+const CHANNEL_ID = 'quarterlog_timer_v4';
 
 export const checkNotificationPermission = async (): Promise<boolean> => {
   try {

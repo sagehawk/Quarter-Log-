@@ -67,7 +67,7 @@ const LogList: React.FC<LogListProps> = ({ logs, onDelete }) => {
                 className={`group relative border rounded-2xl p-5 transition-all duration-300 cursor-pointer select-none overflow-hidden
                   ${copiedId === log.id 
                     ? 'bg-yellow-500/10 border-yellow-500/30' 
-                    : 'bg-white/5 hover:bg-white/10 border-white/5 hover:border-white/10 active:scale-[0.98]'}
+                    : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 hover:border-zinc-700 active:scale-[0.98]'}
                 `}
               >
                 {/* Status Indicator Bar */}

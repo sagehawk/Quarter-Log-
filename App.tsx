@@ -259,6 +259,48 @@ const App: React.FC = () => {
     return currentMinutes >= startTotal && currentMinutes < endTotal;
   }, [schedule]);
 
+  // NEW: Calculate Blocks Remaining
+  const getBlockStats = useCallback(() => {
+    if (!schedule.enabled) return { total: 0, remaining: 0 };
+    
+    const [startH, startM] = schedule.startTime.split(':').map(Number);
+    const [endH, endM] = schedule.endTime.split(':').map(Number);
+    
+    const startTotal = startH * 60 + startM;
+    const endTotal = endH * 60 + endM;
+    const now = new Date();
+    const currentTotal = now.getHours() * 60 + now.getMinutes();
+    
+    const totalDuration = endTotal - startTotal;
+    if (totalDuration <= 0) return { total: 0, remaining: 0 };
+
+    const totalBlocks = Math.floor(totalDuration / 15);
+    
+    // Calculate elapsed from start
+    let elapsed = currentTotal - startTotal;
+    if (elapsed < 0) elapsed = 0;
+    // Cap elapsed at total duration (day over)
+    if (elapsed > totalDuration) elapsed = totalDuration;
+    
+    const usedBlocks = Math.floor(elapsed / 15);
+    const remaining = Math.max(0, totalBlocks - usedBlocks);
+    
+    return { total: totalBlocks, remaining };
+  }, [schedule]);
+
+  // Use a timer to update block stats every minute if visible, but calculating on render is fine for now
+  // Since schedule doesn't change often and minute tick will trigger re-render if we had one.
+  // Actually, we need to force re-render every minute to update "Remaining" if no other state changes.
+  // The worker tick handles timeLeft, but not this. 
+  // Let's add a minute ticker.
+  const [minuteTick, setMinuteTick] = useState(0);
+  useEffect(() => {
+      const i = setInterval(() => setMinuteTick(p => p + 1), 60000);
+      return () => clearInterval(i);
+  }, []);
+
+  const blockStats = useMemo(() => getBlockStats(), [getBlockStats, minuteTick]);
+
   const handleTimerComplete = useCallback(async () => {
     workerRef.current?.postMessage({ command: 'stop' });
     setStatus(AppStatus.WAITING_FOR_INPUT);
@@ -287,11 +329,16 @@ const App: React.FC = () => {
     const targetTime = now + timeToUse;
     endTimeRef.current = targetTime;
     localStorage.setItem(STORAGE_KEY_TIMER_TARGET, targetTime.toString());
+    
+    // Notification with Remaining Opportunities
+    const stats = getBlockStats();
+    const nextRemaining = Math.max(0, stats.remaining - 1);
     await cancelNotification();
-    await scheduleNotification("Win or Loss?", "Declare your status. Stay in the cycle.", timeToUse);
+    await scheduleNotification("Win or Loss?", `Declare your status. ${nextRemaining} opportunities left today.`, timeToUse);
+    
     workerRef.current?.postMessage({ command: 'start' });
     tickLogic(); 
-  }, [tickLogic]);
+  }, [tickLogic, getBlockStats]);
 
   const pauseTimer = useCallback(async () => {
     setIsPaused(true);
@@ -458,7 +505,7 @@ const App: React.FC = () => {
             viewStart = new Date(current.getFullYear(), current.getMonth(), 1).getTime();
             viewEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0).getTime();
             break;
-        case '3M': {
+        case '3M':
             const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
             const qStart = new Date(current.getFullYear(), qStartMonth, 1);
             viewStart = qStart.getTime();
@@ -466,7 +513,6 @@ const App: React.FC = () => {
             qEnd.setMonth(qEnd.getMonth() + 3);
             viewEnd = qEnd.getTime();
             break;
-        }
         case 'Y':
             viewStart = new Date(current.getFullYear(), 0, 1).getTime();
             viewEnd = new Date(current.getFullYear() + 1, 0, 1).getTime();
@@ -475,7 +521,7 @@ const App: React.FC = () => {
     return { canGoBack: viewStart > minTimestamp, canGoForward: viewEnd < maxTimestamp };
   }, [viewDate, filter, logs]);
 
-  // PERSISTENT RANK CALCULATION (Lifetime) 
+  // PERSISTENT RANK CALCULATION (Lifetime)
   const totalLifetimeWins = useMemo(() => logs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [logs]);
   
   // CURRENT PERIOD RANK CALCULATION
@@ -736,88 +782,94 @@ const App: React.FC = () => {
   if (!hasOnboarded) return <Onboarding onComplete={handleOnboardingComplete} />;
 
   return (
-    <div className="min-h-screen font-sans pb-[env(safe-area-inset-bottom)] bg-black text-white">
-      <div className="fixed inset-0 -z-50 bg-black" />
-      <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out border-b pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center ${isScrolled ? 'bg-black/80 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/20' : 'bg-transparent border-transparent'}`} >
-        <div className="relative flex items-center gap-3">
-           <div className="w-10 h-10 rounded-xl overflow-hidden transition-all duration-500">
-             <img src="/icon.png" alt="App Icon" className="w-full h-full object-cover" />
-           </div>
-           <div className="flex flex-col">
-             <span className="text-xl font-bold tracking-[0.1em] uppercase text-white leading-none">Winner</span>
-             <span className="text-xl font-light tracking-[0.1em] uppercase text-white leading-none">Effect</span>
-           </div>
-        </div>
-        <div className="flex items-center gap-3">
-            <RankHUD 
-                totalWins={totalLifetimeWins} 
-                isFrozen={freezeState.isFrozen} 
-                onClick={() => {
-                    try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
-                    setIsRankModalOpen(true);
-                }}
-            />
-            <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setIsSettingsModalOpen(true); }} className="text-white/60 hover:text-white bg-white/5 hover:bg-white/10 p-2.5 rounded-xl transition-all border border-transparent hover:border-white/20" title="Settings" >
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            </button>
-        </div>
-      </header>
-      <FeedbackOverlay 
-        isVisible={feedbackState.visible} 
-        totalWins={feedbackState.totalWins}
-        type={feedbackState.type}
-        customTitle={feedbackState.customTitle}
-        customSub={feedbackState.customSub}
-        isFrozen={freezeState.isFrozen}
-        onDismiss={() => setFeedbackState(prev => ({ ...prev, visible: false }))}
-      />
-      <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} />
-      <main className="max-w-xl mx-auto p-5 pt-44 flex flex-col min-h-[calc(100vh-80px)]">
-        <section className="flex-none mb-8">
-            <StatusCard isActive={status === AppStatus.RUNNING} timeLeft={timeLeft} schedule={schedule} onToggle={handleToggleTimer} />
-        </section>
-        <section className="flex-1 flex flex-col">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-xl font-black text-white tracking-tight uppercase italic">Battle History</h2>
-            <button onClick={handleManualLogStart} className="text-white/40 hover:text-yellow-500 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-white/5 border border-white/5 hover:border-yellow-500/20" >
-              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              Manual Win
-            </button>
-          </div>
-          <StatsCard logs={filteredLogs} filter={filter} schedule={schedule} durationMs={DEFAULT_INTERVAL_MS} viewDate={viewDate} onNavigate={handleNavigate} onReset={handleResetView} isCurrentView={isCurrentView} canGoBack={canGoBack} canGoForward={canGoForward} />
-          <div className="flex justify-center mb-6">
-            <div className="bg-white/5 p-1 rounded-2xl flex items-center justify-between w-full border border-white/5">
-                {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
-                <button key={f} onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setFilter(f); setViewDate(new Date()); }} className={`flex-1 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${ filter === f ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-white/40 hover:text-white hover:bg-white/5' }`} >
-                    {f}
-                </button>
-                ))}
-            </div>
-          </div>
-          {filteredLogs.length > 0 && (
-             <div className="flex items-center justify-between mb-6 px-1 gap-4">
-                 <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleOpenAIModal(); }} className={`flex-1 flex items-center gap-3 py-3.5 px-5 rounded-2xl transition-all border ${savedReportForView ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20' : 'bg-white/5 border-white/5 text-white/40 hover:text-yellow-500 hover:border-yellow-500/30 hover:bg-white/10'}`} >
-                    <div className={`p-1.5 rounded-lg transition-colors ${savedReportForView ? 'bg-yellow-500/20' : 'bg-white/5'}`}>
-                        {savedReportForView ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                        ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                        )}
-                    </div>
-                    <div className="flex flex-col items-start">
-                         <span className="text-[10px] font-black uppercase tracking-[0.2em] leading-none">{savedReportForView ? 'The Cornerman' : 'Get Insight'}</span>
-                         {savedReportForView && savedReportForView.read === false && ( <span className="text-[8px] text-yellow-500/60 font-black uppercase tracking-widest leading-none mt-1.5 animate-pulse">New Tactical Analysis</span> )}
-                         {!savedReportForView && ( <span className="text-[8px] opacity-40 font-black uppercase tracking-widest leading-none mt-1.5">Analyze Performance</span> )}
-                    </div>
-                 </button>
-                 <button onClick={handleCopyClick} className="flex items-center justify-center w-14 h-14 rounded-2xl bg-white/5 border border-white/5 text-white/40 hover:text-white hover:border-white/20 transition-all active:scale-95 shadow-inner" title="Export Logs" >
-                     {copyFeedback ? ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500"><polyline points="20 6 9 17 4 12"></polyline></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> )}
-                 </button>
+    <div className="min-h-screen font-sans pb-[env(safe-area-inset-bottom)] text-white relative">
+      <div className="fixed inset-0 -z-50 bg-[#050505]" />
+      <div className="fixed inset-0 -z-40 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2e3248] via-[#050505] to-[#000000]" />
+      <div className="fixed inset-0 -z-30 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJnoiPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI2cpIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=')] opacity-[0.05] pointer-events-none mix-blend-overlay" />
+      
+      <div className="relative z-10">
+        <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out border-b pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center ${isScrolled ? 'bg-black/80 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/20' : 'bg-transparent border-transparent'}`} >
+          <div className="relative flex items-center gap-3">
+             <div className="w-10 h-10 rounded-xl overflow-hidden transition-all duration-500">
+               <img src="/icon.png" alt="App Icon" className="w-full h-full object-cover" />
              </div>
-          )}
-          <div className="flex-1"><LogList logs={filteredLogs} onDelete={deleteLog} /></div>
-        </section>
-      </main>
+             <div className="flex flex-col">
+               <span className="text-xl font-bold tracking-[0.1em] uppercase text-white leading-none">Winner</span>
+               <span className="text-xl font-light tracking-[0.1em] uppercase text-white leading-none">Effect</span>
+             </div>
+          </div>
+          <div className="flex items-center gap-3">
+              <RankHUD 
+                  totalWins={totalLifetimeWins} 
+                  isFrozen={freezeState.isFrozen} 
+                  onClick={() => {
+                      try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
+                      setIsRankModalOpen(true);
+                  }}
+              />
+              <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setIsSettingsModalOpen(true); }} className="text-zinc-500 hover:text-white bg-zinc-900 hover:bg-zinc-800 p-2.5 rounded-xl transition-all border border-zinc-800 hover:border-zinc-700" title="Settings" >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+          </div>
+        </header>
+        <FeedbackOverlay 
+          isVisible={feedbackState.visible} 
+          totalWins={feedbackState.totalWins}
+          type={feedbackState.type}
+          customTitle={feedbackState.customTitle}
+          customSub={feedbackState.customSub}
+          isFrozen={freezeState.isFrozen}
+          onDismiss={() => setFeedbackState(prev => ({ ...prev, visible: false }))}
+        />
+        <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} />
+        <main className="max-w-xl mx-auto p-5 pt-44 flex flex-col min-h-[calc(100vh-80px)]">
+          <section className="flex-none mb-8">
+              <StatusCard isActive={status === AppStatus.RUNNING} timeLeft={timeLeft} schedule={schedule} blockStats={blockStats} onToggle={handleToggleTimer} />
+          </section>
+          <section className="flex-1 flex flex-col">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-xl font-black text-white tracking-tight uppercase italic">Battle History</h2>
+              <button onClick={handleManualLogStart} className="text-zinc-500 hover:text-yellow-500 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-yellow-500/20" >
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Manual Win
+              </button>
+            </div>
+            <StatsCard logs={filteredLogs} filter={filter} schedule={schedule} durationMs={DEFAULT_INTERVAL_MS} viewDate={viewDate} onNavigate={handleNavigate} onReset={handleResetView} isCurrentView={isCurrentView} canGoBack={canGoBack} canGoForward={canGoForward} />
+            <div className="flex justify-center mb-6">
+              <div className="bg-zinc-900 p-1 rounded-2xl flex items-center justify-between w-full border border-zinc-800">
+                  {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
+                  <button key={f} onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setFilter(f); setViewDate(new Date()); }} className={`flex-1 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${ filter === f ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-zinc-500 hover:text-white hover:bg-zinc-800' }`} >
+                      {f}
+                  </button>
+                  ))}
+              </div>
+            </div>
+            {filteredLogs.length > 0 && (
+               <div className="flex items-center justify-between mb-6 px-1 gap-4">
+                   <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleOpenAIModal(); }} className={`flex-1 flex items-center gap-3 py-3.5 px-5 rounded-2xl transition-all border ${savedReportForView ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-yellow-500 hover:border-yellow-500/30 hover:bg-zinc-800'}`} >
+                      <div className={`p-1.5 rounded-lg transition-colors ${savedReportForView ? 'bg-yellow-500/20' : 'bg-zinc-800'}`}>
+                          {savedReportForView ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                          ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                          )}
+                      </div>
+                      <div className="flex flex-col items-start">
+                           <span className="text-[10px] font-black uppercase tracking-[0.2em] leading-none">{savedReportForView ? 'The Cornerman' : 'Get Insight'}</span>
+                           {savedReportForView && savedReportForView.read === false && ( <span className="text-[8px] text-yellow-500/60 font-black uppercase tracking-widest leading-none mt-1.5 animate-pulse">New Tactical Analysis</span> )}
+                           {!savedReportForView && ( <span className="text-[8px] opacity-40 font-black uppercase tracking-widest leading-none mt-1.5">Analyze Performance</span> )}
+                      </div>
+                   </button>
+                   <button onClick={handleCopyClick} className="flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 transition-all active:scale-95 shadow-inner" title="Export Logs" >
+                       {copyFeedback ? ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500"><polyline points="20 6 9 17 4 12"></polyline></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> )}
+                   </button>
+               </div>
+            )}
+            <div className="flex-1"><LogList logs={filteredLogs} onDelete={deleteLog} /></div>
+          </section>
+        </main>
+      </div>
+
       <EntryModal isOpen={isEntryModalOpen} onSave={handleLogSave} onClose={handleLogClose} isManual={isManualEntry} />
       <SettingsModal isOpen={isSettingsModalOpen} currentDurationMs={DEFAULT_INTERVAL_MS} logs={logs} schedule={schedule} onSave={() => {}} onSaveSchedule={handleScheduleSave} onClose={() => setIsSettingsModalOpen(false)} />
       <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Quarterly'} onClose={() => setIsAIModalOpen(false)} onGenerate={handleGenerateAIReport} />
