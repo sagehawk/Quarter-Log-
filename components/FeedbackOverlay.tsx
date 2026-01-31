@@ -8,6 +8,7 @@ interface FeedbackOverlayProps {
   customTitle?: string;
   customSub?: string;
   isFrozen?: boolean;
+  onDismiss?: () => void;
 }
 
 const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({ 
@@ -16,7 +17,8 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
     type, 
     customTitle, 
     customSub,
-    isFrozen = false
+    isFrozen = false,
+    onDismiss
 }) => {
   const [animateProgress, setAnimateProgress] = useState(0);
   
@@ -38,7 +40,10 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
   // Defeat / Loss Mode
   if (type === 'LOSS') {
       return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+        <div 
+            className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-auto cursor-pointer"
+            onClick={onDismiss}
+        >
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" />
             
             <div className="relative z-10 w-full animate-slide-up">
@@ -71,7 +76,10 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
 
   // Victory / Win Mode
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+    <div 
+        className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-auto cursor-pointer"
+        onClick={onDismiss}
+    >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" />
       
       <div className="relative z-10 w-full animate-slide-up">

@@ -17,9 +17,6 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
 
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
       setText('');
       setType(null);
       // Subtle impact on open

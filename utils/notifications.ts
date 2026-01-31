@@ -71,11 +71,18 @@ export const registerNotificationActions = async () => {
           id: 'LOG_ACTIVITY',
           actions: [
             {
-              id: 'log_input',
-              title: 'Declare Status',
+              id: 'WIN_INPUT',
+              title: 'WIN',
               input: true,
-              inputPlaceholder: 'WIN or LOSS?',
-              inputButtonTitle: 'STACK'
+              inputPlaceholder: 'How did you win?',
+              inputButtonTitle: 'STACK WIN'
+            },
+            {
+              id: 'LOSS_INPUT',
+              title: 'LOSS',
+              input: true,
+              inputPlaceholder: 'What went wrong?',
+              inputButtonTitle: 'LOG LOSS'
             }
           ]
         }

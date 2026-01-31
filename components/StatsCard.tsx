@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { LogEntry, ScheduleConfig } from '../types';
+import { getRankForPeriod } from '../utils/rankSystem';
 
 interface StatsCardProps {
   logs: LogEntry[];
@@ -25,6 +26,7 @@ type ChartDataPoint = {
   isCurrent?: boolean; 
   fullDate?: string; 
   showLabel?: boolean;
+  bucketPeriod?: string; // 'D', 'W', 'M' etc. for rank calc
 };
 
 // SVG Constants
@@ -59,6 +61,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
     const totalLogs = winsTotal + lossesTotal;
     const winRate = totalLogs > 0 ? Math.round((winsTotal / totalLogs) * 100) : 0;
     const momentumDisplay = `${winRate}%`;
+    const summaryRank = getRankForPeriod(winsTotal, filter);
     
     // -- Chart Bucketing --
     let buckets: { [key: string]: { logs: LogEntry[], date: Date, label: string } } = {};
@@ -111,10 +114,13 @@ const StatsCard: React.FC<StatsCardProps> = ({
         }
     };
 
+    let bucketPeriod = 'D'; // Default for rank calculation of buckets
+
     if (filter === 'D') {
         const startDate = new Date(now);
         startDate.setHours(0, 0, 0, 0);
         fillBuckets(startDate, 24, 'hour');
+        bucketPeriod = 'H'; // Hourly
     } else if (filter === 'W') {
         const start = new Date(now);
         const day = start.getDay();
@@ -122,18 +128,22 @@ const StatsCard: React.FC<StatsCardProps> = ({
         start.setDate(diff);
         start.setHours(0,0,0,0);
         fillBuckets(start, 7, 'day');
+        bucketPeriod = 'D';
     } else if (filter === 'M') {
         const start = new Date(now.getFullYear(), now.getMonth(), 1);
         const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
         fillBuckets(start, daysInMonth, 'day');
+        bucketPeriod = 'D';
     } else if (filter === '3M') {
         const currentMonth = now.getMonth();
         const startMonth = Math.floor(currentMonth / 3) * 3;
         const start = new Date(now.getFullYear(), startMonth, 1);
         fillBuckets(start, 13, 'week');
+        bucketPeriod = 'W';
     } else if (filter === 'Y') {
         const start = new Date(now.getFullYear(), 0, 1);
         fillBuckets(start, 12, 'month');
+        bucketPeriod = 'M';
     }
 
     // --- Distribute Logs ---
@@ -188,13 +198,14 @@ const StatsCard: React.FC<StatsCardProps> = ({
             displayValue: total > 0 ? `${rate}% Win Rate` : 'No Battle',
             isCurrent: isTodayReal(key),
             fullDate,
-            showLabel
+            showLabel,
+            bucketPeriod
         });
     });
 
     return {
         momentumChartData: dChart,
-        summaryStats: { momentumDisplay }
+        summaryStats: { momentumDisplay, summaryRank }
     };
   }, [logs, filter, viewDate]);
 
@@ -240,8 +251,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
 
   const renderBarChart = () => {
     const dataMax = Math.max(...momentumChartData.map(d => d.value));
-    const maxVal = Math.max(dataMax, 4); // Min 4 to prevent huge bars
-    
+    const maxVal = Math.max(dataMax, 4); 
     const count = momentumChartData.length;
     const barWidth = getBarWidth(count);
 
@@ -262,18 +272,14 @@ const StatsCard: React.FC<StatsCardProps> = ({
                      const cx = getColumnX(i, count);
                      return <rect key={i} x={cx - barWidth/2} y={CHART_HEIGHT - 2} width={barWidth} height={2} rx={1} fill="#ffffff10" />;
                 }
-
                 const cx = getColumnX(i, count);
                 const x = cx - (barWidth / 2);
-                
                 const winH = (d.wins / maxVal) * CHART_HEIGHT;
                 const lossH = (d.losses / maxVal) * CHART_HEIGHT;
 
                 return (
                     <g key={i} className={`transition-opacity duration-300 ${interactionIndex !== null && interactionIndex !== i ? 'opacity-20' : 'opacity-100'}`}>
-                        {/* Loss (Top) */}
                         <rect x={x} y={CHART_HEIGHT - winH - lossH} width={barWidth} height={lossH} rx={1} fill="#dc2626" />
-                        {/* Win (Bottom) */}
                         <rect x={x} y={CHART_HEIGHT - winH} width={barWidth} height={winH} rx={1} fill="#eab308" />
                     </g>
                 );
@@ -290,7 +296,6 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 const count = momentumChartData.length;
                 const cx = getColumnX(i, count);
                 const leftPct = (cx / CHART_WIDTH) * 100;
-                
                 return (
                     <div 
                       key={i} 
@@ -306,9 +311,21 @@ const StatsCard: React.FC<StatsCardProps> = ({
   };
 
   const activeData = interactionIndex !== null ? momentumChartData[interactionIndex] : null;
+  
+  // Calculate Header Logic
   const headerValue = activeData ? activeData.displayValue : summaryStats.momentumDisplay;
   const headerLabel = activeData && activeData.fullDate ? activeData.fullDate : 'Tactical Momentum';
   const labelColor = activeData ? 'text-yellow-500' : 'text-white/40';
+
+  // Calculate Rank Logic for Header
+  let displayedRank = null;
+  if (activeData) {
+      if (activeData.bucketPeriod && activeData.bucketPeriod !== 'H') {
+          displayedRank = getRankForPeriod(activeData.wins, activeData.bucketPeriod);
+      }
+  } else {
+      displayedRank = summaryStats.summaryRank;
+  }
 
   return (
     <div className="mb-8 w-full">
@@ -317,7 +334,26 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 <div className="flex justify-between items-start">
                     <div>
                         <h3 className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1.5 transition-colors duration-300 italic ${labelColor}`}>{headerLabel}</h3>
-                        <span className="text-4xl font-black text-white tracking-tighter italic tabular-nums block h-10">{headerValue}</span>
+                        <div className="flex items-center gap-3">
+                            <span className="text-4xl font-black text-white tracking-tighter italic tabular-nums block h-10">{headerValue}</span>
+                            {displayedRank && (
+                                <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded-lg border border-white/5 animate-fade-in">
+                                    <svg 
+                                        xmlns="http://www.w3.org/2000/svg" 
+                                        viewBox="0 0 24 24" 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        strokeWidth="2" 
+                                        className={`w-4 h-4 ${displayedRank.color}`}
+                                    >
+                                        <path d={displayedRank.icon} />
+                                    </svg>
+                                    <span className={`text-[10px] font-black uppercase tracking-tighter italic ${displayedRank.color}`}>
+                                        {displayedRank.name}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                     
                     <div className="pointer-events-auto flex items-center gap-1.5">
@@ -338,6 +374,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                     </div>
                 </div>
             </div>
+            
             <div className="h-28 w-full pt-2 relative">
                 {momentumChartData.length > 0 ? (
                     <>

@@ -4,13 +4,17 @@ import { getRankProgress } from '../utils/rankSystem';
 interface RankHUDProps {
   totalWins: number;
   isFrozen?: boolean;
+  onClick?: () => void;
 }
 
-const RankHUD: React.FC<RankHUDProps> = ({ totalWins, isFrozen = false }) => {
+const RankHUD: React.FC<RankHUDProps> = ({ totalWins, isFrozen = false, onClick }) => {
   const { currentRank } = getRankProgress(totalWins);
 
   return (
-    <div className="flex items-center gap-3 bg-white/5 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl shadow-xl transition-all">
+    <div 
+        onClick={onClick}
+        className="flex items-center gap-3 bg-white/5 backdrop-blur-md border border-white/10 px-4 py-2 rounded-2xl shadow-xl transition-all active:scale-95 hover:bg-white/10 cursor-pointer group"
+    >
       <div className={`relative ${isFrozen ? 'grayscale brightness-50' : ''}`}>
         <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -20,7 +24,7 @@ const RankHUD: React.FC<RankHUDProps> = ({ totalWins, isFrozen = false }) => {
             strokeWidth="2" 
             strokeLinecap="round" 
             strokeLinejoin="round"
-            className={`w-5 h-5 ${currentRank.color}`}
+            className={`w-5 h-5 ${currentRank.color} transition-transform group-hover:scale-110`}
         >
             <path d={currentRank.icon} />
         </svg>

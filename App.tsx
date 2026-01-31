@@ -9,6 +9,7 @@ import SettingsModal from './components/SettingsModal';
 import AIFeedbackModal from './components/AIFeedbackModal';
 import FeedbackOverlay from './components/FeedbackOverlay';
 import RankHUD from './components/RankHUD';
+import RankHierarchyModal from './components/RankHierarchyModal';
 import Toast from './components/Toast';
 import StatsCard from './components/StatsCard';
 import Onboarding from './components/Onboarding';
@@ -25,6 +26,7 @@ const STORAGE_KEY_PERSONA = 'ironlog_persona';
 const STORAGE_KEY_TIMER_TARGET = 'ironlog_timer_target';
 const STORAGE_KEY_REPORTS = 'ironlog_ai_reports';
 const STORAGE_KEY_FREEZE = 'ironlog_freeze_state';
+const STORAGE_KEY_SEEN_FREEZE_WARNING = 'ironlog_seen_freeze_warning';
 
 type FilterType = 'D' | 'W' | 'M' | '3M' | 'Y';
 
@@ -65,12 +67,15 @@ const App: React.FC = () => {
       lastLossTimestamp: null
   });
 
+  const [hasSeenFreezeWarning, setHasSeenFreezeWarning] = useState(false);
+
   const [isPaused, setIsPaused] = useState(false);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isManualEntry, setIsManualEntry] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [isRankModalOpen, setIsRankModalOpen] = useState(false);
   const [aiReportLoading, setAiReportLoading] = useState(false);
   const [aiReportContent, setAiReportContent] = useState<string | null>(null);
 
@@ -113,6 +118,9 @@ const App: React.FC = () => {
     if (storedReports) {
       try { setReports(JSON.parse(storedReports)); } catch (e) { console.error(e); }
     }
+
+    const seenWarning = localStorage.getItem(STORAGE_KEY_SEEN_FREEZE_WARNING);
+    if (seenWarning) setHasSeenFreezeWarning(true);
 
     const storedFreeze = localStorage.getItem(STORAGE_KEY_FREEZE);
     if (storedFreeze) {
@@ -379,6 +387,51 @@ const App: React.FC = () => {
     return checkSame(now, viewDate);
   }, [viewDate, filter]);
 
+  // MOVE FILTERED LOGS HERE (Before using it)
+  const filteredLogs = useMemo(() => {
+    const current = new Date(viewDate);
+    let startTime = 0;
+    let endTime = Infinity;
+    switch (filter) {
+      case 'D': 
+        const startOfDay = new Date(current.getFullYear(), current.getMonth(), current.getDate());
+        startTime = startOfDay.getTime(); 
+        endTime = startTime + 86400000 - 1;
+        break;
+      case 'W': {
+        const day = current.getDay();
+        const diff = current.getDate() - day + (day === 0 ? -6 : 1);
+        const startOfWeek = new Date(current);
+        startOfWeek.setDate(diff);
+        startOfWeek.setHours(0,0,0,0);
+        startTime = startOfWeek.getTime();
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 7);
+        endTime = endOfWeek.getTime() - 1;
+        break;
+      }
+      case 'M': 
+        startTime = new Date(current.getFullYear(), current.getMonth(), 1).getTime(); 
+        endTime = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59).getTime();
+        break;
+      case '3M': {
+        const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
+        const qStart = new Date(current.getFullYear(), qStartMonth, 1);
+        startTime = qStart.getTime();
+        const qEnd = new Date(qStart);
+        qEnd.setMonth(qEnd.getMonth() + 3);
+        endTime = qEnd.getTime() - 1;
+        break;
+      }
+      case 'Y': 
+        startTime = new Date(current.getFullYear(), 0, 1).getTime(); 
+        endTime = new Date(current.getFullYear(), 11, 31, 23, 59, 59).getTime();
+        break;
+      default: startTime = 0;
+    }
+    return logs.filter(l => l.timestamp >= startTime && l.timestamp <= endTime);
+  }, [logs, filter, viewDate]);
+
   const { canGoBack, canGoForward } = useMemo(() => {
     if (logs.length === 0) return { canGoBack: false, canGoForward: false };
     const minTimestamp = Math.min(...logs.map(l => l.timestamp));
@@ -386,36 +439,47 @@ const App: React.FC = () => {
     const current = new Date(viewDate);
     let viewStart = 0;
     let viewEnd = 0;
-    if (filter === 'D') {
-        current.setHours(0,0,0,0);
-        viewStart = current.getTime();
-        viewEnd = viewStart + 86400000;
-    } else if (filter === 'W') {
-        const day = current.getDay();
-        const diff = current.getDate() - day + (day === 0 ? -6 : 1);
-        current.setDate(diff);
-        current.setHours(0,0,0,0);
-        viewStart = current.getTime();
-        viewEnd = viewStart + (7 * 86400000);
-    } else if (filter === 'M') {
-        viewStart = new Date(current.getFullYear(), current.getMonth(), 1).getTime();
-        viewEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0).getTime();
-    } else if (filter === '3M') {
-        const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
-        const qStart = new Date(current.getFullYear(), qStartMonth, 1);
-        viewStart = qStart.getTime();
-        const qEnd = new Date(qStart);
-        qEnd.setMonth(qEnd.getMonth() + 3);
-        viewEnd = qEnd.getTime();
-    } else if (filter === 'Y') {
-        viewStart = new Date(current.getFullYear(), 0, 1).getTime();
-        viewEnd = new Date(current.getFullYear() + 1, 0, 1).getTime();
+
+    switch(filter) {
+        case 'D':
+            current.setHours(0,0,0,0);
+            viewStart = current.getTime();
+            viewEnd = viewStart + 86400000;
+            break;
+        case 'W':
+            const day = current.getDay();
+            const diff = current.getDate() - day + (day === 0 ? -6 : 1);
+            current.setDate(diff);
+            current.setHours(0,0,0,0);
+            viewStart = current.getTime();
+            viewEnd = viewStart + (7 * 86400000);
+            break;
+        case 'M':
+            viewStart = new Date(current.getFullYear(), current.getMonth(), 1).getTime();
+            viewEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0).getTime();
+            break;
+        case '3M': {
+            const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
+            const qStart = new Date(current.getFullYear(), qStartMonth, 1);
+            viewStart = qStart.getTime();
+            const qEnd = new Date(qStart);
+            qEnd.setMonth(qEnd.getMonth() + 3);
+            viewEnd = qEnd.getTime();
+            break;
+        }
+        case 'Y':
+            viewStart = new Date(current.getFullYear(), 0, 1).getTime();
+            viewEnd = new Date(current.getFullYear() + 1, 0, 1).getTime();
+            break;
     }
     return { canGoBack: viewStart > minTimestamp, canGoForward: viewEnd < maxTimestamp };
   }, [viewDate, filter, logs]);
 
-  // PERSISTENT RANK CALCULATION
+  // PERSISTENT RANK CALCULATION (Lifetime) 
   const totalLifetimeWins = useMemo(() => logs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [logs]);
+  
+  // CURRENT PERIOD RANK CALCULATION
+  const currentPeriodWins = useMemo(() => filteredLogs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [filteredLogs]);
 
   const handleManualLogStart = () => {
     try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
@@ -432,7 +496,14 @@ const App: React.FC = () => {
     if (type === 'LOSS') {
         nextFreezeState.lastLossTimestamp = Date.now();
         const lastEntry = logs[0];
-        if (lastEntry && lastEntry.type === 'LOSS') {
+        
+        // --- FIRST LOSS TUTORIAL CHECK ---
+        if (!hasSeenFreezeWarning) {
+            setHasSeenFreezeWarning(true);
+            localStorage.setItem(STORAGE_KEY_SEEN_FREEZE_WARNING, 'true');
+            overlayTitle = "MOMENTUM BREACH";
+            overlaySub = "WARNING: 2 LOSSES = RANK FREEZE. NEXT 15MIN IS CRITICAL.";
+        } else if (lastEntry && lastEntry.type === 'LOSS') {
             nextFreezeState.isFrozen = true;
             nextFreezeState.recoveryWins = 0;
             overlayTitle = "RANK FROZEN";
@@ -496,7 +567,8 @@ const App: React.FC = () => {
                 customSub: overlaySub
             });
         }
-        setTimeout(() => setFeedbackState(prev => ({ ...prev, visible: false })), 3000);
+        // Auto-dismiss logic handled in FeedbackOverlay or App timeout
+        setTimeout(() => setFeedbackState(prev => ({ ...prev, visible: false })), 3500); 
     } catch(e) {}
 
     localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
@@ -506,7 +578,7 @@ const App: React.FC = () => {
        setStatus(AppStatus.IDLE);
        setIsPaused(false);
     }
-  }, [startTimer, isWithinSchedule, logs, freezeState]);
+  }, [startTimer, isWithinSchedule, logs, freezeState, hasSeenFreezeWarning]);
 
   const handleLogClose = () => {
     setIsEntryModalOpen(false);
@@ -546,8 +618,16 @@ const App: React.FC = () => {
       }
     });
     const notificationSub = LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
-        if (notification.actionId === 'log_input' && notification.inputValue) {
+        if (notification.actionId === 'WIN_INPUT' && notification.inputValue) {
            handleLogSave(notification.inputValue, 'WIN', true);
+           cancelNotification(); 
+        } else if (notification.actionId === 'LOSS_INPUT' && notification.inputValue) {
+           handleLogSave(notification.inputValue, 'LOSS', true);
+           cancelNotification();
+        } else if (notification.actionId === 'log_input' && notification.inputValue) {
+           // Fallback for old notification type
+           handleLogSave(notification.inputValue, 'WIN', true);
+           cancelNotification();
         } else {
            setIsEntryModalOpen(true);
            setIsManualEntry(false); 
@@ -558,50 +638,6 @@ const App: React.FC = () => {
       notificationSub.then(sub => sub.remove());
     };
   }, [status, handleTimerComplete, handleLogSave]);
-
-  const filteredLogs = useMemo(() => {
-    const current = new Date(viewDate);
-    let startTime = 0;
-    let endTime = Infinity;
-    switch (filter) {
-      case 'D': 
-        const startOfDay = new Date(current.getFullYear(), current.getMonth(), current.getDate());
-        startTime = startOfDay.getTime(); 
-        endTime = startTime + 86400000 - 1;
-        break;
-      case 'W': {
-        const day = current.getDay();
-        const diff = current.getDate() - day + (day === 0 ? -6 : 1);
-        const startOfWeek = new Date(current);
-        startOfWeek.setDate(diff);
-        startOfWeek.setHours(0,0,0,0);
-        startTime = startOfWeek.getTime();
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 7);
-        endTime = endOfWeek.getTime() - 1;
-        break;
-      }
-      case 'M': 
-        startTime = new Date(current.getFullYear(), current.getMonth(), 1).getTime(); 
-        endTime = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59).getTime();
-        break;
-      case '3M': {
-        const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
-        const qStart = new Date(current.getFullYear(), qStartMonth, 1);
-        startTime = qStart.getTime();
-        const qEnd = new Date(qStart);
-        qEnd.setMonth(qEnd.getMonth() + 3);
-        endTime = qEnd.getTime() - 1;
-        break;
-      }
-      case 'Y': 
-        startTime = new Date(current.getFullYear(), 0, 1).getTime(); 
-        endTime = new Date(current.getFullYear(), 11, 31, 23, 59, 59).getTime();
-        break;
-      default: startTime = 0;
-    }
-    return logs.filter(l => l.timestamp >= startTime && l.timestamp <= endTime);
-  }, [logs, filter, viewDate]);
 
   const formatLogsForExport = (logsToExport: LogEntry[]) => {
     const sortedLogs = [...logsToExport].sort((a, b) => a.timestamp - b.timestamp);
@@ -701,20 +737,27 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen font-sans pb-[env(safe-area-inset-bottom)] bg-black text-white">
-      <div className="fixed inset-0 -z-50" style={{ background: 'radial-gradient(circle at top right, #1e1b4b 0%, #000000 100%)' }} />
-      <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out border-b pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center ${isScrolled ? 'bg-black/80 backdrop-blur-xl border-yellow-500/10 shadow-2xl shadow-black/20' : 'bg-transparent border-transparent'}`} >
+      <div className="fixed inset-0 -z-50 bg-black" />
+      <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out border-b pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center ${isScrolled ? 'bg-black/80 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/20' : 'bg-transparent border-transparent'}`} >
         <div className="relative flex items-center gap-3">
-           <div className={`w-10 h-10 rounded-xl overflow-hidden transition-all duration-500 shadow-lg ${isScrolled ? 'shadow-yellow-500/20 ring-0' : 'shadow-yellow-500/10 ring-1 ring-white/10'}`}>
-             <img src="https://i.imgur.com/43DnpQe.png" alt="App Icon" className="w-full h-full object-cover grayscale contrast-125" />
+           <div className="w-10 h-10 rounded-xl overflow-hidden transition-all duration-500">
+             <img src="/icon.png" alt="App Icon" className="w-full h-full object-cover" />
            </div>
-           <div>
-             <h1 className="font-black text-2xl tracking-tighter uppercase text-white leading-none drop-shadow-sm italic">Winner Effect</h1>
-             <p className={`text-[9px] font-black tracking-[0.3em] uppercase mt-1 transition-colors duration-300 ${isScrolled ? 'text-yellow-500/80' : 'text-yellow-500/40'}`}>Log the Win</p>
+           <div className="flex flex-col">
+             <span className="text-xl font-bold tracking-[0.1em] uppercase text-white leading-none">Winner</span>
+             <span className="text-xl font-light tracking-[0.1em] uppercase text-white leading-none">Effect</span>
            </div>
         </div>
         <div className="flex items-center gap-3">
-            <RankHUD totalWins={totalLifetimeWins} isFrozen={freezeState.isFrozen} />
-            <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setIsSettingsModalOpen(true); }} className="text-white/60 hover:text-yellow-500 bg-white/5 hover:bg-yellow-500/10 p-2.5 rounded-xl transition-all border border-transparent hover:border-yellow-500/20" title="Settings" >
+            <RankHUD 
+                totalWins={totalLifetimeWins} 
+                isFrozen={freezeState.isFrozen} 
+                onClick={() => {
+                    try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
+                    setIsRankModalOpen(true);
+                }}
+            />
+            <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setIsSettingsModalOpen(true); }} className="text-white/60 hover:text-white bg-white/5 hover:bg-white/10 p-2.5 rounded-xl transition-all border border-transparent hover:border-white/20" title="Settings" >
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
             </button>
         </div>
@@ -726,9 +769,10 @@ const App: React.FC = () => {
         customTitle={feedbackState.customTitle}
         customSub={feedbackState.customSub}
         isFrozen={freezeState.isFrozen}
+        onDismiss={() => setFeedbackState(prev => ({ ...prev, visible: false }))}
       />
       <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} />
-      <main className="max-w-xl mx-auto p-5 pt-32 flex flex-col min-h-[calc(100vh-80px)]">
+      <main className="max-w-xl mx-auto p-5 pt-44 flex flex-col min-h-[calc(100vh-80px)]">
         <section className="flex-none mb-8">
             <StatusCard isActive={status === AppStatus.RUNNING} timeLeft={timeLeft} schedule={schedule} onToggle={handleToggleTimer} />
         </section>
@@ -777,6 +821,12 @@ const App: React.FC = () => {
       <EntryModal isOpen={isEntryModalOpen} onSave={handleLogSave} onClose={handleLogClose} isManual={isManualEntry} />
       <SettingsModal isOpen={isSettingsModalOpen} currentDurationMs={DEFAULT_INTERVAL_MS} logs={logs} schedule={schedule} onSave={() => {}} onSaveSchedule={handleScheduleSave} onClose={() => setIsSettingsModalOpen(false)} />
       <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Quarterly'} onClose={() => setIsAIModalOpen(false)} onGenerate={handleGenerateAIReport} />
+      <RankHierarchyModal 
+        isOpen={isRankModalOpen} 
+        onClose={() => setIsRankModalOpen(false)} 
+        currentWins={currentPeriodWins}
+        period={filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Quarterly' + (filter === 'Y' ? ' (Year)' : '')}
+      />
       <div className="h-[env(safe-area-inset-bottom)]" />
     </div>
   );
