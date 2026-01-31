@@ -73,7 +73,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     <div className="fixed inset-0 z-[200] bg-[#050505] flex flex-col items-center justify-center p-6 text-center font-sans text-white overflow-hidden">
       
       {/* Cinematic Background */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#2e3248] via-[#050505] to-[#000000]" />
+      <div className="absolute inset-0 bg-[linear-gradient(160deg,_#2a220a_0%,_#050505_40%,_#000000_100%)]" />
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJnoiPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI2cpIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=')] opacity-[0.05] pointer-events-none mix-blend-overlay" />
 
       {/* Progress Bars */}

@@ -784,11 +784,11 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen font-sans pb-[env(safe-area-inset-bottom)] text-white relative">
       <div className="fixed inset-0 -z-50 bg-[#050505]" />
-      <div className="fixed inset-0 -z-40 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2e3248] via-[#050505] to-[#000000]" />
+      <div className="fixed inset-0 -z-40 bg-[linear-gradient(160deg,_#2a220a_0%,_#050505_40%,_#000000_100%)]" />
       <div className="fixed inset-0 -z-30 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJnoiPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI2cpIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=')] opacity-[0.05] pointer-events-none mix-blend-overlay" />
       
       <div className="relative z-10">
-        <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out border-b pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center ${isScrolled ? 'bg-black/80 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/20' : 'bg-transparent border-transparent'}`} >
+        <header className="fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center" >
           <div className="relative flex items-center gap-3">
              <div className="w-10 h-10 rounded-xl overflow-hidden transition-all duration-500">
                <img src="/icon.png" alt="App Icon" className="w-full h-full object-cover" />
