@@ -120,7 +120,8 @@ export const scheduleNotification = async (title: string, body: string, delayMs:
           id: 1, // Fixed ID allows us to easily cancel/update the specific timer notification
           schedule: { at: new Date(Date.now() + delayMs) },
           sound: 'beep.wav', // Explicitly request the custom sound
-                      smallIcon: 'ic_notification', // Ensure this matches capacitor.config          channelId: CHANNEL_ID, // Use the high-priority channel
+          smallIcon: 'ic_stat_status_bar_logo', // Ensure this matches capacitor.config
+          channelId: CHANNEL_ID, // Use the high-priority channel
           actionTypeId: 'LOG_ACTIVITY',
           extra: null
         }

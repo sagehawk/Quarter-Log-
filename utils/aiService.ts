@@ -10,11 +10,12 @@ export const generateAIReport = async (
   type: 'FULL' | 'BRIEF' = 'FULL'
 ): Promise<string> => {
   
-  const apiKey = process.env.API_KEY;
+  // Check both process.env (from vite define) and import.meta.env (standard Vite)
+  const apiKey = process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
   console.log("Debug: API Key present?", !!apiKey);
 
   if (!apiKey) {
-    return "API Key is missing. Tactical analysis disabled.";
+    return "Configuration Error: API Key is missing. Create a .env file in your project root with VITE_GEMINI_API_KEY=your_key.";
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -129,6 +130,6 @@ export const generateAIReport = async (
     return response.text || "Could not analyze the battlefield.";
   } catch (error: any) {
     console.error("AI Generation Error:", error);
-    return "The Accountability Engine is offline. Maintain position.";
+    return `Analysis Failed: ${error.message || "Unknown Error"}`;
   }
 };
