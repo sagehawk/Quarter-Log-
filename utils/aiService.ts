@@ -11,6 +11,7 @@ export const generateAIReport = async (
 ): Promise<string> => {
   
   const apiKey = process.env.API_KEY;
+  console.log("Debug: API Key present?", !!apiKey);
 
   if (!apiKey) {
     return "API Key is missing. Tactical analysis disabled.";
