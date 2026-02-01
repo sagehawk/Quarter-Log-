@@ -36,10 +36,10 @@ const RankHUD: React.FC<RankHUDProps> = ({ totalWins, isFrozen = false, onClick 
       </div>
       
       <div className="flex flex-col">
-        <span className={`text-[10px] font-black italic uppercase tracking-tighter leading-none ${isFrozen ? 'text-white/20' : currentRank.color}`}>
+        <span className={`text-sm font-black italic uppercase tracking-tighter leading-none ${isFrozen ? 'text-white/20' : currentRank.color}`}>
             {currentRank.name}
         </span>
-        <span className="text-[8px] text-white/40 font-black uppercase tracking-widest mt-0.5">
+        <span className="text-xs text-white/40 font-black uppercase tracking-widest mt-0.5">
             {totalWins} Wins
         </span>
       </div>

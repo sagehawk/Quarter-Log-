@@ -6,23 +6,29 @@ interface EntryModalProps {
   onSave: (text: string, type: 'WIN' | 'LOSS') => void;
   onClose: () => void;
   isManual?: boolean;
+  initialEntry?: { text: string; type: 'WIN' | 'LOSS' } | null;
 }
 
 const MAX_CHARS = 500;
 
-const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManual = false }) => {
+const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManual = false, initialEntry = null }) => {
   const [text, setText] = useState('');
   const [type, setType] = useState<'WIN' | 'LOSS' | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setText('');
-      setType(null);
+      if (initialEntry) {
+        setText(initialEntry.text);
+        setType(initialEntry.type);
+      } else {
+        setText('');
+        setType(null);
+      }
       // Subtle impact on open
       try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
     }
-  }, [isOpen]);
+  }, [isOpen, initialEntry]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,10 +52,10 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
       <div className="relative w-full max-w-lg bg-[#0a0a0a] border border-yellow-500/20 rounded-[2rem] shadow-[0_0_50px_rgba(234,179,8,0.1)] p-6 md:p-8 transform transition-all animate-slide-up">
         <div className="text-center mb-8">
            <h2 className="text-4xl font-black text-white mb-2 uppercase tracking-tighter italic">
-             {isManual ? 'Manual Entry' : 'Win or Loss?'}
+             {initialEntry ? 'Edit Entry' : isManual ? 'Manual Entry' : 'Win or Loss?'}
            </h2>
            <p className="text-yellow-500/60 text-xs font-black uppercase tracking-[0.2em]">
-             {isManual ? 'Declare your status' : 'Did you handle this block like a winner?'}
+             {initialEntry ? 'Update your tactical log' : isManual ? 'Declare your status' : 'Did you handle this block like a winner?'}
            </p>
         </div>
 

@@ -299,7 +299,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 return (
                     <div 
                       key={i} 
-                      className={`absolute bottom-0 text-[8px] font-black uppercase tracking-widest transform -translate-x-1/2 ${d.isCurrent ? 'text-yellow-500' : 'text-white/20'}`}
+                      className={`absolute bottom-0 text-xs font-black uppercase tracking-widest transform -translate-x-1/2 ${d.isCurrent ? 'text-yellow-500' : 'text-white/20'}`}
                       style={{ left: `${leftPct}%` }}
                     >
                         {d.label}
@@ -333,22 +333,22 @@ const StatsCard: React.FC<StatsCardProps> = ({
             <div className="mb-4 relative z-10 pointer-events-none">
                 <div className="flex justify-between items-start">
                     <div>
-                        <h3 className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1.5 transition-colors duration-300 italic ${labelColor}`}>{headerLabel}</h3>
+                        <h3 className={`text-xs font-black uppercase tracking-[0.2em] mb-1.5 transition-colors duration-300 italic ${labelColor}`}>{headerLabel}</h3>
                         <div className="flex items-center gap-3">
-                            <span className="text-4xl font-black text-white tracking-tighter italic tabular-nums block h-10">{headerValue}</span>
+                            <span className="text-5xl font-black text-white tracking-tighter italic tabular-nums block h-12">{headerValue}</span>
                             {displayedRank && (
-                                <div className="flex items-center gap-1.5 bg-zinc-800 px-2 py-1 rounded-lg border border-zinc-700 animate-fade-in">
+                                <div className="flex items-center gap-1.5 bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700 animate-fade-in">
                                     <svg 
                                         xmlns="http://www.w3.org/2000/svg" 
                                         viewBox="0 0 24 24" 
                                         fill="none" 
                                         stroke="currentColor" 
-                                        strokeWidth="2" 
-                                        className={`w-4 h-4 ${displayedRank.color}`}
+                                        strokeWidth="2.5" 
+                                        className={`w-5 h-5 ${displayedRank.color}`}
                                     >
                                         <path d={displayedRank.icon} />
                                     </svg>
-                                    <span className={`text-[10px] font-black uppercase tracking-tighter italic ${displayedRank.color}`}>
+                                    <span className={`text-sm font-black uppercase tracking-tighter italic ${displayedRank.color}`}>
                                         {displayedRank.name}
                                     </span>
                                 </div>
@@ -382,7 +382,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                         {renderLabels()}
                     </>
                 ) : (
-                    <div className="h-full flex items-center justify-center text-zinc-700 text-[10px] font-black uppercase tracking-widest italic">No Combat Data</div>
+                    <div className="h-full flex items-center justify-center text-zinc-700 text-sm font-black uppercase tracking-widest italic">No Combat Data</div>
                 )}
             </div>
         </div>

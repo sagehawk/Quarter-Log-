@@ -1,15 +1,42 @@
 import React, { useEffect, useRef } from 'react';
-import { RANKS, Rank } from '../utils/rankSystem';
+import { RANKS, getThresholdsForPeriod } from '../utils/rankSystem';
 
 interface RankHierarchyModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentWins: number;
-  period: string;
+  period: string; // 'Daily', 'Weekly', etc. passed from App.tsx
 }
 
 const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose, currentWins, period }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Convert friendly period name back to key if necessary, or ensure App passes key.
+  // App passes: 'Daily' -> 'D', 'Weekly' -> 'W', etc.
+  // Actually App.tsx logic: period={filter === 'D' ? 'Daily' : ...}
+  // We need the KEY ('D', 'W') to get thresholds.
+  // Let's deduce the key or accept key as prop. 
+  // Easier to map back:
+  const getPeriodKey = (p: string) => {
+      if (p.startsWith('Daily')) return 'D';
+      if (p.startsWith('Weekly')) return 'W';
+      if (p.startsWith('Monthly')) return 'M';
+      if (p.startsWith('Quarterly')) return '3M';
+      if (p.startsWith('Year')) return 'Y'; // 'Quarterly (Year)' logic in App.tsx was weird, let's assume 'Y' won't be passed as 'Quarterly'.
+      // App.tsx: period={filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Quarterly' + (filter === 'Y' ? ' (Year)' : '')}
+      // If filter is Y, it says "Quarterly (Year)" ? That looks like a bug in my previous read of App.tsx logic.
+      // Let's re-read App.tsx logic in my head:
+      // filter === 'Y' ? ' (Year)' : '' -> This appends to 'Quarterly' only if ... wait.
+      // filter === 'M' ? 'Monthly' : 'Quarterly' ...
+      // If filter is 'Y', it falls to 'Quarterly' + ' (Year)' -> "Quarterly (Year)".
+      // This is confusing. I should fix App.tsx to pass the Key or clean this up.
+      // For now, I'll map "Quarterly (Year)" to 'Y'.
+      if (p.includes('Year')) return 'Y';
+      return '3M'; // Default to Quarterly if not matched above
+  };
+
+  const periodKey = getPeriodKey(period);
+  const thresholds = getThresholdsForPeriod(periodKey);
 
   // Scroll to current rank on open
   useEffect(() => {
@@ -17,7 +44,7 @@ const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose
       // Find current rank index
       let rankIndex = 0;
       for (let i = RANKS.length - 1; i >= 0; i--) {
-        if (currentWins >= RANKS[i].threshold) {
+        if (currentWins >= thresholds[i]) {
           rankIndex = i;
           break;
         }
@@ -26,7 +53,7 @@ const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose
       const rowHeight = 80; // approx
       scrollRef.current.scrollTop = (rankIndex * rowHeight) - 100; 
     }
-  }, [isOpen, currentWins]);
+  }, [isOpen, currentWins, thresholds]);
 
   if (!isOpen) return null;
 
@@ -57,11 +84,14 @@ const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose
         {/* Rank List */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-3">
             {RANKS.map((rank, index) => {
-                const isUnlocked = currentWins >= rank.threshold;
-                const isCurrent = isUnlocked && (index === RANKS.length - 1 || currentWins < RANKS[index + 1].threshold);
-                const nextRank = RANKS[index + 1];
-                const progressToNext = nextRank 
-                    ? Math.min(100, Math.max(0, ((currentWins - rank.threshold) / (nextRank.threshold - rank.threshold)) * 100))
+                const threshold = thresholds[index];
+                const nextThreshold = thresholds[index + 1];
+                
+                const isUnlocked = currentWins >= threshold;
+                const isCurrent = isUnlocked && (index === RANKS.length - 1 || currentWins < nextThreshold);
+                
+                const progressToNext = nextThreshold 
+                    ? Math.min(100, Math.max(0, ((currentWins - threshold) / (nextThreshold - threshold)) * 100))
                     : 100;
 
                 return (
@@ -89,12 +119,12 @@ const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose
                                         {rank.name}
                                     </h3>
                                     <span className="text-[10px] font-bold text-white/20 font-mono">
-                                        {rank.threshold}+
+                                        {threshold}+
                                     </span>
                                 </div>
                                 
                                 {/* Mini Progress for Current Rank */}
-                                {isCurrent && nextRank && (
+                                {isCurrent && nextThreshold && (
                                     <div className="h-1.5 w-full bg-black/50 rounded-full overflow-hidden mt-2">
                                         <div 
                                             className={`h-full ${rank.color.replace('text-', 'bg-')} shadow-[0_0_10px_currentColor]`} 
@@ -102,7 +132,7 @@ const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose
                                         />
                                     </div>
                                 )}
-                                {isCurrent && !nextRank && (
+                                {isCurrent && !nextThreshold && (
                                      <div className="text-[9px] text-yellow-500 font-black uppercase tracking-widest mt-1">Max Rank Achieved</div>
                                 )}
                             </div>

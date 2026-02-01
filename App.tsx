@@ -72,6 +72,7 @@ const App: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isManualEntry, setIsManualEntry] = useState(false);
+  const [editingLog, setEditingLog] = useState<LogEntry | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
@@ -216,7 +217,7 @@ const App: React.FC = () => {
         hasCheckedAutoReport.current = true; 
         const runAutoGen = async () => {
             const goals = getStoredGoals();
-            const persona = localStorage.getItem(STORAGE_KEY_PERSONA) as any || 'LOGIC';
+            const persona = 'LOGIC';
             const summary = await generateAIReport(yesterdaysLogs, 'Day', goals, persona, schedule, 'BRIEF');
             await sendNotification("Daily Report Ready", summary.replace('Report Ready:', '').trim(), false);
             setToast({ title: "Report Ready", message: "Yesterday's analysis is available.", visible: true });
@@ -334,7 +335,7 @@ const App: React.FC = () => {
     const stats = getBlockStats();
     const nextRemaining = Math.max(0, stats.remaining - 1);
     await cancelNotification();
-    await scheduleNotification("Win or Loss?", `Declare your status. ${nextRemaining} opportunities left today.`, timeToUse);
+    await scheduleNotification("Win or Loss?", `Declare your status. ${nextRemaining} cycles left today.`, timeToUse);
     
     workerRef.current?.postMessage({ command: 'start' });
     tickLogic(); 
@@ -374,9 +375,7 @@ const App: React.FC = () => {
       const configWithEnabled = { ...config, enabled: true };
       localStorage.setItem(STORAGE_KEY_ONBOARDED, 'true');
       localStorage.setItem(STORAGE_KEY_GOAL, JSON.stringify(goals));
-      const primaryGoal = goals[0] || 'FOCUS';
-      const defaultPersona = primaryGoal === 'LIFE' ? 'KIND' : primaryGoal === 'BUSINESS' ? 'LOGIC' : 'TOUGH';
-      localStorage.setItem(STORAGE_KEY_PERSONA, defaultPersona);
+      localStorage.setItem(STORAGE_KEY_PERSONA, 'LOGIC');
       localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
       setSchedule(configWithEnabled);
       setHasOnboarded(true);
@@ -534,6 +533,16 @@ const App: React.FC = () => {
   };
 
   const handleLogSave = useCallback(async (text: string, type: 'WIN' | 'LOSS' = 'WIN', isFromNotification: boolean = false) => {
+    if (editingLog) {
+        // Edit Mode
+        const updatedLogs = logs.map(l => l.id === editingLog.id ? { ...l, text, type } : l);
+        setLogs(updatedLogs);
+        setEditingLog(null);
+        setIsEntryModalOpen(false);
+        try { await Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
+        return;
+    }
+
     let entryIsFrozen = false;
     let nextFreezeState = { ...freezeState };
     let overlayTitle = "";
@@ -628,8 +637,9 @@ const App: React.FC = () => {
 
   const handleLogClose = () => {
     setIsEntryModalOpen(false);
+    setEditingLog(null);
     setToast(prev => ({ ...prev, visible: false }));
-    if (!isManualEntry) {
+    if (!isManualEntry && !editingLog) {
        setTimeLeft(DEFAULT_INTERVAL_MS);
        if (isWithinSchedule()) startTimer();
        else {
@@ -637,6 +647,11 @@ const App: React.FC = () => {
           setIsPaused(false);
        }
     }
+  };
+
+  const handleLogEdit = (log: LogEntry) => {
+      setEditingLog(log);
+      setIsEntryModalOpen(true);
   };
 
   const deleteLog = (id: string) => {
@@ -741,7 +756,7 @@ const App: React.FC = () => {
 
   const handleGenerateAIReport = async () => {
       const goals = getStoredGoals();
-      const persona = localStorage.getItem(STORAGE_KEY_PERSONA) as any || 'LOGIC';
+      const persona = 'LOGIC';
       const periodMap: Record<FilterType, string> = { 'D': 'Day', 'W': 'Week', 'M': 'Month', '3M': 'Quarter', 'Y': 'Year' };
       setAiReportLoading(true);
       try {
@@ -787,7 +802,7 @@ const App: React.FC = () => {
       <div className="fixed inset-0 -z-30 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJnoiPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI2cpIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=')] opacity-[0.05] pointer-events-none mix-blend-overlay" />
       
       <div className="relative z-10">
-        <header className="fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center" >
+        <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center border-b ${isScrolled ? 'bg-[#050505]/80 backdrop-blur-md border-white/5' : 'border-transparent'}`} >
           <div className="relative flex items-center gap-3">
              <div className="w-10 h-10 rounded-xl overflow-hidden transition-all duration-500">
                <img src="/icon.png" alt="App Icon" className="w-full h-full object-cover" />
@@ -827,17 +842,17 @@ const App: React.FC = () => {
           </section>
           <section className="flex-1 flex flex-col">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-black text-white tracking-tight uppercase italic">Battle History</h2>
-              <button onClick={handleManualLogStart} className="text-zinc-500 hover:text-yellow-500 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-yellow-500/20" >
-                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <h2 className="text-2xl font-black text-white tracking-tight uppercase italic">Battle History</h2>
+              <button onClick={handleManualLogStart} className="text-zinc-500 hover:text-yellow-500 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-yellow-500/20" >
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 Manual Win
               </button>
             </div>
             <StatsCard logs={filteredLogs} filter={filter} schedule={schedule} durationMs={DEFAULT_INTERVAL_MS} viewDate={viewDate} onNavigate={handleNavigate} onReset={handleResetView} isCurrentView={isCurrentView} canGoBack={canGoBack} canGoForward={canGoForward} />
             <div className="flex justify-center mb-6">
-              <div className="bg-zinc-900 p-1 rounded-2xl flex items-center justify-between w-full border border-zinc-800">
+              <div className="bg-zinc-900 p-1.5 rounded-2xl flex items-center justify-between w-full border border-zinc-800">
                   {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
-                  <button key={f} onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setFilter(f); setViewDate(new Date()); }} className={`flex-1 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${ filter === f ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-zinc-500 hover:text-white hover:bg-zinc-800' }`} >
+                  <button key={f} onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setFilter(f); setViewDate(new Date()); }} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-[0.2em] transition-all duration-300 ${ filter === f ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-zinc-500 hover:text-white hover:bg-zinc-800' }`} >
                       {f}
                   </button>
                   ))}
@@ -845,18 +860,18 @@ const App: React.FC = () => {
             </div>
             {filteredLogs.length > 0 && (
                <div className="flex items-center justify-between mb-6 px-1 gap-4">
-                   <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleOpenAIModal(); }} className={`flex-1 flex items-center gap-3 py-3.5 px-5 rounded-2xl transition-all border ${savedReportForView ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-yellow-500 hover:border-yellow-500/30 hover:bg-zinc-800'}`} >
-                      <div className={`p-1.5 rounded-lg transition-colors ${savedReportForView ? 'bg-yellow-500/20' : 'bg-zinc-800'}`}>
+                   <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleOpenAIModal(); }} className={`flex-1 flex items-center gap-3 py-4 px-6 rounded-2xl transition-all border ${savedReportForView ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-yellow-500 hover:border-yellow-500/30 hover:bg-zinc-800'}`} >
+                      <div className={`p-2 rounded-lg transition-colors ${savedReportForView ? 'bg-yellow-500/20' : 'bg-zinc-800'}`}>
                           {savedReportForView ? (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                           ) : (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                           )}
                       </div>
                       <div className="flex flex-col items-start">
-                           <span className="text-[10px] font-black uppercase tracking-[0.2em] leading-none">{savedReportForView ? 'The Cornerman' : 'Get Insight'}</span>
-                           {savedReportForView && savedReportForView.read === false && ( <span className="text-[8px] text-yellow-500/60 font-black uppercase tracking-widest leading-none mt-1.5 animate-pulse">New Tactical Analysis</span> )}
-                           {!savedReportForView && ( <span className="text-[8px] opacity-40 font-black uppercase tracking-widest leading-none mt-1.5">Analyze Performance</span> )}
+                           <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">{savedReportForView ? 'The Cornerman' : 'Get Insight'}</span>
+                           {savedReportForView && savedReportForView.read === false && ( <span className="text-xs text-yellow-500/60 font-black uppercase tracking-widest leading-none mt-2 animate-pulse">New Tactical Analysis</span> )}
+                           {!savedReportForView && ( <span className="text-xs opacity-40 font-black uppercase tracking-widest leading-none mt-2">Analyze Performance</span> )}
                       </div>
                    </button>
                    <button onClick={handleCopyClick} className="flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 transition-all active:scale-95 shadow-inner" title="Export Logs" >
@@ -864,12 +879,12 @@ const App: React.FC = () => {
                    </button>
                </div>
             )}
-            <div className="flex-1"><LogList logs={filteredLogs} onDelete={deleteLog} /></div>
+            <div className="flex-1"><LogList logs={filteredLogs} onDelete={deleteLog} onEdit={handleLogEdit} /></div>
           </section>
         </main>
       </div>
 
-      <EntryModal isOpen={isEntryModalOpen} onSave={handleLogSave} onClose={handleLogClose} isManual={isManualEntry} />
+      <EntryModal isOpen={isEntryModalOpen} onSave={handleLogSave} onClose={handleLogClose} isManual={isManualEntry} initialEntry={editingLog ? { text: editingLog.text, type: editingLog.type || 'WIN' } : null} />
       <SettingsModal isOpen={isSettingsModalOpen} currentDurationMs={DEFAULT_INTERVAL_MS} logs={logs} schedule={schedule} onSave={() => {}} onSaveSchedule={handleScheduleSave} onClose={() => setIsSettingsModalOpen(false)} />
       <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Quarterly'} onClose={() => setIsAIModalOpen(false)} onGenerate={handleGenerateAIReport} />
       <RankHierarchyModal 
