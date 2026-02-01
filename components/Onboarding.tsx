@@ -29,8 +29,18 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     if (granted) {
       handleFinish();
     } else {
-        alert("If I can't interrupt you, I can't help you win.");
+        // Fallback for denial / incognito / desktop
+        if (confirm("Notifications are disabled. You will need to manually check the app. Proceed?")) {
+            handleFinish();
+        }
     }
+  };
+
+  const handleSkip = () => {
+      try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+      if (confirm("Without notifications, you lose the tactical advantage of interrupts. Confirm Manual Mode?")) {
+          handleFinish();
+      }
   };
 
   const handleFinish = () => {
@@ -48,20 +58,22 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-[#050505] flex flex-col items-center justify-center p-6 text-center font-sans text-white overflow-hidden">
+    <div className="fixed inset-0 z-[200] bg-[#050505] overflow-y-auto custom-scrollbar">
       
       {/* Cinematic Background */}
-      <div className="absolute inset-0 bg-[linear-gradient(160deg,_#2a220a_0%,_#050505_40%,_#000000_100%)]" />
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJnoiPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI2cpIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=')] opacity-[0.05] pointer-events-none mix-blend-overlay" />
+      <div className="fixed inset-0 -z-10 bg-[linear-gradient(160deg,_#2a220a_0%,_#050505_40%,_#000000_100%)]" />
+      <div className="fixed inset-0 -z-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJnoiPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI2cpIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=')] opacity-[0.05] pointer-events-none mix-blend-overlay" />
 
-      {/* Progress Bars */}
-      <div className="absolute top-12 left-0 w-full flex justify-center gap-1.5 safe-top z-20 px-10">
-        {[1, 2, 3, 4].map(i => (
-            <div key={i} className={`h-1 rounded-full transition-all duration-700 ease-out ${i <= step ? 'flex-1 bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'flex-1 bg-white/5'}`} />
-        ))}
-      </div>
+      <div className="min-h-full flex flex-col items-center justify-center p-6 py-24 text-center font-sans text-white relative">
+        
+        {/* Progress Bars */}
+        <div className="absolute top-12 left-0 w-full flex justify-center gap-1.5 safe-top z-20 px-10">
+            {[1, 2, 3, 4].map(i => (
+                <div key={i} className={`h-1 rounded-full transition-all duration-700 ease-out ${i <= step ? 'flex-1 bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'flex-1 bg-white/5'}`} />
+            ))}
+        </div>
 
-      <div className="max-w-md w-full relative z-10 flex flex-col h-full justify-center">
+        <div className="max-w-md w-full relative z-10 flex flex-col justify-center">
         
         {/* Step 1: The Hook (Rebranded) */}
         {step === 1 && (
@@ -212,13 +224,21 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                 >
                     Authorize
                 </button>
+
+                <button 
+                    onClick={handleSkip} 
+                    className="text-white/30 hover:text-white text-xs font-black uppercase tracking-widest transition-colors mt-4"
+                >
+                    Continue Without Notifications
+                </button>
                 
-                <p className="text-xs text-white/20 font-black uppercase tracking-widest">
+                <p className="text-xs text-white/20 font-black uppercase tracking-widest mt-8">
                     Deployment Immediate.
                 </p>
             </div>
         )}
       </div>
+    </div>
     </div>
   );
 };
