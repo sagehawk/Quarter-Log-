@@ -664,16 +664,15 @@ const App: React.FC = () => {
       }
     });
     const notificationSub = LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
+        // Clear all delivered notifications to ensure the UI doesn't linger in the tray
+        LocalNotifications.removeAllDeliveredNotifications();
+
         if (notification.actionId === 'WIN_INPUT' && notification.inputValue) {
            handleLogSave(notification.inputValue, 'WIN', true);
-           cancelNotification(); 
         } else if (notification.actionId === 'LOSS_INPUT' && notification.inputValue) {
            handleLogSave(notification.inputValue, 'LOSS', true);
-           cancelNotification();
         } else if (notification.actionId === 'log_input' && notification.inputValue) {
-           // Fallback for old notification type
            handleLogSave(notification.inputValue, 'WIN', true);
-           cancelNotification();
         } else {
            setIsEntryModalOpen(true);
            setIsManualEntry(false); 
