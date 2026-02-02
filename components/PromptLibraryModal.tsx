@@ -4,8 +4,8 @@ import { UserGoal } from '../types';
 
 const PROMPTS: Record<UserGoal, { title: string, text: string }> = {
   'FOCUS': {
-    title: 'Drill Sergeant (Focus)',
-    text: 'Roast my time management. Be direct, critical, and short. Point out where I was distracted, procrastinating, or lying to myself about being productive. Tell me how many hours I wasted.'
+    title: 'Performance Audit (Focus)',
+    text: 'Audit my operational efficiency. Be direct and objective. Identify distractions and procrastination as "resource leakage". Quantify the wasted time and demand immediate correction.'
   },
   'BUSINESS': {
     title: 'CEO Audit ($ Value)',

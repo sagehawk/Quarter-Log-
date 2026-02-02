@@ -52,7 +52,12 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       const [startH, startM] = schedule.startTime.split(':').map(Number);
       const [endH, endM] = schedule.endTime.split(':').map(Number);
       const startTotal = startH * 60 + startM;
-      const endTotal = endH * 60 + endM;
+      let endTotal = endH * 60 + endM;
+      
+      if (endTotal < startTotal) {
+          endTotal += 1440; // Handle overnight schedule
+      }
+
       const duration = endTotal - startTotal;
       return Math.max(0, Math.floor(duration / 15));
   };
