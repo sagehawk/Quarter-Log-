@@ -6,11 +6,15 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import android.content.Intent;
 
+import com.getcapacitor.JSObject;
+import android.content.Context;
+
 @CapacitorPlugin(name = "TimerPlugin")
 public class TimerPlugin extends Plugin {
 
     @PluginMethod
     public void start(PluginCall call) {
+        // ... (existing code)
         long duration = call.getInt("duration", 0); 
         int totalCycles = call.getInt("totalCycles", 0);
         int cyclesLeft = call.getInt("cyclesLeft", 0);
@@ -33,5 +37,25 @@ public class TimerPlugin extends Plugin {
         Intent serviceIntent = new Intent(getContext(), TimerForegroundService.class);
         getContext().stopService(serviceIntent);
         call.resolve();
+    }
+
+    @PluginMethod
+    public void checkPendingLog(PluginCall call) {
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("NativeLog", Context.MODE_PRIVATE);
+        String input = prefs.getString("pending_input", null);
+        String type = prefs.getString("pending_type", null);
+        
+        if (input != null && type != null) {
+            JSObject ret = new JSObject();
+            ret.put("input", input);
+            ret.put("type", type);
+            
+            // Clear
+            prefs.edit().clear().apply();
+            
+            call.resolve(ret);
+        } else {
+            call.resolve();
+        }
     }
 }

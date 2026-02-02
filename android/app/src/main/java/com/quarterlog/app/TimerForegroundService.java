@@ -20,9 +20,10 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class TimerForegroundService extends Service {
-    public static final String CHANNEL_ID = "QuarterLogLive_v3";
-    public static final String ALERT_CHANNEL_ID = "quarterlog_timer_v4";
+    public static final String CHANNEL_ID = "QuarterLogLive_v4";
+    public static final String ALERT_CHANNEL_ID = "QuarterLogAlert_v1";
     public static final int NOTIFICATION_ID = 1;
+    public static final int ALERT_NOTIFICATION_ID = 2;
     
     private ScheduledExecutorService scheduler;
     private ScheduledFuture<?> timerHandle;
@@ -109,13 +110,15 @@ public class TimerForegroundService extends Service {
             serviceChannel.setSound(null, null);
             serviceChannel.enableVibration(false);
             serviceChannel.setShowBadge(false);
+            serviceChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             manager.createNotificationChannel(serviceChannel);
             
             NotificationChannel alertChannel = new NotificationChannel(
                     ALERT_CHANNEL_ID,
-                    "IronLog Tactical",
+                    "Cycle Complete Alert",
                     NotificationManager.IMPORTANCE_HIGH
             );
+            alertChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             manager.createNotificationChannel(alertChannel);
         }
     }
@@ -130,11 +133,8 @@ public class TimerForegroundService extends Service {
         long sec = seconds % 60;
         String timeString = String.format("%02d:%02d", min, sec);
         
-        String title = "Cycle Active";
-        if (totalCycles > 0) {
-            int current = Math.max(1, totalCycles - cyclesLeft + 1);
-            title = "Cycle " + current + "/" + totalCycles;
-        }
+        // Title left blank per user request
+        String title = ""; 
 
         int iconResId = getResources().getIdentifier("ic_stat_status_bar_logo", "drawable", getPackageName());
         if (iconResId == 0) iconResId = R.mipmap.ic_launcher;
@@ -146,7 +146,8 @@ public class TimerForegroundService extends Service {
                 .setContentIntent(pendingIntent)
                 .setOnlyAlertOnce(true) 
                 .setOngoing(true)
-                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+                .setLocalOnly(true)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -168,8 +169,13 @@ public class TimerForegroundService extends Service {
     
     private void triggerAlertNotification() {
         try {
-            stopForeground(false);
+            stopForeground(true);
             
+            Intent fullScreenIntent = new Intent(this, AlertActivity.class);
+            fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(this, 
+                    99, fullScreenIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
             Intent notificationIntent = new Intent(this, MainActivity.class);
             notificationIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP); 
             PendingIntent pendingIntent = PendingIntent.getActivity(this, 
@@ -213,14 +219,14 @@ public class TimerForegroundService extends Service {
                     .setAutoCancel(true)
                     .setDefaults(Notification.DEFAULT_ALL)
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setFullScreenIntent(fullScreenPendingIntent, true) 
                     .addAction(winAction)
                     .addAction(lossAction)
                     .build();
 
             NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (mNotificationManager != null) {
-                mNotificationManager.cancel(2); 
-                mNotificationManager.notify(NOTIFICATION_ID, notification); 
+                mNotificationManager.notify(ALERT_NOTIFICATION_ID, notification); 
             }
         } catch (Exception e) {
             e.printStackTrace();

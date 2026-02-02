@@ -24,19 +24,28 @@ public class MainActivity extends BridgeActivity {
         
         String action = intent.getAction();
         if ("ACTION_WIN".equals(action) || "ACTION_LOSS".equals(action)) {
-            Bundle remoteInput = androidx.core.app.RemoteInput.getResultsFromIntent(intent);
             String input = "";
-            if (remoteInput != null) {
-                CharSequence val = remoteInput.getCharSequence("KEY_TEXT_REPLY");
-                if (val != null) input = val.toString();
+            
+            // Check direct extra from AlertActivity
+            if (intent.hasExtra("NATIVE_INPUT_TEXT")) {
+                input = intent.getStringExtra("NATIVE_INPUT_TEXT");
+            } else {
+                // Check notification inline reply
+                Bundle remoteInput = androidx.core.app.RemoteInput.getResultsFromIntent(intent);
+                if (remoteInput != null) {
+                    CharSequence val = remoteInput.getCharSequence("KEY_TEXT_REPLY");
+                    if (val != null) input = val.toString();
+                }
             }
             
-            // Send to JS
-            // Note: bridge might be null if called too early in onCreate, but usually fine in onNewIntent
+            // Save to Persistent Storage for Cold Starts
+            getSharedPreferences("NativeLog", MODE_PRIVATE).edit()
+                .putString("pending_input", input)
+                .putString("pending_type", "ACTION_WIN".equals(action) ? "WIN" : "LOSS")
+                .apply();
+            
+            // Trigger event for Hot Resume
             if (getBridge() != null) {
-                 // Trigger a window event: window.addEventListener('nativeLogInput', (e) => ...)
-                 // The data is passed in e.detail? No, triggerWindowJSEvent(eventName, data)
-                 // Capacitor formats it as a CustomEvent.
                  String json = "{\"type\":\"" + ("ACTION_WIN".equals(action) ? "WIN" : "LOSS") + "\", \"input\":\"" + input.replace("\"", "\\\"") + "\"}";
                  getBridge().triggerWindowJSEvent("nativeLogInput", json);
             }

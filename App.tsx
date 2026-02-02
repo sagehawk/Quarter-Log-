@@ -95,23 +95,30 @@ const App: React.FC = () => {
   const workerRef = useRef<Worker | null>(null);
   const hasCheckedAutoReport = useRef(false);
   const statusRef = useRef(status);
+  const lastNativeInputTime = useRef(0);
 
   useEffect(() => { statusRef.current = status; }, [status]);
 
   useEffect(() => {
     const setupListener = async () => {
+      // Check for pending native log from cold start
+      try {
+          const pending = await TimerPlugin.checkPendingLog();
+          if (pending && pending.input) {
+              lastNativeInputTime.current = Date.now();
+              setIsEntryModalOpen(false);
+              handleLogSave(pending.input, pending.type, true);
+              LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
+              LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
+          }
+      } catch (e) {}
+
       const handler = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
         if (!isActive) {
            // App went to background
            if (statusRef.current === AppStatus.RUNNING && endTimeRef.current) {
                const remaining = endTimeRef.current - Date.now();
                if (remaining > 0) {
-                   // Calculate cycle stats on the fly since we can't easily access blockStats here without closure issues or refs
-                   // But we can re-use the logic if we duplicate or extract it.
-                   // Simpler: Just rely on what we can compute or if blockStats was in a ref. 
-                   // Let's assume we can get it from a ref if we added one, or just pass placeholders?
-                   // No, user wants "Cycle X". 
-                   // Let's add a ref for blockStats.
                    TimerPlugin.start({ 
                        duration: remaining,
                        totalCycles: blockStatsRef.current.total,
@@ -122,6 +129,9 @@ const App: React.FC = () => {
         } else {
            // App came to foreground
            TimerPlugin.stop();
+           
+           // Debounce Modal Opening if native input just happened
+           if (Date.now() - lastNativeInputTime.current < 2000) return;
         }
       });
     };
@@ -729,8 +739,21 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    const appStateSub = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+    const appStateSub = CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
       if (isActive) {
+        if (Date.now() - lastNativeInputTime.current < 2000) return;
+        try {
+            const pending = await TimerPlugin.checkPendingLog();
+            if (pending && pending.input) {
+                lastNativeInputTime.current = Date.now();
+                setIsEntryModalOpen(false);
+                handleLogSave(pending.input, pending.type, true);
+                LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
+                LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
+                return;
+            }
+        } catch(e) {}
+
         const savedTarget = localStorage.getItem(STORAGE_KEY_TIMER_TARGET);
         if (savedTarget) {
             const target = parseInt(savedTarget);
@@ -765,13 +788,14 @@ const App: React.FC = () => {
         try {
             const data = typeof event.detail === 'string' ? JSON.parse(event.detail) : event.detail;
             if (data.type && data.input) {
+                lastNativeInputTime.current = Date.now();
                 // Ensure Modal is closed in case appStateChange opened it
                 setIsEntryModalOpen(false);
                 handleLogSave(data.input, data.type, true);
                 
                 // Explicitly clear notification ID 1 (The alert)
                 LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
-                // Also clear ID 2 if it ever existed
+                // Also clear ID 2 (New Alert ID)
                 LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
             }
         } catch (e) { console.error(e); }
