@@ -257,7 +257,13 @@ const App: React.FC = () => {
     const startTotal = startH * 60 + startM;
     const [endH, endM] = schedule.endTime.split(':').map(Number);
     const endTotal = endH * 60 + endM;
-    return currentMinutes >= startTotal && currentMinutes < endTotal;
+    
+    if (startTotal <= endTotal) {
+      return currentMinutes >= startTotal && currentMinutes < endTotal;
+    } else {
+      // Overnight schedule (e.g., 23:00 to 02:00)
+      return currentMinutes >= startTotal || currentMinutes < endTotal;
+    }
   }, [schedule]);
 
   // NEW: Calculate Blocks Remaining
@@ -272,13 +278,30 @@ const App: React.FC = () => {
     const now = new Date();
     const currentTotal = now.getHours() * 60 + now.getMinutes();
     
-    const totalDuration = endTotal - startTotal;
+    let totalDuration = endTotal - startTotal;
+    if (totalDuration < 0) totalDuration += 1440; // Overnight schedule correction
+
     if (totalDuration <= 0) return { total: 0, remaining: 0 };
 
     const totalBlocks = Math.floor(totalDuration / 15);
     
     // Calculate elapsed from start
-    let elapsed = currentTotal - startTotal;
+    let elapsed = 0;
+    if (startTotal <= endTotal) {
+        // Normal schedule
+        elapsed = currentTotal - startTotal;
+    } else {
+        // Overnight schedule
+        if (currentTotal >= startTotal) {
+            elapsed = currentTotal - startTotal;
+        } else if (currentTotal < endTotal) {
+            elapsed = (1440 - startTotal) + currentTotal;
+        } else {
+            // Outside of schedule (between end and start)
+            elapsed = 0;
+        }
+    }
+    
     if (elapsed < 0) elapsed = 0;
     // Cap elapsed at total duration (day over)
     if (elapsed > totalDuration) elapsed = totalDuration;
@@ -386,7 +409,15 @@ const App: React.FC = () => {
          const startTotal = startH * 60 + startM;
          const [endH, endM] = config.endTime.split(':').map(Number);
          const endTotal = endH * 60 + endM;
-         if (currentMinutes >= startTotal && currentMinutes < endTotal) startTimer();
+         
+         let shouldStart = false;
+         if (startTotal <= endTotal) {
+             shouldStart = currentMinutes >= startTotal && currentMinutes < endTotal;
+         } else {
+             shouldStart = currentMinutes >= startTotal || currentMinutes < endTotal;
+         }
+         
+         if (shouldStart) startTimer();
       }, 500);
   };
 
