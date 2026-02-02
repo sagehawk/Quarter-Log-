@@ -17,6 +17,7 @@ import StatusCard from './components/StatusCard';
 import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState } from './types';
 import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification } from './utils/notifications';
 import { generateAIReport } from './utils/aiService';
+import TimerPlugin from './utils/nativeTimer';
 
 const STORAGE_KEY_LOGS = 'ironlog_entries';
 const STORAGE_KEY_SCHEDULE = 'ironlog_schedule';
@@ -93,6 +94,39 @@ const App: React.FC = () => {
   const endTimeRef = useRef<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const hasCheckedAutoReport = useRef(false);
+  const statusRef = useRef(status);
+
+  useEffect(() => { statusRef.current = status; }, [status]);
+
+  useEffect(() => {
+    const setupListener = async () => {
+      const handler = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+        if (!isActive) {
+           // App went to background
+           if (statusRef.current === AppStatus.RUNNING && endTimeRef.current) {
+               const remaining = endTimeRef.current - Date.now();
+               if (remaining > 0) {
+                   // Calculate cycle stats on the fly since we can't easily access blockStats here without closure issues or refs
+                   // But we can re-use the logic if we duplicate or extract it.
+                   // Simpler: Just rely on what we can compute or if blockStats was in a ref. 
+                   // Let's assume we can get it from a ref if we added one, or just pass placeholders?
+                   // No, user wants "Cycle X". 
+                   // Let's add a ref for blockStats.
+                   TimerPlugin.start({ 
+                       duration: remaining,
+                       totalCycles: blockStatsRef.current.total,
+                       cyclesLeft: blockStatsRef.current.remaining
+                   });
+               }
+           }
+        } else {
+           // App came to foreground
+           TimerPlugin.stop();
+        }
+      });
+    };
+    setupListener();
+  }, []);
 
   const getStoredGoals = (): UserGoal[] => {
       const stored = localStorage.getItem(STORAGE_KEY_GOAL);
@@ -324,6 +358,8 @@ const App: React.FC = () => {
   }, []);
 
   const blockStats = useMemo(() => getBlockStats(), [getBlockStats, minuteTick]);
+  const blockStatsRef = useRef(blockStats);
+  useEffect(() => { blockStatsRef.current = blockStats; }, [blockStats]);
 
   const handleTimerComplete = useCallback(async () => {
     workerRef.current?.postMessage({ command: 'stop' });
