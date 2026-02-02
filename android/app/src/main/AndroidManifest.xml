@@ -24,7 +24,9 @@
 
         </activity>
 
-        <service android:name=".TimerForegroundService" android:exported="false" android:foregroundServiceType="shortService" />
+        <service android:name=".TimerForegroundService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="timer_countdown" />
+        </service>
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -45,4 +47,5 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 </manifest>

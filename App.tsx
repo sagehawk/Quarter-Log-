@@ -392,9 +392,9 @@ const App: React.FC = () => {
     
     // Notification with Remaining Opportunities
     const stats = getBlockStats();
-    const nextRemaining = Math.max(0, stats.remaining - 1);
+    const currentCycle = Math.max(1, stats.total - stats.remaining + 1);
     await cancelNotification();
-    await scheduleNotification("Win or Loss?", `Declare your status. ${nextRemaining} cycles left today.`, timeToUse);
+    await scheduleNotification("Win or Loss?", `Declare your status for Cycle ${currentCycle}/${stats.total}`, timeToUse);
     
     workerRef.current?.postMessage({ command: 'start' });
     tickLogic(); 
@@ -760,9 +760,29 @@ const App: React.FC = () => {
            setIsManualEntry(false); 
         }
     });
+
+    const handleNativeInput = (event: any) => {
+        try {
+            const data = typeof event.detail === 'string' ? JSON.parse(event.detail) : event.detail;
+            if (data.type && data.input) {
+                // Ensure Modal is closed in case appStateChange opened it
+                setIsEntryModalOpen(false);
+                handleLogSave(data.input, data.type, true);
+                
+                // Explicitly clear notification ID 1 (The alert)
+                LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
+                // Also clear ID 2 if it ever existed
+                LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
+            }
+        } catch (e) { console.error(e); }
+    };
+
+    window.addEventListener('nativeLogInput', handleNativeInput);
+
     return () => {
       appStateSub.then(sub => sub.remove());
       notificationSub.then(sub => sub.remove());
+      window.removeEventListener('nativeLogInput', handleNativeInput);
     };
   }, [status, handleTimerComplete, handleLogSave]);
 
