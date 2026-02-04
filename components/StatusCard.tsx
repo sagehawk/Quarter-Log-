@@ -43,7 +43,7 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
                 <div className="text-right">
                      <div className="text-xs font-black uppercase text-zinc-500 tracking-widest italic mb-1">Cycle</div>
                      <div className="text-sm font-black text-white/80 tracking-tighter italic">
-                         <span className="text-yellow-500 text-2xl">{Math.max(1, blockStats.total - blockStats.remaining + (isActive ? 1 : 0))}</span> <span className="text-zinc-600 text-base">/ {blockStats.total}</span>
+                         <span className="text-yellow-500 text-2xl">{Math.max(0, blockStats.total - blockStats.remaining + (isActive ? 1 : 0))}</span> <span className="text-zinc-600 text-base">/ {blockStats.total}</span>
                      </div>
                 </div>
             </div>

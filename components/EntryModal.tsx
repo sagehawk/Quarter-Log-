@@ -33,7 +33,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (type) {
-      onSave(text.trim() || (type === 'WIN' ? 'Stacked a win.' : 'Took a loss.'), type);
+      onSave(text.trim() || (type === 'WIN' ? 'Focused on priority.' : 'Distracted / Off-track.'), type);
       setText('');
       setType(null);
     }
@@ -52,10 +52,10 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
       <div className="relative w-full max-w-lg bg-[#0a0a0a] border border-yellow-500/20 rounded-[2rem] shadow-[0_0_50px_rgba(234,179,8,0.1)] p-6 md:p-8 transform transition-all animate-slide-up">
         <div className="text-center mb-8">
            <h2 className="text-4xl font-black text-white mb-2 uppercase tracking-tighter italic">
-             {initialEntry ? 'Edit Entry' : isManual ? 'Manual Entry' : 'Win or Loss?'}
+             {initialEntry ? 'Edit Entry' : isManual ? 'Manual Entry' : 'Priority Check'}
            </h2>
            <p className="text-yellow-500/60 text-xs font-black uppercase tracking-[0.2em]">
-             {initialEntry ? 'Update your tactical log' : isManual ? 'Declare your status' : 'Did you handle this block like a winner?'}
+             {initialEntry ? 'Update your tactical log' : isManual ? 'Declare your status' : 'Did you spend this time towards your priority?'}
            </p>
         </div>
 
@@ -73,9 +73,9 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
               }`}
             >
                 <div className={`p-3 rounded-xl transition-colors ${type === 'WIN' ? 'bg-black/10' : 'bg-yellow-500/10 group-hover:bg-yellow-500/20'}`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                 </div>
-                <span className="text-xl font-black uppercase tracking-tighter italic">WIN</span>
+                <span className="text-xl font-black uppercase tracking-tighter italic">PRIORITY</span>
                 {type === 'WIN' && <div className="absolute top-0 right-0 p-2"><div className="w-2 h-2 bg-black rounded-full animate-pulse" /></div>}
             </button>
 
@@ -92,9 +92,9 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
               }`}
             >
                 <div className={`p-3 rounded-xl transition-colors ${type === 'LOSS' ? 'bg-white/10' : 'bg-red-500/10 group-hover:bg-red-500/20'}`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
                 </div>
-                <span className="text-xl font-black uppercase tracking-tighter italic">LOSS</span>
+                <span className="text-sm font-black uppercase tracking-tighter italic">NON-PRIORITY</span>
                 {type === 'LOSS' && <div className="absolute top-0 right-0 p-2"><div className="w-2 h-2 bg-white rounded-full animate-pulse" /></div>}
             </button>
         </div>

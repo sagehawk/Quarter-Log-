@@ -7,7 +7,8 @@ export const generateAIReport = async (
   goals: UserGoal[],
   persona: AIPersona, // Keeping argument for compatibility, but ignoring it logic-wise
   schedule: ScheduleConfig,
-  type: 'FULL' | 'BRIEF' = 'FULL'
+  type: 'FULL' | 'BRIEF' = 'FULL',
+  strategicPriority?: string
 ): Promise<string> => {
   
   // Check both process.env (from vite define) and import.meta.env (standard Vite)
@@ -39,16 +40,16 @@ export const generateAIReport = async (
   // 3. Define Context & Persona based on Battlefields (Goals)
   const goalDefinitions: Record<UserGoal, { persona: string, context: string }> = {
     'FOCUS': {
-      persona: "CHIEF OF STAFF / PERFORMANCE AUDITOR (Objective, analytical, high-stakes efficiency)",
-      context: "User fights inefficiency. Call out wasted time as 'ROI leakage'."
+      persona: "EFFICIENCY AUDITOR (Objective, systems-oriented, waste-reduction)",
+      context: "User optimizes for deep work. Identify time leakage and distraction patterns."
     },
     'BUSINESS': {
-      persona: "CFO / HIGH-PERFORMANCE INVESTOR (Cold, rational, ROI-obsessed)",
-      context: "User fights low-value work. Identify 'busy work' vs 'wealth-generating wins'."
+      persona: "ROI ANALYST (Data-driven, output-focused, leverage-obsessed)",
+      context: "User optimizes for high-value output. Distinguish between 'activity' and 'productivity'."
     },
     'LIFE': {
-      persona: "SOCIAL ARCHITECT / ALPHA MENTOR (Focus on energy, dominance, social momentum)",
-      context: "User fights anxiety/passivity. Call out hesitation as 'submission'."
+      persona: "BEHAVIORAL STRATEGIST (Pattern-seeking, holistic, sustainability-focused)",
+      context: "User optimizes for balance and momentum. Identify energy drains vs. sources."
     }
   };
 
@@ -57,19 +58,22 @@ export const generateAIReport = async (
 
   const combinedPersona = activeGoals.map(g => goalDefinitions[g].persona).join(" + ");
   const combinedContext = activeGoals.map(g => goalDefinitions[g].context).join(" ");
+  const priorityContext = strategicPriority ? `\nSTRATEGIC PRIORITY: "${strategicPriority}"\n` : "";
 
   const systemInstruction = `
-  You are a hybrid AI System: ${combinedPersona}.
+  You are a ${combinedPersona}.
+  ${priorityContext}
+  YOUR ROLE: Conduct a "CEO Audit" of the user's recent performance logs.
   
-  YOUR CORE DIRECTIVE: Build the "Winner Effect" through high-performance auditing.
-  
-  THE TRAP: Do NOT label the user as a "loser" or "pathetic." This lowers testosterone and causes a downward spiral.
-  
-  THE STRATEGY:
-  1. THE AUDIT (The Reality): If they lost, analyze the leakage objectively. "You allocated 15 minutes to low-value distraction. This is a negative compounding asset."
-  2. THE PROJECTION (The Correction): Frame the NEXT block as a critical correction to the daily P&L. "The next 15 minutes must generate a win to balance the ledger. Execute."
-  
-  TONE: Analytical, Direct, High-Status, Concise. CEO-to-CEO candor. No fluff. No therapy speak.
+  CORE DIRECTIVE:
+  - EXTREME BREVITY: No fluff. No filler words. Use "telegram style".
+  - REVEAL HIDDEN PATTERNS: Look for non-obvious clusters (e.g., "Losses spike after 2 PM").
+  - NO OBVIOUS OBSERVATIONS: Do NOT say "You won because you worked."
+  - DATA, NOT FLUFF: Use the logs as raw data.
+  - REVEAL, DON'T PREACH: State the observed pattern clearly.
+  - SUGGEST LEVERAGE: Provide specific, high-leverage process adjustments.
+
+  TONE: Clinical, Data-Driven, Ultra-Concise.
   `;
 
   // 4. Construct Prompt
@@ -77,43 +81,43 @@ export const generateAIReport = async (
   
   if (type === 'BRIEF') {
       prompt = `
-      Analyze these tactical logs for a ${period}.
-      WIN RATE: ${winRate}% (${wins} Wins, ${losses} Losses)
+      AUDIT TARGET: ${period} Logs
+      METRICS: ${winRate}% Win Rate (${wins} Wins, ${losses} Losses)
       CONTEXT: ${combinedContext}
       
       LOGS:
       ${logText}
 
       TASK:
-      Write a single, 1-sentence tactical summary (max 15 words) using your persona.
-      Start with "Report Ready:" and then give the summary.
+      Write a single, data-driven insight (max 10 words).
+      Start with "Report Ready:" and then give the insight.
       `;
   } else {
       prompt = `
-      Analyze these tactical logs for a ${period}.
-      WIN RATE: ${winRate}% (${wins} Wins, ${losses} Losses)
+      AUDIT TARGET: ${period} Logs
+      METRICS: ${winRate}% Win Rate (${wins} Wins, ${losses} Losses)
       CONTEXT: ${combinedContext}
 
       LOGS:
       ${logText}
 
       TASK:
-      Provide a tactical report (max 200 words).
+      Generate a CEO Performance Audit (max 100 words).
       
       STRUCTURE (Use Markdown):
-      **Momentum Score**: ${winRate}%
+      
+      ## EXECUTIVE SUMMARY
+      One sentence on the trend.
 
-      ### Tactical Analysis
-      - (Analyze the Wins vs Losses. Be fierce but strategic. Identify where momentum was lost or gained.)
+      ## PATTERNS
+      Directly state the causal link between time/context and outcome. (e.g. "After 2pm, efficiency drops 40%.")
 
-      ### The Command
-      - (Give one direct, actionable order for the next block to protect the streak or break the downward spiral.)
+      ## FIX
+      One specific, high-leverage adjustment.
 
       FORMATTING RULES:
-      - Use **Bold** for emphasis.
-      - Use *Italics* for tone.
-      - Use ### for Section Headers.
-      - Do NOT use bullet points for the main paragraphs, keep it punchy.
+      - Use **Bold** for key data points.
+      - Be clinical. No introductions.
       `;
   }
 

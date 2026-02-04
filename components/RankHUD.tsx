@@ -3,12 +3,13 @@ import { getRankProgress } from '../utils/rankSystem';
 
 interface RankHUDProps {
   totalWins: number;
+  period?: string;
   isFrozen?: boolean;
   onClick?: () => void;
 }
 
-const RankHUD: React.FC<RankHUDProps> = ({ totalWins, isFrozen = false, onClick }) => {
-  const { currentRank } = getRankProgress(totalWins);
+const RankHUD: React.FC<RankHUDProps> = ({ totalWins, period = 'LIFETIME', isFrozen = false, onClick }) => {
+  const { currentRank } = getRankProgress(totalWins, period);
 
   return (
     <div 

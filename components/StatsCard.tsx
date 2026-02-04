@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { LogEntry, ScheduleConfig } from '../types';
 import { getRankForPeriod } from '../utils/rankSystem';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 interface StatsCardProps {
   logs: LogEntry[];
@@ -49,9 +50,11 @@ const StatsCard: React.FC<StatsCardProps> = ({
   const [interactionIndex, setInteractionIndex] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const isDragging = useRef(false);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   // 1. Process Data for Charts based on Filter
   const { momentumChartData, summaryStats } = useMemo(() => {
+    // ... existing memo logic ...
     const now = new Date(viewDate);
     const todayReal = new Date();
 
@@ -195,7 +198,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
             wins,
             losses,
             value: total,
-            displayValue: total > 0 ? `${rate}% Win Rate` : 'No Battle',
+            displayValue: total > 0 ? `${rate}%` : 'No Logs',
             isCurrent: isTodayReal(key),
             fullDate,
             showLabel,
@@ -211,28 +214,94 @@ const StatsCard: React.FC<StatsCardProps> = ({
 
   // --- Interaction Handlers ---
 
+  const interactionIndexRef = useRef<number | null>(null);
+  const startPos = useRef<{x: number, y: number} | null>(null);
+
+  const updateInteraction = (clientX: number) => {
+    if (!svgRef.current || momentumChartData.length === 0) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const relativeX = Math.max(0, Math.min(1, x / rect.width));
+    const rawIndex = Math.floor(relativeX * momentumChartData.length);
+    const clampedIndex = Math.min(rawIndex, momentumChartData.length - 1);
+
+    // If current point has data, select it
+    if (momentumChartData[clampedIndex].value > 0) {
+        setInteractionIndex(clampedIndex);
+        return;
+    }
+
+    // Search for nearest non-empty point
+    let nearestIndex = clampedIndex;
+    let minDistance = Infinity;
+
+    for (let i = 0; i < momentumChartData.length; i++) {
+        if (momentumChartData[i].value > 0) {
+            const dist = Math.abs(i - clampedIndex);
+            if (dist < minDistance) {
+                minDistance = dist;
+                nearestIndex = i;
+            }
+        }
+    }
+
+    // If we found a point with data, use it; otherwise fall back to original (empty)
+    if (minDistance !== Infinity) {
+        setInteractionIndex(nearestIndex);
+    } else {
+        setInteractionIndex(clampedIndex);
+    }
+  };
+
   const handlePointerDown = (e: React.PointerEvent) => {
-    e.preventDefault(); e.stopPropagation();
-    isDragging.current = true;
-    (e.target as Element).setPointerCapture(e.pointerId);
-    handlePointerMove(e);
+    // Don't stop propagation immediately to allow scrolling if needed
+    const startX = e.clientX;
+    const startY = e.clientY;
+    startPos.current = { x: startX, y: startY };
+    
+    // Start long press timer
+    longPressTimer.current = setTimeout(() => {
+        isDragging.current = true;
+        try { 
+            Haptics.impact({ style: ImpactStyle.Medium }); 
+        } catch(e) {}
+        (e.target as Element).setPointerCapture(e.pointerId);
+        updateInteraction(e.clientX);
+    }, 300); // Slightly faster activation
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    e.preventDefault(); e.stopPropagation();
-    if (!isDragging.current || !svgRef.current || momentumChartData.length === 0) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const relativeX = Math.max(0, Math.min(1, x / rect.width));
-    const rawIndex = Math.floor(relativeX * momentumChartData.length);
-    setInteractionIndex(Math.min(rawIndex, momentumChartData.length - 1));
+    // If we haven't activated drag mode yet
+    if (!isDragging.current) {
+        if (longPressTimer.current && startPos.current) {
+            const dx = Math.abs(e.clientX - startPos.current.x);
+            const dy = Math.abs(e.clientY - startPos.current.y);
+            // If moved significantly, cancel long press (it's a scroll or swipe)
+            if (dx > 10 || dy > 10) {
+                clearTimeout(longPressTimer.current);
+                longPressTimer.current = null;
+                startPos.current = null;
+            }
+        }
+        return;
+    }
+    
+    e.preventDefault(); // Prevent scrolling while dragging
+    e.stopPropagation();
+    updateInteraction(e.clientX);
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    e.preventDefault(); e.stopPropagation();
-    isDragging.current = false;
-    (e.target as Element).releasePointerCapture(e.pointerId);
-    setInteractionIndex(null);
+    if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+    }
+
+    if (isDragging.current) {
+        isDragging.current = false;
+        try { (e.target as Element).releasePointerCapture(e.pointerId); } catch(e) {}
+        setInteractionIndex(null);
+    }
   };
 
   // --- Render ---
@@ -259,11 +328,12 @@ const StatsCard: React.FC<StatsCardProps> = ({
         <svg 
             ref={svgRef}
             viewBox={`0 -5 ${CHART_WIDTH} ${CHART_HEIGHT + 25}`} 
-            className="w-full h-full overflow-visible touch-none"
+            className="w-full h-full overflow-visible touch-pan-y"
             preserveAspectRatio="none"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
             onPointerLeave={handlePointerUp}
         >
             {momentumChartData.map((d, i) => {
@@ -314,7 +384,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
   
   // Calculate Header Logic
   const headerValue = activeData ? activeData.displayValue : summaryStats.momentumDisplay;
-  const headerLabel = activeData && activeData.fullDate ? activeData.fullDate : 'Tactical Momentum';
+  const headerLabel = activeData && activeData.fullDate ? activeData.fullDate : 'Priority Score';
   const labelColor = activeData ? 'text-yellow-500' : 'text-white/40';
 
   // Calculate Rank Logic for Header

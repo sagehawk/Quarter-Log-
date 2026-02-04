@@ -31,8 +31,8 @@ export const getThresholdsForPeriod = (period: string) => {
     return RANK_THRESHOLDS[period] || RANK_THRESHOLDS['D'];
 };
 
-export const getRankProgress = (totalWins: number) => {
-  const thresholds = RANK_THRESHOLDS['LIFETIME'];
+export const getRankProgress = (totalWins: number, period: string = 'LIFETIME') => {
+  const thresholds = getThresholdsForPeriod(period);
   let currentRankIndex = 0;
   for (let i = thresholds.length - 1; i >= 0; i--) {
     if (totalWins >= thresholds[i]) {

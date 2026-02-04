@@ -90,6 +90,9 @@ const App: React.FC = () => {
   
   const [filter, setFilter] = useState<FilterType>('D');
   const [viewDate, setViewDate] = useState<Date>(new Date());
+  const [strategicPriority, setStrategicPriority] = useState<string>("");
+  const [isEditingPriority, setIsEditingPriority] = useState(false);
+  const [priorityInput, setPriorityInput] = useState("");
 
   const endTimeRef = useRef<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -193,6 +196,12 @@ const App: React.FC = () => {
           setSchedule({ ...parsed, enabled: true }); 
       } catch (e) { console.error(e); }
     }
+
+    const storedPriority = localStorage.getItem('ironlog_strategic_priority');
+    if (storedPriority) {
+        setStrategicPriority(storedPriority);
+        setPriorityInput(storedPriority);
+    }
     
     const initNotifications = async () => {
         await configureNotificationChannel();
@@ -261,11 +270,12 @@ const App: React.FC = () => {
         hasCheckedAutoReport.current = true; 
         const runAutoGen = async () => {
             const goals = getStoredGoals();
+            const priority = localStorage.getItem('ironlog_strategic_priority') || undefined;
             const persona = 'LOGIC';
-            const summary = await generateAIReport(yesterdaysLogs, 'Day', goals, persona, schedule, 'BRIEF');
+            const summary = await generateAIReport(yesterdaysLogs, 'Day', goals, persona, schedule, 'BRIEF', priority);
             await sendNotification("Daily Report Ready", summary.replace('Report Ready:', '').trim(), false);
             setToast({ title: "Report Ready", message: "Yesterday's analysis is available.", visible: true });
-            const fullContent = await generateAIReport(yesterdaysLogs, 'Day', goals, persona, schedule, 'FULL');
+            const fullContent = await generateAIReport(yesterdaysLogs, 'Day', goals, persona, schedule, 'FULL', priority);
             const newReport: AIReport = {
                 id: crypto.randomUUID(),
                 dateKey,
@@ -292,7 +302,7 @@ const App: React.FC = () => {
 
   const isWithinSchedule = useCallback(() => {
     const onboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED);
-    if (!onboarded) return false;
+    if (!onboarded || !schedule.enabled) return false;
     const now = new Date();
     const currentDay = now.getDay();
     if (!schedule.daysOfWeek.includes(currentDay)) return false;
@@ -308,6 +318,35 @@ const App: React.FC = () => {
       // Overnight schedule (e.g., 23:00 to 02:00)
       return currentMinutes >= startTotal || currentMinutes < endTotal;
     }
+  }, [schedule]);
+
+  const scheduleNextStartNotification = useCallback(async () => {
+      if (!schedule.enabled || schedule.daysOfWeek.length === 0) return;
+      
+      const now = new Date();
+      const [startH, startM] = schedule.startTime.split(':').map(Number);
+      
+      // Look ahead up to 7 days
+      for (let i = 0; i <= 7; i++) {
+          const checkDate = new Date(now);
+          checkDate.setDate(now.getDate() + i);
+          
+          if (schedule.daysOfWeek.includes(checkDate.getDay())) {
+              const targetTime = new Date(checkDate);
+              targetTime.setHours(startH, startM, 0, 0);
+              
+              // If it's today but passed, skip
+              if (targetTime.getTime() <= now.getTime()) continue;
+              
+              // We found the next start time
+              await scheduleNotification(
+                  "Ready to Win?", 
+                  "Time to start your priority tracking for the day.", 
+                  targetTime.getTime() - now.getTime()
+              );
+              return;
+          }
+      }
   }, [schedule]);
 
   // NEW: Calculate Blocks Remaining
@@ -400,15 +439,14 @@ const App: React.FC = () => {
     endTimeRef.current = targetTime;
     localStorage.setItem(STORAGE_KEY_TIMER_TARGET, targetTime.toString());
     
-    // Notification with Remaining Opportunities
-    const stats = getBlockStats();
-    const currentCycle = Math.max(1, stats.total - stats.remaining + 1);
-    await cancelNotification();
-    await scheduleNotification("Win or Loss?", `Declare your status for Cycle ${currentCycle}/${stats.total}`, timeToUse);
-    
-    workerRef.current?.postMessage({ command: 'start' });
-    tickLogic(); 
-  }, [tickLogic, getBlockStats]);
+        // Notification with Remaining Opportunities
+        const stats = getBlockStats();
+        const currentCycle = Math.max(1, stats.total - stats.remaining + 1);
+        await cancelNotification();
+        await scheduleNotification("Cycle Complete", `Declare your status for Cycle ${currentCycle}/${stats.total}`, timeToUse);
+        
+        workerRef.current?.postMessage({ command: 'start' });
+        tickLogic();    }, [tickLogic, getBlockStats]);
 
   const pauseTimer = useCallback(async () => {
     setIsPaused(true);
@@ -417,7 +455,8 @@ const App: React.FC = () => {
     setStatus(AppStatus.IDLE);
     setTimeLeft(DEFAULT_INTERVAL_MS);
     localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
-  }, []);
+    scheduleNextStartNotification();
+  }, [scheduleNextStartNotification]);
 
   const handleToggleTimer = () => {
       if (status === AppStatus.RUNNING) pauseTimer();
@@ -437,15 +476,25 @@ const App: React.FC = () => {
     const configWithEnabled = { ...newSchedule, enabled: true };
     setSchedule(configWithEnabled);
     localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
+    
+    // Refresh priority state from localStorage
+    const storedPriority = localStorage.getItem('ironlog_strategic_priority');
+    if (storedPriority) setStrategicPriority(storedPriority);
+
     setIsSettingsModalOpen(false);
   };
 
-  const handleOnboardingComplete = (goals: UserGoal[], config: ScheduleConfig) => {
+  const handleOnboardingComplete = (goals: UserGoal[], config: ScheduleConfig, priority?: string) => {
       const configWithEnabled = { ...config, enabled: true };
       localStorage.setItem(STORAGE_KEY_ONBOARDED, 'true');
       localStorage.setItem(STORAGE_KEY_GOAL, JSON.stringify(goals));
       localStorage.setItem(STORAGE_KEY_PERSONA, 'LOGIC');
       localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
+      if (priority) {
+          localStorage.setItem('ironlog_strategic_priority', priority);
+          setStrategicPriority(priority);
+          setPriorityInput(priority);
+      }
       setSchedule(configWithEnabled);
       setHasOnboarded(true);
       setTimeout(() => {
@@ -483,6 +532,14 @@ const App: React.FC = () => {
     setViewDate(new Date());
     try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
     setAiReportContent(null);
+  };
+
+  const handlePrioritySave = () => {
+      const trimmed = priorityInput.trim();
+      setStrategicPriority(trimmed);
+      localStorage.setItem('ironlog_strategic_priority', trimmed);
+      setIsEditingPriority(false);
+      try { Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
   };
 
   const isCurrentView = useMemo(() => {
@@ -600,6 +657,13 @@ const App: React.FC = () => {
   // PERSISTENT RANK CALCULATION (Lifetime)
   const totalLifetimeWins = useMemo(() => logs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [logs]);
   
+  // DAILY RANK CALCULATION
+  const dailyWins = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    return logs.filter(l => l.type === 'WIN' && !l.isFrozenWin && l.timestamp >= startOfDay).length;
+  }, [logs]);
+  
   // CURRENT PERIOD RANK CALCULATION
   const currentPeriodWins = useMemo(() => filteredLogs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [filteredLogs]);
 
@@ -620,65 +684,21 @@ const App: React.FC = () => {
         return;
     }
 
-    let entryIsFrozen = false;
-    let nextFreezeState = { ...freezeState };
-    let overlayTitle = "";
-    let overlaySub = "";
-
-    if (type === 'LOSS') {
-        nextFreezeState.lastLossTimestamp = Date.now();
-        const lastEntry = logs[0];
-        
-        // --- FIRST LOSS TUTORIAL CHECK ---
-        if (!hasSeenFreezeWarning) {
-            setHasSeenFreezeWarning(true);
-            localStorage.setItem(STORAGE_KEY_SEEN_FREEZE_WARNING, 'true');
-            overlayTitle = "MOMENTUM BREACH";
-            overlaySub = "WARNING: 2 LOSSES = RANK FREEZE. NEXT 15MIN IS CRITICAL.";
-        } else if (lastEntry && lastEntry.type === 'LOSS') {
-            nextFreezeState.isFrozen = true;
-            nextFreezeState.recoveryWins = 0;
-            overlayTitle = "RANK FROZEN";
-            overlaySub = "DOWNWARD SPIRAL DETECTED. RANK GROWTH HALTED.";
-        } else {
-            overlayTitle = "MOMENTUM BREACH";
-            overlaySub = "YOUR BRAIN IS SIGNALING A LOSS. PROTECT YOUR RANK.";
-        }
-    } else {
-        if (freezeState.isFrozen) {
-            entryIsFrozen = true;
-            const nextWins = freezeState.recoveryWins + 1;
-            nextFreezeState.recoveryWins = nextWins;
-            if (nextWins >= 2) {
-                nextFreezeState.isFrozen = false;
-                nextFreezeState.recoveryWins = 0;
-                overlayTitle = "WINNER EFFECT RESTORED";
-                overlaySub = "RANK UNLOCKED. MOMENTUM REGAINED.";
-            } else {
-                overlayTitle = "RECOVERY IN PROGRESS";
-                overlaySub = "ONE MORE WIN TO UNLOCK YOUR RANK.";
-            }
-        } else {
-            nextFreezeState.recoveryWins = 0;
-        }
-    }
-
     const newLog: LogEntry = {
       id: crypto.randomUUID(),
       timestamp: Date.now(),
       text,
       type,
-      isFrozenWin: entryIsFrozen
+      isFrozenWin: false
     };
 
     const updatedLogs = [newLog, ...logs];
     setLogs(prev => [newLog, ...prev]);
-    setFreezeState(nextFreezeState);
     setIsEntryModalOpen(false);
     setToast(prev => ({ ...prev, visible: false }));
     
     try { 
-        const totalWinsForRank = updatedLogs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length;
+        const totalWinsForRank = updatedLogs.filter(l => l.type === 'WIN').length;
 
         if (type === 'WIN') {
             await Haptics.notification({ type: NotificationType.Success });
@@ -686,20 +706,19 @@ const App: React.FC = () => {
                 visible: true, 
                 totalWins: totalWinsForRank, 
                 type: 'WIN',
-                customTitle: overlayTitle,
-                customSub: overlaySub
+                customTitle: "COMPLETE",
+                customSub: "CYCLE SECURED."
             });
         } else {
-            await Haptics.impact({ style: ImpactStyle.Heavy });
+            await Haptics.impact({ style: ImpactStyle.Medium });
             setFeedbackState({ 
                 visible: true, 
                 totalWins: totalWinsForRank, 
                 type: 'LOSS',
-                customTitle: overlayTitle,
-                customSub: overlaySub
+                customTitle: "MISSED",
+                customSub: "LOGGED. NEXT CYCLE STARTS NOW."
             });
         }
-        // Auto-dismiss logic handled in FeedbackOverlay or App timeout
         setTimeout(() => setFeedbackState(prev => ({ ...prev, visible: false })), 3500); 
     } catch(e) {}
 
@@ -709,8 +728,9 @@ const App: React.FC = () => {
     else {
        setStatus(AppStatus.IDLE);
        setIsPaused(false);
+       scheduleNextStartNotification();
     }
-  }, [startTimer, isWithinSchedule, logs, freezeState, hasSeenFreezeWarning]);
+  }, [startTimer, isWithinSchedule, logs, scheduleNextStartNotification]);
 
   const handleLogClose = () => {
     setIsEntryModalOpen(false);
@@ -722,6 +742,7 @@ const App: React.FC = () => {
        else {
           setStatus(AppStatus.IDLE);
           setIsPaused(false);
+          scheduleNextStartNotification();
        }
     }
   };
@@ -744,10 +765,10 @@ const App: React.FC = () => {
         if (Date.now() - lastNativeInputTime.current < 2000) return;
         try {
             const pending = await TimerPlugin.checkPendingLog();
-            if (pending && pending.input) {
+            if (pending && pending.type) { // Allow empty input
                 lastNativeInputTime.current = Date.now();
                 setIsEntryModalOpen(false);
-                handleLogSave(pending.input, pending.type, true);
+                handleLogSave(pending.input || "", pending.type, true);
                 LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
                 LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
                 return;
@@ -787,15 +808,12 @@ const App: React.FC = () => {
     const handleNativeInput = (event: any) => {
         try {
             const data = typeof event.detail === 'string' ? JSON.parse(event.detail) : event.detail;
-            if (data.type && data.input) {
+            if (data.type) { // Allow empty input
                 lastNativeInputTime.current = Date.now();
-                // Ensure Modal is closed in case appStateChange opened it
                 setIsEntryModalOpen(false);
-                handleLogSave(data.input, data.type, true);
+                handleLogSave(data.input || "", data.type, true);
                 
-                // Explicitly clear notification ID 1 (The alert)
                 LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
-                // Also clear ID 2 (New Alert ID)
                 LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
             }
         } catch (e) { console.error(e); }
@@ -867,11 +885,12 @@ const App: React.FC = () => {
 
   const handleGenerateAIReport = async () => {
       const goals = getStoredGoals();
+      const priority = localStorage.getItem('ironlog_strategic_priority') || undefined;
       const persona = 'LOGIC';
       const periodMap: Record<FilterType, string> = { 'D': 'Day', 'W': 'Week', 'M': 'Month', '3M': 'Quarter', 'Y': 'Year' };
       setAiReportLoading(true);
       try {
-        const content = await generateAIReport(filteredLogs, periodMap[filter], goals, persona, schedule, 'FULL');
+        const content = await generateAIReport(filteredLogs, periodMap[filter], goals, persona, schedule, 'FULL', priority);
         const key = getCurrentDateKey();
         const newReport: AIReport = {
             id: crypto.randomUUID(),
@@ -925,7 +944,8 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center gap-3">
               <RankHUD 
-                  totalWins={totalLifetimeWins} 
+                  totalWins={dailyWins} 
+                  period="D"
                   isFrozen={freezeState.isFrozen} 
                   onClick={() => {
                       try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
@@ -948,15 +968,54 @@ const App: React.FC = () => {
         />
         <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} />
         <main className="max-w-xl mx-auto p-5 pt-44 flex flex-col min-h-[calc(100vh-80px)]">
+          {/* Strategic Priority / North Star */}
+          <section className="mb-6 group">
+              {isEditingPriority ? (
+                  <div className="bg-zinc-900 border border-yellow-500/30 rounded-2xl p-4 animate-fade-in">
+                      <div className="flex items-center justify-between mb-3">
+                          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-500 italic">Editing Objective</span>
+                          <button onClick={handlePrioritySave} className="text-[10px] font-black uppercase tracking-[0.2em] bg-yellow-500 text-black px-3 py-1 rounded-md active:scale-95 transition-all">Save</button>
+                      </div>
+                      <input
+                        autoFocus
+                        type="text"
+                        value={priorityInput}
+                        onChange={(e) => setPriorityInput(e.target.value)}
+                        onBlur={handlePrioritySave}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handlePrioritySave(); }}
+                        enterKeyHint="done"
+                        placeholder="e.g. Launch the MVP, Close 5 deals..."
+                        className="w-full bg-black/40 text-white font-black italic text-lg outline-none border-none p-0 leading-tight"
+                      />
+                  </div>
+              ) : (
+                  <button 
+                    onClick={() => {
+                        try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+                        setIsEditingPriority(true);
+                    }}
+                    className="w-full text-left bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl p-4 transition-all active:scale-[0.98]"
+                  >
+                      <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-500/50 italic">Strategic Priority</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/10 group-hover:text-yellow-500/50 transition-colors"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                      </div>
+                      <div className={`text-lg font-black italic tracking-tight leading-tight ${strategicPriority ? 'text-white' : 'text-white/20'}`}>
+                          {strategicPriority || "ESTABLISH STRATEGIC OBJECTIVE"}
+                      </div>
+                  </button>
+              )}
+          </section>
+
           <section className="flex-none mb-8">
               <StatusCard isActive={status === AppStatus.RUNNING} timeLeft={timeLeft} schedule={schedule} blockStats={blockStats} onToggle={handleToggleTimer} />
           </section>
           <section className="flex-1 flex flex-col">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-2xl font-black text-white tracking-tight uppercase italic">Battle History</h2>
+              <h2 className="text-2xl font-black text-white tracking-tight uppercase italic">Priority Log</h2>
               <button onClick={handleManualLogStart} className="text-zinc-500 hover:text-yellow-500 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-yellow-500/20" >
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                Manual Win
+                Manual Entry
               </button>
             </div>
             <StatsCard logs={filteredLogs} filter={filter} schedule={schedule} durationMs={DEFAULT_INTERVAL_MS} viewDate={viewDate} onNavigate={handleNavigate} onReset={handleResetView} isCurrentView={isCurrentView} canGoBack={canGoBack} canGoForward={canGoForward} />

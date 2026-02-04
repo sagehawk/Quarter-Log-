@@ -20,7 +20,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveSchedule, 
   onClose 
 }) => {
-  const [countdown, setCountdown] = useState<number | null>(null);
   const [showTroubleshoot, setShowTroubleshoot] = useState(false);
   const [localSchedule, setLocalSchedule] = useState<ScheduleConfig>(schedule || {
     enabled: true,
@@ -69,30 +68,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           localStorage.setItem('ironlog_goal', JSON.stringify(newGoals));
           return newGoals;
       });
-  };
-
-  const handleTestAlert = () => {
-    if (countdown !== null) return;
-    keepAwake(6); 
-    setCountdown(5);
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(interval);
-          triggerTest();
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const triggerTest = async () => {
-    try {
-        await sendNotification("Cycle Alert", "Declare your status: WIN or LOSS.", true);
-    } catch (e) {
-        console.error("Failed to send test: " + e);
-    }
   };
 
   const checkPermissions = async () => {
@@ -214,26 +189,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Tactical Actions */}
         <div className="space-y-4">
             
-            <button
-              type="button"
-              onClick={handleTestAlert}
-              disabled={countdown !== null}
-              className={`w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 italic border ${
-                countdown !== null 
-                  ? 'bg-yellow-500 text-black border-yellow-400' 
-                  : 'text-yellow-500 bg-yellow-500/5 border-yellow-500/20 hover:bg-yellow-500/10'
-              }`}
-            >
-              {countdown !== null ? (
-                <span className="text-sm animate-pulse">DEPLOYING IN {countdown}S</span>
-              ) : (
-                <span className="text-sm flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                  TEST CYCLE ALERT
-                </span>
-              )}
-            </button>
-
             <button 
                 onClick={() => setShowTroubleshoot(!showTroubleshoot)}
                 className="w-full text-xs font-black uppercase tracking-[0.2em] text-white/20 hover:text-white flex items-center justify-center gap-2 py-4 transition-colors italic"

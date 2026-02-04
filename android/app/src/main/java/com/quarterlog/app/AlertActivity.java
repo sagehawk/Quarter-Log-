@@ -54,7 +54,7 @@ public class AlertActivity extends Activity {
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setGravity(Gravity.CENTER);
         int padding = dpToPx(24);
-        layout.setPadding(padding, padding, padding, padding);
+        layout.setPadding(padding, padding, padding, dpToPx(280)); // Increased from 120 to 280 to move up
 
         TextView title = new TextView(this);
         title.setText("CYCLE COMPLETE");
@@ -74,37 +74,28 @@ public class AlertActivity extends Activity {
         sub.setPadding(0, 0, 0, dpToPx(40));
         layout.addView(sub);
 
-        EditText input = new EditText(this);
-        input.setHint("How did you win/lose?");
-        input.setHintTextColor(Color.GRAY);
-        input.setTextColor(Color.WHITE);
-        input.setBackgroundColor(Color.parseColor("#1a1a1a"));
-        input.setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
-        layout.addView(input);
-        
-        View spacer = new View(this);
-        layout.addView(spacer, new LinearLayout.LayoutParams(1, dpToPx(30)));
+        // Input removed per request
 
         LinearLayout btnContainer = new LinearLayout(this);
         btnContainer.setOrientation(LinearLayout.HORIZONTAL);
         btnContainer.setGravity(Gravity.CENTER);
         
         Button btnWin = new Button(this);
-        btnWin.setText("WIN");
+        btnWin.setText("DONE");
         btnWin.setBackgroundColor(Color.parseColor("#eab308")); 
         btnWin.setTextColor(Color.BLACK);
         btnWin.setTypeface(null, Typeface.BOLD);
-        btnWin.setOnClickListener(v -> submit("ACTION_WIN", input.getText().toString()));
+        btnWin.setOnClickListener(v -> submit("ACTION_WIN", ""));
         LinearLayout.LayoutParams p1 = new LinearLayout.LayoutParams(0, dpToPx(60), 1f);
         p1.setMargins(0, 0, dpToPx(10), 0);
         btnContainer.addView(btnWin, p1);
 
         Button btnLoss = new Button(this);
-        btnLoss.setText("LOSS");
+        btnLoss.setText("MISS");
         btnLoss.setBackgroundColor(Color.parseColor("#dc2626")); 
         btnLoss.setTextColor(Color.WHITE);
         btnLoss.setTypeface(null, Typeface.BOLD);
-        btnLoss.setOnClickListener(v -> submit("ACTION_LOSS", input.getText().toString()));
+        btnLoss.setOnClickListener(v -> submit("ACTION_LOSS", ""));
         LinearLayout.LayoutParams p2 = new LinearLayout.LayoutParams(0, dpToPx(60), 1f);
         p2.setMargins(dpToPx(10), 0, 0, 0);
         btnContainer.addView(btnLoss, p2);
@@ -116,12 +107,12 @@ public class AlertActivity extends Activity {
     }
 
     private void submit(String action, String text) {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.setAction(action);
-        intent.putExtra("NATIVE_INPUT_TEXT", text);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        startActivity(intent);
-        
+        // Save to Persistent Storage for Cold Starts / Resume
+        getSharedPreferences("NativeLog", MODE_PRIVATE).edit()
+            .putString("pending_input", text)
+            .putString("pending_type", "ACTION_WIN".equals(action) ? "WIN" : "LOSS")
+            .apply();
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             KeyguardManager keyguardManager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
             if (keyguardManager != null) {

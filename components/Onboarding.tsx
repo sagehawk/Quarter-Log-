@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { UserGoal, ScheduleConfig } from '../types';
 import { requestNotificationPermission } from '../utils/notifications';
-import { RANKS } from '../utils/rankSystem';
 
 interface OnboardingProps {
-  onComplete: (goals: UserGoal[], schedule: ScheduleConfig) => void;
+  onComplete: (goals: UserGoal[], schedule: ScheduleConfig, priority?: string) => void;
 }
 
 const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [step, setStep] = useState(1);
+  const [priority, setPriority] = useState("");
   
   const [schedule, setSchedule] = useState<ScheduleConfig>({
       enabled: true,
@@ -36,7 +36,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     }
   };
 
-  const handleSkip = () => {
+  const handleSkipPermission = () => {
       try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
       if (confirm("Without notifications, you lose the tactical advantage of interrupts. Confirm Manual Mode?")) {
           handleFinish();
@@ -45,7 +45,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
   const handleFinish = () => {
      try { Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
-     onComplete(['BUSINESS'], schedule);
+     onComplete(['BUSINESS'], schedule, priority);
   };
 
   const calculateTotalBlocks = () => {
@@ -73,7 +73,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         
         {/* Progress Bars */}
         <div className="absolute top-12 left-0 w-full flex justify-center gap-1.5 safe-top z-20 px-10">
-            {[1, 2, 3, 4].map(i => (
+            {[1, 2, 3, 4, 5].map(i => (
                 <div key={i} className={`h-1 rounded-full transition-all duration-700 ease-out ${i <= step ? 'flex-1 bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'flex-1 bg-white/5'}`} />
             ))}
         </div>
@@ -148,7 +148,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                             <span className="text-red-500 font-black text-4xl italic tracking-tighter">03</span>
                             <div>
                                 <h3 className="text-2xl font-black uppercase italic tracking-wide text-white">Don't Lose</h3>
-                                <p className="text-red-500/60 font-bold uppercase tracking-widest text-xs">2 Losses = Rank Freeze.</p>
+                                <p className="text-red-500/60 font-bold uppercase tracking-widest text-xs">Avoid the miss.</p>
                             </div>
                         </div>
 
@@ -204,8 +204,48 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             </div>
         )}
 
-        {/* Step 4: The Weapon (Permission) (Was Step 5) */}
+        {/* Step 4: Strategic Priority (New) */}
         {step === 4 && (
+            <div className="space-y-10 animate-fade-in">
+                <div className="text-center space-y-4">
+                    <h1 className="text-5xl font-black italic uppercase tracking-tighter leading-none">
+                        North<br/><span className="text-yellow-500">Star</span>
+                    </h1>
+                    <p className="text-white/60 font-bold text-base leading-relaxed max-w-xs mx-auto">
+                        What is the ONE strategic outcome you must achieve?
+                    </p>
+                </div>
+
+                <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10 space-y-4">
+                     <textarea
+                        value={priority}
+                        onChange={(e) => setPriority(e.target.value)}
+                        placeholder="e.g. Launch the MVP, Close $50k deals, Finish the Thesis..."
+                        className="w-full bg-black/50 text-white font-bold text-xl p-6 rounded-2xl border border-white/10 focus:border-yellow-500 outline-none transition-all italic min-h-[120px]"
+                        autoFocus
+                     />
+                </div>
+
+                <div className="space-y-4">
+                    <button 
+                        onClick={handleNext} 
+                        disabled={!priority.trim()}
+                        className={`w-full py-6 bg-white hover:bg-yellow-500 text-black font-black uppercase tracking-[0.2em] rounded-xl transition-all shadow-2xl text-xl ${!priority.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                        Set Priority
+                    </button>
+                    <button 
+                        onClick={handleNext}
+                        className="text-white/30 hover:text-white text-xs font-black uppercase tracking-widest transition-colors"
+                    >
+                        Skip for Now
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {/* Step 5: Permission */}
+        {step === 5 && (
             <div className="space-y-12 animate-fade-in flex flex-col items-center">
                 <div className="relative">
                     <div className="absolute inset-0 bg-yellow-500/20 blur-3xl rounded-full animate-pulse" />
@@ -231,7 +271,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                 </button>
 
                 <button 
-                    onClick={handleSkip} 
+                    onClick={handleSkipPermission} 
                     className="text-white/30 hover:text-white text-xs font-black uppercase tracking-widest transition-colors mt-4"
                 >
                     Continue Without Notifications

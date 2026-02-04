@@ -31,10 +31,16 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
     return text.split('\n').map((line, i) => {
       const trimmed = line.trim();
 
-      // 1. Headers (###) - Handle potential numbering prefix (e.g. "2. ### Analysis")
-      const headerMatch = trimmed.match(/^(\d+\.?\s*)?###\s*(.+)/);
+      // 1. Headers (## or ###) - Handle potential numbering prefix (e.g. "2. ### Analysis")
+      const headerMatch = trimmed.match(/^(\d+\.?\s*)?(#{2,3})\s*(.+)/);
       if (headerMatch) {
-          return <h3 key={i} className="text-xl font-black text-yellow-500 mt-8 mb-4 uppercase tracking-tighter italic border-l-4 border-yellow-500 pl-4">{headerMatch[2]}</h3>;
+          const level = headerMatch[2].length;
+          const text = headerMatch[3];
+          
+          if (level === 2) {
+             return <h2 key={i} className="text-2xl font-black text-white mt-10 mb-6 uppercase tracking-tighter italic">{text}</h2>;
+          }
+          return <h3 key={i} className="text-xl font-black text-yellow-500 mt-8 mb-4 uppercase tracking-tighter italic border-l-4 border-yellow-500 pl-4">{text}</h3>;
       }
 
       // 2. Score Line Special Rendering

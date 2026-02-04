@@ -21,218 +21,243 @@ import java.util.concurrent.TimeUnit;
 
 public class TimerForegroundService extends Service {
     public static final String CHANNEL_ID = "QuarterLogLive_v4";
-    public static final String ALERT_CHANNEL_ID = "QuarterLogAlert_v1";
+    public static final String ALERT_CHANNEL_ID = "QuarterLogAlert_v2_Silent";
     public static final int NOTIFICATION_ID = 1;
     public static final int ALERT_NOTIFICATION_ID = 2;
     
-    private ScheduledExecutorService scheduler;
-    private ScheduledFuture<?> timerHandle;
-    private PowerManager.WakeLock wakeLock;
+        private ScheduledExecutorService scheduler;
+        private ScheduledFuture<?> timerHandle;
+        private PowerManager.WakeLock wakeLock;
+        
+        private int totalCycles = 0;
+        private int cyclesLeft = 0;
+        private long endTime = 0;
+        private long currentDuration = 15 * 60 * 1000;
     
-    private int totalCycles = 0;
-    private int cyclesLeft = 0;
-    private long endTime = 0;
-
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        createNotificationChannel();
-        scheduler = Executors.newSingleThreadScheduledExecutor();
-        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "QuarterLog::TimerWakeLock");
-    }
-
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null) return START_NOT_STICKY;
-        
-        if ("STOP".equals(intent.getAction())) {
-            stopTimer();
-            stopForeground(true);
-            stopSelf();
-            if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
-            return START_NOT_STICKY;
+        @Override
+        public void onCreate() {
+            super.onCreate();
+            createNotificationChannel();
+            scheduler = Executors.newSingleThreadScheduledExecutor();
+            PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "QuarterLog::TimerWakeLock");
         }
-
-        long durationMs = intent.getLongExtra("duration", 15 * 60 * 1000); 
-        totalCycles = intent.getIntExtra("totalCycles", 0);
-        cyclesLeft = intent.getIntExtra("cyclesLeft", 0);
-        
-        endTime = System.currentTimeMillis() + durationMs;
-
-        startForeground(NOTIFICATION_ID, createNotification(durationMs));
-        
-        if (wakeLock != null) {
-            if (wakeLock.isHeld()) wakeLock.release();
-            wakeLock.acquire(durationMs + 30000); 
-        }
-
-        startTimer();
-
-        return START_STICKY;
-    }
     
-    private void startTimer() {
-        if (timerHandle != null && !timerHandle.isCancelled()) {
-            timerHandle.cancel(false);
-        }
-
-        timerHandle = scheduler.scheduleAtFixedRate(() -> {
-            long remaining = endTime - System.currentTimeMillis();
-            if (remaining <= 0) {
-                triggerAlertNotification();
+        @Override
+        public int onStartCommand(Intent intent, int flags, int startId) {
+            if (intent == null) return START_NOT_STICKY;
+            
+            String action = intent.getAction();
+            
+            if ("STOP".equals(action)) {
+                stopTimer();
+                stopForeground(true);
                 stopSelf();
-                if (timerHandle != null) timerHandle.cancel(false);
                 if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
-            } else {
-                updateNotification(remaining);
+                return START_NOT_STICKY;
             }
-        }, 0, 1000, TimeUnit.MILLISECONDS);
-    }
     
-    private void stopTimer() {
-        if (timerHandle != null) {
-            timerHandle.cancel(false);
-            timerHandle = null;
-        }
-    }
-
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager manager = getSystemService(NotificationManager.class);
+                    if ("ACTION_WIN".equals(action) || "ACTION_LOSS".equals(action)) {
+                        getSharedPreferences("NativeLog", MODE_PRIVATE).edit()
+                            .putString("pending_input", "")
+                            .putString("pending_type", "ACTION_WIN".equals(action) ? "WIN" : "LOSS")
+                            .apply();
+                            
+                        NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                        if (mNotificationManager != null) {
+                            mNotificationManager.cancel(ALERT_NOTIFICATION_ID);
+                        }
+                        
+                        // Loop Mechanism: Restart Timer instead of stopping, unless cycles are done
+                        cyclesLeft--;
+                        
+                        if (cyclesLeft > 0) {
+                            endTime = System.currentTimeMillis() + currentDuration;
+                            startForeground(NOTIFICATION_ID, createNotification(currentDuration));
+                            startTimer();
+                            return START_STICKY;
+                        } else {
+                            stopForeground(true);
+                            stopSelf();
+                            if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+                            return START_NOT_STICKY;
+                        }
+                    }    
+            long durationMs = intent.getLongExtra("duration", 15 * 60 * 1000); 
+            currentDuration = durationMs;
+            totalCycles = intent.getIntExtra("totalCycles", 0);
+            cyclesLeft = intent.getIntExtra("cyclesLeft", 0);
             
-            NotificationChannel serviceChannel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "Live Timer Status",
-                    NotificationManager.IMPORTANCE_HIGH 
-            );
-            serviceChannel.setDescription("Shows the active cycle countdown");
-            serviceChannel.setSound(null, null);
-            serviceChannel.enableVibration(false);
-            serviceChannel.setShowBadge(false);
-            serviceChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-            manager.createNotificationChannel(serviceChannel);
+            endTime = System.currentTimeMillis() + durationMs;
+    
+            startForeground(NOTIFICATION_ID, createNotification(durationMs));
             
-            NotificationChannel alertChannel = new NotificationChannel(
-                    ALERT_CHANNEL_ID,
-                    "Cycle Complete Alert",
-                    NotificationManager.IMPORTANCE_HIGH
-            );
-            alertChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-            manager.createNotificationChannel(alertChannel);
+            if (wakeLock != null) {
+                if (wakeLock.isHeld()) wakeLock.release();
+                wakeLock.acquire(durationMs + 30000); 
+            }
+    
+            startTimer();
+    
+            return START_STICKY;
         }
-    }
-
-    private Notification createNotification(long millisUntilFinished) {
-        Intent notificationIntent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 
-                0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
-
-        long seconds = Math.max(0, millisUntilFinished / 1000);
-        long min = seconds / 60;
-        long sec = seconds % 60;
-        String timeString = String.format("%02d:%02d", min, sec);
         
-        // Title left blank per user request
-        String title = ""; 
-
-        int iconResId = getResources().getIdentifier("ic_stat_status_bar_logo", "drawable", getPackageName());
-        if (iconResId == 0) iconResId = R.mipmap.ic_launcher;
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle(title)
-                .setContentText(timeString)
-                .setSmallIcon(iconResId)
-                .setContentIntent(pendingIntent)
-                .setOnlyAlertOnce(true) 
-                .setOngoing(true)
-                .setLocalOnly(true)
-                .setCategory(NotificationCompat.CATEGORY_ALARM)
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
-        }
-
-        return builder.build();
-    }
-
-    private void updateNotification(long millisUntilFinished) {
-        try {
-            Notification notification = createNotification(millisUntilFinished);
-            NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            if (mNotificationManager != null) {
-                mNotificationManager.notify(NOTIFICATION_ID, notification);
+        private void startTimer() {
+            if (timerHandle != null && !timerHandle.isCancelled()) {
+                timerHandle.cancel(false);
             }
-        } catch (Exception e) {}
-    }
     
-    private void triggerAlertNotification() {
-        try {
-            stopForeground(true);
-            
-            Intent fullScreenIntent = new Intent(this, AlertActivity.class);
-            fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(this, 
-                    99, fullScreenIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
+            timerHandle = scheduler.scheduleAtFixedRate(() -> {
+                long remaining = endTime - System.currentTimeMillis();
+                if (remaining <= 0) {
+                    triggerAlertNotification();
+                    // Don't stopSelf() automatically here if we want to wait for input
+                    // But we do need to stop the countdown
+                    if (timerHandle != null) timerHandle.cancel(false);
+                    // Keep WakeLock? Maybe release until next start
+                    if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+                } else {
+                    updateNotification(remaining);
+                }
+            }, 0, 1000, TimeUnit.MILLISECONDS);
+        }
+        
+        private void stopTimer() {
+            if (timerHandle != null) {
+                timerHandle.cancel(false);
+                timerHandle = null;
+            }
+        }
+    
+        private void createNotificationChannel() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationManager manager = getSystemService(NotificationManager.class);
+     
+                NotificationChannel serviceChannel = new NotificationChannel(
+                        CHANNEL_ID,
+                        "Live Timer Status",
+                        NotificationManager.IMPORTANCE_HIGH 
+                );
+                serviceChannel.setDescription("Shows the active cycle countdown");
+                serviceChannel.setSound(null, null);
+                serviceChannel.enableVibration(false);
+                serviceChannel.setShowBadge(false);
+                serviceChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                manager.createNotificationChannel(serviceChannel);
+    
+                NotificationChannel alertChannel = new NotificationChannel(
+                        ALERT_CHANNEL_ID,
+                        "Cycle Complete Alert",
+                        NotificationManager.IMPORTANCE_HIGH
+                );
+                alertChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                manager.createNotificationChannel(alertChannel);
+            }
+        }
+    
+        private Notification createNotification(long millisUntilFinished) {
             Intent notificationIntent = new Intent(this, MainActivity.class);
-            notificationIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP); 
             PendingIntent pendingIntent = PendingIntent.getActivity(this, 
-                    0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
-
+                    0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    
+            long seconds = Math.max(0, millisUntilFinished / 1000);
+            long min = seconds / 60;
+            long sec = seconds % 60;
+            String timeString = String.format("%02d:%02d", min, sec);
+            
+            // Title left blank per user request
+            String title = ""; 
+    
             int iconResId = getResources().getIdentifier("ic_stat_status_bar_logo", "drawable", getPackageName());
             if (iconResId == 0) iconResId = R.mipmap.ic_launcher;
-            
-            int current = Math.max(1, totalCycles - cyclesLeft + 1);
-            String contentText = "Declare your status for Cycle " + current + "/" + totalCycles;
-            
-            RemoteInput remoteInput = new RemoteInput.Builder("KEY_TEXT_REPLY")
-                    .setLabel("How did you win/lose?")
-                    .build();
-
-            Intent winIntent = new Intent(this, MainActivity.class);
-            winIntent.setAction("ACTION_WIN");
-            winIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            PendingIntent winPendingIntent = PendingIntent.getActivity(this, 10, winIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
-
-            NotificationCompat.Action winAction = new NotificationCompat.Action.Builder(
-                    0, "WIN", winPendingIntent)
-                    .addRemoteInput(remoteInput)
-                    .build();
-            
-            Intent lossIntent = new Intent(this, MainActivity.class);
-            lossIntent.setAction("ACTION_LOSS");
-            lossIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            PendingIntent lossPendingIntent = PendingIntent.getActivity(this, 11, lossIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
-
-            NotificationCompat.Action lossAction = new NotificationCompat.Action.Builder(
-                    0, "LOSS", lossPendingIntent)
-                    .addRemoteInput(remoteInput)
-                    .build();
-
-            Notification notification = new NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
-                    .setContentTitle("Win or Loss?")
-                    .setContentText(contentText)
+    
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setContentTitle(title)
+                    .setContentText(timeString)
                     .setSmallIcon(iconResId)
                     .setContentIntent(pendingIntent)
-                    .setAutoCancel(true)
-                    .setDefaults(Notification.DEFAULT_ALL)
-                    .setPriority(NotificationCompat.PRIORITY_HIGH)
-                    .setFullScreenIntent(fullScreenPendingIntent, true) 
-                    .addAction(winAction)
-                    .addAction(lossAction)
-                    .build();
-
-            NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            if (mNotificationManager != null) {
-                mNotificationManager.notify(ALERT_NOTIFICATION_ID, notification); 
+                    .setOnlyAlertOnce(true) 
+                    .setOngoing(true)
+                    .setLocalOnly(true)
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+    
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+    
+            return builder.build();
         }
-    }
-
+    
+        private void updateNotification(long millisUntilFinished) {
+            try {
+                Notification notification = createNotification(millisUntilFinished);
+                NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (mNotificationManager != null) {
+                    mNotificationManager.notify(NOTIFICATION_ID, notification);
+                }
+            } catch (Exception e) {}
+        }
+        
+        private void triggerAlertNotification() {
+            try {
+                // stopForeground(true); // Don't stop foreground, we want to stay alive to receive action
+                
+                Intent fullScreenIntent = new Intent(this, AlertActivity.class);
+                fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(this, 
+                        99, fullScreenIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    
+                Intent notificationIntent = new Intent(this, MainActivity.class);
+                notificationIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP); 
+                PendingIntent pendingIntent = PendingIntent.getActivity(this, 
+                        0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
+    
+                int iconResId = getResources().getIdentifier("ic_stat_status_bar_logo", "drawable", getPackageName());
+                if (iconResId == 0) iconResId = R.mipmap.ic_launcher;
+                
+                int current = Math.max(1, totalCycles - cyclesLeft + 1);
+                String contentText = "Declare your status for Cycle " + current + "/" + totalCycles;
+                
+                Intent winIntent = new Intent(this, TimerForegroundService.class);
+                winIntent.setAction("ACTION_WIN");
+                PendingIntent winPendingIntent = PendingIntent.getService(this, 10, winIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    
+                NotificationCompat.Action winAction = new NotificationCompat.Action.Builder(
+                        0, "DONE", winPendingIntent)
+                        .build();
+                
+                Intent lossIntent = new Intent(this, TimerForegroundService.class);
+                lossIntent.setAction("ACTION_LOSS");
+                PendingIntent lossPendingIntent = PendingIntent.getService(this, 11, lossIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    
+                NotificationCompat.Action lossAction = new NotificationCompat.Action.Builder(
+                        0, "MISS", lossPendingIntent)
+                        .build();
+    
+                Notification notification = new NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
+                        .setContentTitle("Cycle Complete")
+                        .setContentText(contentText)
+                        .setSmallIcon(iconResId)
+                        .setContentIntent(pendingIntent)
+                        .setAutoCancel(false) // Don't dismiss on click
+                        .setOngoing(true)     // Persistent
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        // .setFullScreenIntent(fullScreenPendingIntent, true) // Removed AlertActivity launch
+                        .addAction(winAction)
+                        .addAction(lossAction)
+                        .setSound(null)
+                        .setVibrate(new long[]{0L})
+                        .build();
+    
+                NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (mNotificationManager != null) {
+                    mNotificationManager.notify(ALERT_NOTIFICATION_ID, notification); 
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     @Override
     public void onDestroy() {
         stopTimer();

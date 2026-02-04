@@ -15,8 +15,8 @@ const LogList: React.FC<LogListProps> = ({ logs, onDelete, onEdit }) => {
         <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white/20 border border-white/5 shadow-inner">
            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
         </div>
-        <p className="text-white font-black text-2xl uppercase tracking-widest italic">The Leaderboard is Empty.</p>
-        <p className="text-sm text-white/30 mt-2 font-black uppercase tracking-[0.2em]">Start stacking wins to build momentum.</p>
+        <p className="text-white font-black text-2xl uppercase tracking-widest italic">No Priorities Logged.</p>
+        <p className="text-sm text-white/30 mt-2 font-black uppercase tracking-[0.2em]">Log your time to track your focus.</p>
       </div>
     );
   }
@@ -67,7 +67,7 @@ const LogList: React.FC<LogListProps> = ({ logs, onDelete, onEdit }) => {
                         {new Date(log.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                        </span>
                        <span className={`text-xs font-black tracking-[0.2em] uppercase italic ${log.type === 'LOSS' ? 'text-red-500/60' : 'text-yellow-500/60'}`}>
-                         {log.type || 'WIN'}
+                         {log.type === 'WIN' ? 'PRIORITY' : log.type === 'LOSS' ? 'NON-PRIORITY' : 'PRIORITY'}
                        </span>
                     </div>
                     <p className={`text-xl font-black tracking-tight leading-tight transition-colors italic uppercase text-white`}>{log.text}</p>
