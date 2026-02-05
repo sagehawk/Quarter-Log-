@@ -121,6 +121,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     <div className="fixed inset-0 z-50 bg-black flex flex-col overflow-hidden animate-fade-in">
         
         <div className="flex-1 overflow-y-auto custom-scrollbar p-8 pb-32">
+          <div className="max-w-xl mx-auto">
             <div className="text-center mb-10 mt-10">
             <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic">Tactical Configuration</h2>
             <p className="text-yellow-500/40 text-xs font-black uppercase tracking-[0.3em] mt-2 italic">Refine your operational edge</p>
@@ -300,9 +301,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
         </div>
 
+          </div>
         </div>
 
         <div className="p-8 pt-6 border-t border-white/5 bg-[#0a0a0a] z-10">
+            <div className="max-w-xl mx-auto w-full">
             <button
               type="button"
               onClick={handleSaveAndClose}
@@ -310,6 +313,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             >
               CLOSE COMMAND
             </button>
+            </div>
         </div>
     </div>
   );

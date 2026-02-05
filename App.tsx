@@ -781,15 +781,11 @@ const App: React.FC = () => {
             });
         } else {
             await Haptics.impact({ style: ImpactStyle.Medium });
-            setFeedbackState({ 
-                visible: true, 
-                totalWins: totalWinsForRank, 
-                type: 'LOSS',
-                customTitle: "MISSED",
-                customSub: "LOGGED. NEXT CYCLE STARTS NOW."
-            });
+            // Alert removed per user request
         }
-        setTimeout(() => setFeedbackState(prev => ({ ...prev, visible: false })), 3500); 
+        if (type === 'WIN') {
+            setTimeout(() => setFeedbackState(prev => ({ ...prev, visible: false })), 3500);
+        } 
     } catch(e) {}
 
     localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
@@ -1057,22 +1053,21 @@ const App: React.FC = () => {
           {/* Strategic Priority / North Star */}
           <section className="mb-6 group">
               {isEditingPriority ? (
-                  <div className="bg-zinc-900 border border-yellow-500/30 rounded-2xl p-4 animate-fade-in">
-                      <div className="flex items-center justify-between mb-3">
-                          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-500 italic">Editing Objective</span>
-                          <button onClick={handlePrioritySave} className="text-[10px] font-black uppercase tracking-[0.2em] bg-yellow-500 text-black px-3 py-1 rounded-md active:scale-95 transition-all">Save</button>
-                      </div>
-                      <input
-                        autoFocus
-                        type="text"
+                  <div className="bg-black border border-yellow-500/50 rounded-3xl p-1 shadow-[0_0_30px_rgba(234,179,8,0.15)] animate-fade-in relative overflow-hidden">
+                      <div className="absolute inset-0 bg-yellow-500/5 pointer-events-none" />
+                      <textarea 
                         value={priorityInput}
                         onChange={(e) => setPriorityInput(e.target.value)}
+                        className="w-full bg-transparent text-white font-black text-2xl p-6 outline-none resize-none italic tracking-tight placeholder:text-white/20 relative z-10"
+                        placeholder="Define your objective..."
+                        rows={3}
+                        autoFocus
                         onBlur={handlePrioritySave}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handlePrioritySave(); }}
-                        enterKeyHint="done"
-                        placeholder="e.g. Launch the MVP, Close 5 deals..."
-                        className="w-full bg-black/40 text-white font-black italic text-lg outline-none border-none p-0 leading-tight"
+                        onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); handlePrioritySave(); } }}
                       />
+                      <div className="absolute bottom-4 right-4 z-20">
+                           <span className="text-[10px] font-black uppercase tracking-widest text-yellow-500 bg-black/50 px-2 py-1 rounded backdrop-blur-md">Press Enter</span>
+                      </div>
                   </div>
               ) : (
                   <button 
@@ -1080,14 +1075,19 @@ const App: React.FC = () => {
                         try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
                         setIsEditingPriority(true);
                     }}
-                    className="w-full text-left bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl p-4 transition-all active:scale-[0.98]"
+                    className="w-full text-left bg-gradient-to-br from-white/10 to-black border border-yellow-500/20 rounded-3xl p-6 transition-all active:scale-[0.98] shadow-2xl relative overflow-hidden group"
                   >
-                      <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-500/50 italic">Strategic Priority</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/10 group-hover:text-yellow-500/50 transition-colors"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 blur-[50px] rounded-full pointer-events-none group-hover:bg-yellow-500/20 transition-all" />
+
+                      <div className="flex items-center justify-between mb-3 relative z-10">
+                          <span className="text-xs font-black uppercase tracking-[0.3em] text-yellow-500 italic drop-shadow-sm flex items-center gap-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-yellow-500"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                              North Star
+                          </span>
+                          
                       </div>
-                      <div className={`text-lg font-black italic tracking-tight leading-tight ${strategicPriority ? 'text-white' : 'text-white/20'}`}>
-                          {strategicPriority || "ESTABLISH STRATEGIC OBJECTIVE"}
+                      <div className={`text-2xl font-black italic tracking-tighter leading-none relative z-10 ${strategicPriority ? 'text-white drop-shadow-lg' : 'text-white/20'}`}>
+                          {strategicPriority || "DEFINE YOUR PRIMARY OBJECTIVE"}
                       </div>
                   </button>
               )}

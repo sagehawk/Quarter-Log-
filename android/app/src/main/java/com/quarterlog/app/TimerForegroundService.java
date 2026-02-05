@@ -20,28 +20,34 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class TimerForegroundService extends Service {
-    public static final String CHANNEL_ID = "QuarterLogLive_v5";
+    public static final String CHANNEL_ID = "QuarterLogLive_v6";
     public static final String ALERT_CHANNEL_ID = "QuarterLogAlert_v2_Silent";
     public static final int NOTIFICATION_ID = 1;
     public static final int ALERT_NOTIFICATION_ID = 2;
     
-        private ScheduledExecutorService scheduler;
-        private ScheduledFuture<?> timerHandle;
-        private PowerManager.WakeLock wakeLock;
-        
-        private int totalCycles = 0;
-        private int cyclesLeft = 0;
-        private long endTime = 0;
-        private long currentDuration = 15 * 60 * 1000;
+    private ScheduledExecutorService scheduler;
+    private ScheduledFuture<?> timerHandle;
+    private PowerManager.WakeLock wakeLock;
     
-        @Override
-        public void onCreate() {
-            super.onCreate();
-            createNotificationChannel();
-            scheduler = Executors.newSingleThreadScheduledExecutor();
-            PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "QuarterLog::TimerWakeLock");
-        }
+    private int totalCycles = 0;
+    private int cyclesLeft = 0;
+    private long endTime = 0;
+    private long currentDuration = 15 * 60 * 1000;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        createNotificationChannel();
+        scheduler = Executors.newSingleThreadScheduledExecutor();
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "QuarterLog::TimerWakeLock");
+        
+        // Restore state
+        android.content.SharedPreferences prefs = getSharedPreferences("TimerState", MODE_PRIVATE);
+        currentDuration = prefs.getLong("currentDuration", 15 * 60 * 1000);
+        totalCycles = prefs.getInt("totalCycles", 0);
+        cyclesLeft = prefs.getInt("cyclesLeft", 0);
+    }
     
         @Override
         public int onStartCommand(Intent intent, int flags, int startId) {
@@ -70,6 +76,7 @@ public class TimerForegroundService extends Service {
                         
                         // Loop Mechanism: Restart Timer instead of stopping, unless cycles are done
                         cyclesLeft--;
+                        getSharedPreferences("TimerState", MODE_PRIVATE).edit().putInt("cyclesLeft", cyclesLeft).apply();
                         
                         if (cyclesLeft > 0) {
                             endTime = System.currentTimeMillis() + currentDuration;
@@ -87,6 +94,12 @@ public class TimerForegroundService extends Service {
             currentDuration = durationMs;
             totalCycles = intent.getIntExtra("totalCycles", 0);
             cyclesLeft = intent.getIntExtra("cyclesLeft", 0);
+            
+            getSharedPreferences("TimerState", MODE_PRIVATE).edit()
+                .putLong("currentDuration", currentDuration)
+                .putInt("totalCycles", totalCycles)
+                .putInt("cyclesLeft", cyclesLeft)
+                .apply();
             
             endTime = System.currentTimeMillis() + durationMs;
     
@@ -133,11 +146,15 @@ public class TimerForegroundService extends Service {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 NotificationManager manager = getSystemService(NotificationManager.class);
      
-                            NotificationChannel serviceChannel = new NotificationChannel(
-                                    CHANNEL_ID,
-                                    "Live Timer Status",
-                                    NotificationManager.IMPORTANCE_LOW 
-                            );                serviceChannel.setDescription("Shows the active cycle countdown");
+                                        NotificationChannel serviceChannel = new NotificationChannel(
+     
+                                                CHANNEL_ID,
+     
+                                                "Live Timer Status",
+     
+                                                NotificationManager.IMPORTANCE_DEFAULT 
+     
+                                        );                serviceChannel.setDescription("Shows the active cycle countdown");
                 serviceChannel.setSound(null, null);
                 serviceChannel.enableVibration(false);
                 serviceChannel.setShowBadge(false);
