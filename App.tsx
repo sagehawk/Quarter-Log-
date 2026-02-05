@@ -1012,14 +1012,14 @@ const App: React.FC = () => {
       <div className="fixed inset-0 -z-30 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJnoiPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI2cpIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=')] opacity-[0.05] pointer-events-none mix-blend-overlay" />
       
       <div className="relative z-10">
-        <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-6 pb-4 flex justify-between items-center border-b ${isScrolled ? 'bg-[#050505]/90 backdrop-blur-xl border-white/5 shadow-2xl' : 'border-transparent'}`} >
-          <div className="flex items-center gap-3">
-             <div className="w-9 h-9 rounded-lg bg-yellow-500 flex items-center justify-center text-black font-black text-xs shadow-[0_0_15px_rgba(234,179,8,0.6)]">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center border-b ${isScrolled ? 'bg-[#050505]/80 backdrop-blur-md border-white/5' : 'border-transparent'}`} >
+          <div className="relative flex items-center gap-3">
+             <div className="w-10 h-10 rounded-xl overflow-hidden transition-all duration-500">
+               <img src="/icon.png" alt="App Icon" className="w-full h-full object-cover" />
              </div>
              <div className="flex flex-col">
-               <span className="text-xs font-black tracking-[0.2em] uppercase text-white leading-none">WINNER</span>
-               <span className="text-[10px] font-mono font-medium tracking-[0.3em] uppercase text-yellow-500 leading-none mt-0.5">EFFECT_OS</span>
+               <span className="text-xl font-bold tracking-[0.1em] uppercase text-white leading-none">Winner</span>
+               <span className="text-xl font-light tracking-[0.1em] uppercase text-white leading-none">Effect</span>
              </div>
           </div>
           <div className="flex items-center gap-3">
