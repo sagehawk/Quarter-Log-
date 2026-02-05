@@ -97,7 +97,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
       if (filter === 'D') {
           // 24 Hours
           for (let i = 0; i < 24; i++) {
-              buckets.push({ label: `${i}`, wins: 0, losses: 0 });
+              // Convert to 12h format
+              const h = i % 12 || 12;
+              buckets.push({ label: `${h}`, wins: 0, losses: 0 });
           }
           logs.forEach(l => {
               const d = new Date(l.timestamp);
@@ -209,97 +211,89 @@ const StatsCard: React.FC<StatsCardProps> = ({
       }
 
       return (
-          <div className="flex flex-col gap-2">
-              <div className="relative w-full h-3 pl-8"> {/* Offset for left labels */}
-                  {monthLabels.map((m, i) => (
-                      <span key={i} className="absolute text-[8px] font-black uppercase tracking-widest text-white/20 transform -translate-x-1/2" style={{ left: `${m.left}%` }}>{m.label}</span>
-                  ))}
-              </div>
-
-              <div className="flex gap-2 w-full items-end">
-                  {/* Left Labels (Mon, Wed, Fri) */}
-                  <div className="flex flex-col gap-[2px] h-28 justify-end pb-[1px] text-[6px] font-black uppercase text-white/40 w-5 shrink-0 text-right">
-                      <div className="h-1.5"></div> {/* Sun */}
-                      <div className="h-1.5 flex items-center justify-end">Mon</div>
-                      <div className="h-1.5"></div> {/* Tue */}
-                      <div className="h-1.5 flex items-center justify-end">Wed</div>
-                      <div className="h-1.5"></div> {/* Thu */}
-                      <div className="h-1.5 flex items-center justify-end">Fri</div>
-                      <div className="h-1.5"></div> {/* Sat */}
-                  </div>
-
-                  <div className="flex gap-[2px] justify-between h-28 items-end flex-1">
-                      {Array.from({ length: 53 }).map((_, colIndex) => (
-                          <div key={colIndex} className="flex flex-col gap-[2px] h-full justify-end">
-                              {Array.from({ length: 7 }).map((_, rowIndex) => {
-                                  const dataIndex = colIndex * 7 + rowIndex;
-                                  const day = gridData[dataIndex];
-                                  
-                                  // Visibility Logic
-                                  let isVisible = true;
-                                  if (day) {
-                                      const dayDate = new Date(day.date);
-                                      dayDate.setHours(0,0,0,0);
+                                      <div className="flex gap-2 w-full items-end">
+                                          {/* Left Labels (Mon, Wed, Fri) - Fixed */}
+                                          <div className="flex flex-col gap-[2px] h-full justify-end text-[6px] font-black uppercase text-white/40 w-5 shrink-0 text-right">
+                                              <div className="h-1.5 flex items-center justify-end">Mon</div>
+                                              <div className="h-1.5"></div>
+                                              <div className="h-1.5 flex items-center justify-end">Wed</div>
+                                              <div className="h-1.5"></div>
+                                              <div className="h-1.5 flex items-center justify-end">Fri</div>
+                                              <div className="h-1.5"></div>
+                                              <div className="h-1.5"></div>
+                                          </div>          
+                            <div className="flex gap-[2px] justify-between h-full items-end flex-1 overflow-x-auto pb-2 scrollbar-hide">
+                                <div className="min-w-max">
+                                    {/* Month Labels */}
+                                    <div className="relative w-full h-3 mb-1">
+                                        {monthLabels.map((m, i) => (
+                                            <span key={i} className="absolute text-[7px] font-black uppercase tracking-widest text-white/30 transform -translate-x-1/2" style={{ left: `${m.left}%` }}>{m.label}</span>
+                                        ))}
+                                    </div>
+          
+                                    {/* Grid */}
+                                    <div className="flex gap-[2px] justify-between items-end">
+                                        {Array.from({ length: 53 }).map((_, colIndex) => (
+                                            <div key={colIndex} className="flex flex-col gap-[2px] h-full justify-end">
+                                                {Array.from({ length: 7 }).map((_, rowIndex) => {
+          
+                                      const dataIndex = colIndex * 7 + rowIndex;
+                                      const day = gridData[dataIndex];
                                       
-                                      if (isCurrentYearView) {
-                                          // Rolling mode: Hide ONLY future relative to real today
-                                          if (dayDate > realToday) isVisible = false;
+                                      // Visibility Logic
+                                      let isVisible = true;
+                                      if (day) {
+                                          const dayDate = new Date(day.date);
+                                          dayDate.setHours(0,0,0,0);
+                                          
+                                          if (isCurrentYearView) {
+                                              // Rolling mode: Hide ONLY future relative to real today
+                                              if (dayDate > realToday) isVisible = false;
+                                          } else {
+                                              // Calendar mode: Hide dates outside target year
+                                              if (dayDate.getFullYear() !== viewDate.getFullYear()) isVisible = false;
+                                          }
                                       } else {
-                                          // Calendar mode: Hide dates outside target year
-                                          if (dayDate.getFullYear() !== viewDate.getFullYear()) isVisible = false;
+                                          isVisible = false;
                                       }
-                                  } else {
-                                      isVisible = false;
-                                  }
 
-                                  let bgClass = "bg-white/5"; 
-                                  if (!isVisible) bgClass = "invisible";
-                                  else if (day) {
-                                      if (day.intensity === -1) bgClass = "bg-red-900/50 shadow-[0_0_5px_rgba(220,38,38,0.2)]";
-                                      else if (day.intensity === 1) bgClass = "bg-yellow-900/40";
-                                      else if (day.intensity === 2) bgClass = "bg-yellow-700/60";
-                                      else if (day.intensity === 3) bgClass = "bg-yellow-500/80 shadow-[0_0_5px_rgba(234,179,8,0.4)]";
-                                      else if (day.intensity === 4) bgClass = "bg-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.8)] z-10";
-                                  }
-                                  return (
-                                    <div 
-                                        key={rowIndex} 
-                                        className={`w-1.5 h-1.5 rounded-[1px] transition-all duration-500 ${bgClass}`}
-                                        onMouseEnter={(e) => {
-                                            if (!isVisible || !day) return;
-                                            const rect = e.currentTarget.getBoundingClientRect();
-                                            setHoverData({ 
-                                                date: day.date.toLocaleDateString(undefined, {month:'short', day:'numeric'}), 
-                                                wins: day.wins, 
-                                                losses: day.losses 
-                                            });
-                                            setHoverPos({ x: rect.left + rect.width / 2, y: rect.top });
-                                        }}
-                                        onMouseLeave={() => {
-                                            setHoverData(null);
-                                            setHoverPos(null);
-                                        }}
-                                    />
-                                  );
-                              })}
-                          </div>
-                      ))}
+                                      let bgClass = "bg-white/5"; 
+                                      if (!isVisible) bgClass = "invisible";
+                                      else if (day) {
+                                          if (day.intensity === -1) bgClass = "bg-red-900/50 shadow-[0_0_5px_rgba(220,38,38,0.2)]";
+                                          else if (day.intensity === 1) bgClass = "bg-yellow-900/40";
+                                          else if (day.intensity === 2) bgClass = "bg-yellow-700/60";
+                                          else if (day.intensity === 3) bgClass = "bg-yellow-500/80 shadow-[0_0_5px_rgba(234,179,8,0.4)]";
+                                          else if (day.intensity === 4) bgClass = "bg-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.8)] z-10";
+                                      }
+                                      return (
+                                        <div 
+                                            key={rowIndex} 
+                                            className={`w-1.5 h-1.5 rounded-[1px] transition-all duration-500 ${bgClass}`}
+                                            onMouseEnter={(e) => {
+                                                if (!isVisible || !day) return;
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                setHoverData({ 
+                                                    date: day.date.toLocaleDateString(undefined, {month:'short', day:'numeric'}), 
+                                                    wins: day.wins, 
+                                                    losses: day.losses 
+                                                });
+                                                setHoverPos({ x: rect.left + rect.width / 2, y: rect.top });
+                                            }}
+                                            onMouseLeave={() => {
+                                                setHoverData(null);
+                                                setHoverPos(null);
+                                            }}
+                                        />
+                                      );
+                                  })}
+                              </div>
+                          ))}
+                      </div>
                   </div>
               </div>
 
-              <div className="flex justify-end items-center gap-2 mt-1">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Less</span>
-                  <div className="flex gap-1">
-                      <div className="w-1.5 h-1.5 rounded-[1px] bg-white/5" />
-                      <div className="w-1.5 h-1.5 rounded-[1px] bg-yellow-900/40" />
-                      <div className="w-1.5 h-1.5 rounded-[1px] bg-yellow-700/60" />
-                      <div className="w-1.5 h-1.5 rounded-[1px] bg-yellow-500/80" />
-                      <div className="w-1.5 h-1.5 rounded-[1px] bg-yellow-400 shadow-[0_0_5px_rgba(234,179,8,0.5)]" />
-                  </div>
-                  <span className="text-[8px] font-black uppercase tracking-widest text-white/20">More</span>
-              </div>
-
-              {/* Unified Tooltip */}
+              {/* Unified Tooltip (Fixed position) */}
               {hoverData && hoverPos && (
                   <div 
                       className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2 bg-zinc-900 border border-white/10 px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md"
@@ -326,17 +320,61 @@ const StatsCard: React.FC<StatsCardProps> = ({
                   const winH = (d.wins / maxVal) * 100;
                   const lossH = (d.losses / maxVal) * 100;
                   
+                  // Label Logic: Show every 4th or 6th, or distinct logic
+                  // Day (24h): Show every 6 (0, 6, 12, 18)
+                  // Week (7d): Show all
+                  // Month (30d): Show every 5?
+                  // Quarter (13w): Show every 4?
+                  
+                  let showLabel = false;
+                  if (filter === 'D') showLabel = i % 6 === 0;
+                  else if (filter === 'W') showLabel = true;
+                  else if (filter === 'M') showLabel = (i+1) % 5 === 0 || i === 0 || i === chartData.length-1;
+                  else if (filter === '3M') showLabel = i % 4 === 0;
+
                   return (
-                      <div key={i} className="flex-1 flex flex-col justify-end h-full group relative gap-[1px]">
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-900 border border-white/10 px-2 py-1 rounded text-[9px] font-mono whitespace-nowrap z-20 pointer-events-none">
-                              {d.label}: {d.wins}W {d.losses}L
-                          </div>
+                      <div 
+                        key={i} 
+                        className="flex-1 flex flex-col justify-end h-full group relative gap-[1px]"
+                        onMouseEnter={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setHoverData({ 
+                                date: d.label, // Reuse date field for label
+                                wins: d.wins, 
+                                losses: d.losses 
+                            });
+                            setHoverPos({ x: rect.left + rect.width / 2, y: rect.top });
+                        }}
+                        onMouseLeave={() => {
+                            setHoverData(null);
+                            setHoverPos(null);
+                        }}
+                      >
+                          {/* Label */}
+                          {showLabel && (
+                              <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 text-[8px] font-black text-white/30 tracking-widest whitespace-nowrap">
+                                  {d.label}
+                              </div>
+                          )}
+
                           <div style={{ height: `${lossH}%` }} className="w-full bg-red-500/50 rounded-[1px] transition-all duration-500" />
                           <div style={{ height: `${winH}%` }} className="w-full bg-yellow-500 rounded-[1px] shadow-[0_0_10px_rgba(234,179,8,0.3)] transition-all duration-500" />
                           {total === 0 && <div className="w-full h-[2px] bg-white/5 rounded-full" />}
                       </div>
                   );
               })}
+              
+              {/* Unified Tooltip (Reused) */}
+              {hoverData && hoverPos && filter !== 'Y' && (
+                  <div 
+                      className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2 bg-zinc-900 border border-white/10 px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md"
+                      style={{ left: hoverPos.x, top: hoverPos.y - 8 }}
+                  >
+                      <span className="block text-[10px] font-black uppercase tracking-widest text-yellow-500 mb-0.5">{hoverData.date}</span>
+                      <span className="block text-[10px] font-mono text-white/60">{hoverData.wins} WINS / {hoverData.losses} LOSSES</span>
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-zinc-900 border-r border-b border-white/10"></div>
+                  </div>
+              )}
           </div>
       );
   };

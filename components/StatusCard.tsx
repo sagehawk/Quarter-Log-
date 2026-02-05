@@ -16,63 +16,81 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   
+  // Calculate progress relative to 15m (or whatever duration, simplified to 15m base for visual)
+  const progress = Math.min(100, (timeLeft / (15 * 60 * 1000)) * 100);
+  const currentCycle = Math.max(0, blockStats.total - blockStats.remaining + (isActive ? 1 : 0));
+
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
+    try { Haptics.impact({ style: ImpactStyle.Heavy }); } catch(e) {}
     onToggle();
   };
 
   return (
-    <div className="w-full bg-zinc-900 border border-zinc-800 rounded-[2rem] p-6 shadow-2xl relative overflow-hidden group">
-        {/* Glow Effect */}
-        <div className={`absolute -right-10 -top-10 w-40 h-40 rounded-full blur-[80px] transition-opacity duration-1000 ${isActive ? 'bg-yellow-500/10 opacity-100' : 'bg-zinc-800/50 opacity-0'}`}></div>
+    <div className="w-full bg-black/40 border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden backdrop-blur-xl group">
+        {/* Active State Ambient Glow */}
+        <div className={`absolute top-0 right-0 w-64 h-64 bg-yellow-500/5 blur-[80px] rounded-full pointer-events-none transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
+        
+        {/* Animated Border effect for active state */}
+        <div className={`absolute bottom-0 left-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-500/50 to-transparent w-full transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
 
-        <div className="relative z-10">
-            <div className="flex justify-between items-start mb-6">
-                <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-yellow-500 animate-pulse shadow-[0_0_10px_rgba(234,179,8,1)]' : 'bg-zinc-700'}`}></span>
-                        <span className={`text-xs font-black uppercase tracking-[0.3em] italic ${isActive ? 'text-yellow-500' : 'text-zinc-500'}`}>
-                            {isActive ? 'Cycle Active' : 'Cycle Paused'}
-                        </span>
+        <div className="relative z-10 flex flex-col gap-5">
+            {/* Header Row */}
+            <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2.5">
+                    <div className="relative flex items-center justify-center w-2 h-2">
+                        <div className={`absolute w-full h-full rounded-full ${isActive ? 'bg-green-500 animate-ping opacity-75' : 'bg-red-500/50'}`} />
+                        <div className={`relative w-1.5 h-1.5 rounded-full ${isActive ? 'bg-green-400' : 'bg-red-500'}`} />
                     </div>
-                    <h2 className="text-zinc-500 text-xs font-black uppercase tracking-[0.2em] italic">
-                        {isActive ? 'Next Tactical Decision In' : 'Standing by for cycle'}
-                    </h2>
-                </div>
-                <div className="text-right">
-                     <div className="text-xs font-black uppercase text-zinc-500 tracking-widest italic mb-1">Cycle</div>
-                     <div className="text-sm font-black text-white/80 tracking-tighter italic">
-                         <span className="text-yellow-500 text-2xl">{Math.max(0, blockStats.total - blockStats.remaining + (isActive ? 1 : 0))}</span> <span className="text-zinc-600 text-base">/ {blockStats.total}</span>
-                     </div>
-                </div>
-            </div>
-
-            <div className="flex items-end justify-between">
-                <div className="flex items-baseline gap-1">
-                    <span className={`text-6xl font-black tracking-tighter italic tabular-nums ${isActive ? 'text-white' : 'text-zinc-700'}`}>
-                        {minutes}<span className="text-2xl text-zinc-700 ml-1 tracking-normal not-italic">m</span> {String(seconds).padStart(2, '0')}<span className="text-2xl text-zinc-700 ml-1 tracking-normal not-italic">s</span>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-white/40">
+                        {isActive ? 'SYSTEM ACTIVE' : 'SYSTEM IDLE'}
                     </span>
                 </div>
                 
+                <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-white/30">CYCLE</span>
+                    <span className="text-xs font-mono font-bold text-white">
+                        <span className="text-yellow-500">{currentCycle}</span>
+                        <span className="text-white/20 mx-0.5">/</span>
+                        {blockStats.total}
+                    </span>
+                </div>
+            </div>
+
+            {/* Timer Row */}
+            <div className="flex justify-between items-end">
+                <div>
+                    <div className={`text-7xl font-mono font-bold tracking-tighter leading-none transition-colors duration-300 ${isActive ? 'text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]' : 'text-white/10'}`}>
+                        {minutes}:{String(seconds).padStart(2, '0')}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                        <div className="h-[1px] w-8 bg-yellow-500/50"></div>
+                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-yellow-500/60">
+                            {isActive ? 'TIMER ENGAGED' : 'AWAITING INPUT'}
+                        </span>
+                    </div>
+                </div>
+
                 <button 
                   onClick={handleToggle}
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-xl active:scale-95 border ${isActive ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400 border-zinc-700' : 'bg-yellow-500 hover:bg-yellow-400 text-black border-yellow-400 shadow-yellow-500/20'}`}
+                  className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-xl active:scale-95 border group/btn relative overflow-hidden ${isActive ? 'bg-zinc-900 border-zinc-700 text-zinc-500 hover:text-red-500 hover:border-red-500/30' : 'bg-white text-black border-white hover:bg-yellow-400 hover:border-yellow-400 hover:shadow-[0_0_20px_rgba(234,179,8,0.4)]'}`}
                 >
                     {isActive ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="relative z-10"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>
                     ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none" className="ml-1"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" className="ml-1 relative z-10"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                     )}
                 </button>
             </div>
-            
-            {/* Progress Bar (Time Left in 15m) */}
-            <div className="mt-6 h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden border border-zinc-800">
+
+            {/* Progress Bar */}
+            <div className="relative w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
                 <div 
-                    className={`h-full transition-all duration-1000 ease-linear ${isActive ? 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-zinc-700'}`}
-                    style={{ width: `${Math.min(100, (timeLeft / (15 * 60 * 1000)) * 100)}%` }}
+                    className={`absolute inset-y-0 left-0 bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.6)] transition-all duration-1000 ease-linear ${!isActive ? 'opacity-0' : 'opacity-100'}`}
+                    style={{ width: `${progress}%` }}
                 />
+                {/* Tick marks overlay for 'ruler' effect */}
+                <div className="absolute inset-0 w-full h-full bg-[repeating-linear-gradient(90deg,transparent,transparent_19%,#000_20%)] opacity-30 mix-blend-overlay pointer-events-none" />
             </div>
         </div>
     </div>
