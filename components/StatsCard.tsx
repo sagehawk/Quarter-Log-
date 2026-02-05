@@ -1,11 +1,10 @@
-import React, { useMemo, useState, useRef } from 'react';
-import { LogEntry, ScheduleConfig } from '../types';
+import React, { useMemo } from 'react';
+import { LogEntry, ScheduleConfig, FilterType } from '../types';
 import { getRankForPeriod } from '../utils/rankSystem';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 interface StatsCardProps {
   logs: LogEntry[];
-  filter: string; // 'D' | 'W' | 'M' | '3M' | 'Y'
+  filter: FilterType;
   schedule: ScheduleConfig;
   durationMs: number;
   viewDate: Date;
@@ -16,446 +15,462 @@ interface StatsCardProps {
   canGoForward: boolean;
 }
 
-// --- Types & Helpers ---
-
-type ChartDataPoint = {
-  label: string;
-  wins: number;
-  losses: number;
-  value: number; // Combined count for bar scaling
-  displayValue: string; 
-  isCurrent?: boolean; 
-  fullDate?: string; 
-  showLabel?: boolean;
-  bucketPeriod?: string; // 'D', 'W', 'M' etc. for rank calc
-};
-
-// SVG Constants
-const CHART_HEIGHT = 80;
-const CHART_WIDTH = 280; 
-const MAX_BAR_WIDTH = 24;
-
 const StatsCard: React.FC<StatsCardProps> = ({ 
   logs, 
   filter, 
-  schedule, 
-  durationMs, 
-  viewDate,
-  onNavigate,
+  viewDate, 
+  onNavigate, 
   onReset,
   isCurrentView,
   canGoBack,
-  canGoForward
+  canGoForward 
 }) => {
-  const [interactionIndex, setInteractionIndex] = useState<number | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
-  const isDragging = useRef(false);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const [hoverData, setHoverData] = React.useState<{ date: string, wins: number, losses: number } | null>(null);
+  const [hoverPos, setHoverPos] = React.useState<{ x: number, y: number } | null>(null);
 
-  // 1. Process Data for Charts based on Filter
-  const { momentumChartData, summaryStats } = useMemo(() => {
-    // ... existing memo logic ...
-    const now = new Date(viewDate);
-    const todayReal = new Date();
-
-    // -- Summary Stats --
-    const winsTotal = logs.filter(l => l.type === 'WIN').length;
-    const lossesTotal = logs.filter(l => l.type === 'LOSS').length;
-    const totalLogs = winsTotal + lossesTotal;
-    const winRate = totalLogs > 0 ? Math.round((winsTotal / totalLogs) * 100) : 0;
-    const momentumDisplay = `${winRate}%`;
-    const summaryRank = getRankForPeriod(winsTotal, filter);
+  // --- 1. Data Processing ---
+  
+  // Year View: Heatmap Data
+  const heatmapData = useMemo(() => {
+    if (filter !== 'Y') return null;
+    const today = new Date();
+    const isCurrentYear = viewDate.getFullYear() === today.getFullYear();
     
-    // -- Chart Bucketing --
-    let buckets: { [key: string]: { logs: LogEntry[], date: Date, label: string } } = {};
-    let keys: string[] = [];
-    
-    // Helper to fill buckets
-    const fillBuckets = (start: Date, count: number, stepUnit: 'hour' | 'day' | 'week' | 'month') => {
-        const current = new Date(start);
-        for (let i = 0; i < count; i++) {
-            let key = '';
-            let label = '';
-            
-            if (stepUnit === 'hour') {
-                key = current.toISOString().substring(0, 13);
-                const h = current.getHours();
-                const h12 = h % 12 || 12;
-                label = `${h12}`;
-            } else if (stepUnit === 'day') {
-                key = current.toISOString().substring(0, 10);
-                const day = current.getDate();
-                if (filter === 'M') {
-                    const isSpecialTick = [1, 5, 10, 15, 20, 25].includes(day);
-                    if (isSpecialTick || i === count - 1) label = String(day);
-                } else if (filter === 'W') {
-                    label = current.toLocaleDateString('en-US', { weekday: 'narrow' });
-                }
-            } else if (stepUnit === 'week') {
-                const day = current.getDay();
-                const diff = current.getDate() - day + (day === 0 ? -6 : 1);
-                const monday = new Date(current);
-                monday.setDate(diff);
-                key = monday.toISOString().substring(0, 10);
-                if (i === 0 || monday.getDate() <= 7) {
-                     label = monday.toLocaleDateString('en-US', { month: 'short' });
-                }
-            } else if (stepUnit === 'month') {
-                key = current.toISOString().substring(0, 7);
-                label = current.toLocaleDateString('en-US', { month: 'narrow' });
-            }
+    let startDate: Date;
+    let endDate: Date;
 
-            if (!buckets[key]) {
-                buckets[key] = { logs: [], date: new Date(current), label };
-                keys.push(key);
-            }
-            
-            if (stepUnit === 'hour') current.setHours(current.getHours() + 1);
-            if (stepUnit === 'day') current.setDate(current.getDate() + 1);
-            if (stepUnit === 'week') current.setDate(current.getDate() + 7);
-            if (stepUnit === 'month') current.setMonth(current.getMonth() + 1);
-        }
-    };
-
-    let bucketPeriod = 'D'; // Default for rank calculation of buckets
-
-    if (filter === 'D') {
-        const startDate = new Date(now);
-        startDate.setHours(0, 0, 0, 0);
-        fillBuckets(startDate, 24, 'hour');
-        bucketPeriod = 'H'; // Hourly
-    } else if (filter === 'W') {
-        const start = new Date(now);
-        const day = start.getDay();
-        const diff = start.getDate() - day + (day === 0 ? -6 : 1);
-        start.setDate(diff);
-        start.setHours(0,0,0,0);
-        fillBuckets(start, 7, 'day');
-        bucketPeriod = 'D';
-    } else if (filter === 'M') {
-        const start = new Date(now.getFullYear(), now.getMonth(), 1);
-        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        fillBuckets(start, daysInMonth, 'day');
-        bucketPeriod = 'D';
-    } else if (filter === '3M') {
-        const currentMonth = now.getMonth();
-        const startMonth = Math.floor(currentMonth / 3) * 3;
-        const start = new Date(now.getFullYear(), startMonth, 1);
-        fillBuckets(start, 13, 'week');
-        bucketPeriod = 'W';
-    } else if (filter === 'Y') {
-        const start = new Date(now.getFullYear(), 0, 1);
-        fillBuckets(start, 12, 'month');
-        bucketPeriod = 'M';
+    if (isCurrentYear) {
+        // Rolling Window (Last 365) - End Today
+        endDate = new Date(today);
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 364); 
+    } else {
+        // Calendar Year
+        startDate = new Date(viewDate.getFullYear(), 0, 1);
+        endDate = new Date(viewDate.getFullYear(), 11, 31);
     }
+    
+    // Align start date to a Sunday
+    const startDay = startDate.getDay(); // 0=Sun
+    startDate.setDate(startDate.getDate() - startDay);
 
-    // --- Distribute Logs ---
-    logs.forEach(log => {
-        const logDate = new Date(log.timestamp);
-        let key = '';
-        if (filter === 'D') key = logDate.toISOString().substring(0, 13);
-        else if (filter === 'Y') key = logDate.toISOString().substring(0, 7);
-        else if (filter === '3M') {
-            const day = logDate.getDay();
-            const diff = logDate.getDate() - day + (day === 0 ? -6 : 1);
-            const monday = new Date(logDate);
-            monday.setDate(diff);
-            key = monday.toISOString().substring(0, 10);
-        } else {
-            key = logDate.toISOString().substring(0, 10);
-        }
-        if (buckets[key]) buckets[key].logs.push(log);
+    const logMap = new Map<string, { wins: number, losses: number }>();
+    logs.forEach(l => {
+        const d = new Date(l.timestamp).toISOString().split('T')[0];
+        const entry = logMap.get(d) || { wins: 0, losses: 0 };
+        if (l.type === 'WIN') entry.wins++;
+        else if (l.type === 'LOSS') entry.losses++;
+        logMap.set(d, entry);
     });
 
-    // --- Generate Chart Data ---
-    const dChart: ChartDataPoint[] = [];
-    const isTodayReal = (key: string) => {
-        if (filter === 'D') return key === todayReal.toISOString().substring(0, 13);
-        if (filter === 'Y') return key === todayReal.toISOString().substring(0, 7);
-        return key === todayReal.toISOString().substring(0, 10);
-    };
+    const days = [];
+    let current = new Date(startDate);
+    
+    // Fill grid until end date (and complete the week)
+    while (current <= endDate || current.getDay() !== 0) { 
+        if (current > endDate && current.getDay() === 0) break; 
 
-    keys.forEach((key, index) => {
-        const bucket = buckets[key];
-        const wins = bucket.logs.filter(l => l.type === 'WIN').length;
-        const losses = bucket.logs.filter(l => l.type === 'LOSS').length;
-        const total = wins + losses;
-        const rate = total > 0 ? Math.round((wins / total) * 100) : 0;
-        
-        let fullDate = '';
-        if (filter === 'D') fullDate = bucket.date.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
-        else if (filter === 'Y') fullDate = bucket.date.toLocaleDateString([], {month: 'long', year: 'numeric'});
-        else fullDate = bucket.date.toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'});
-
-        let showLabel = !!bucket.label;
-        if (filter === 'D') {
-            const h = bucket.date.getHours();
-            showLabel = h % 4 === 0;
+        const dateStr = current.toISOString().split('T')[0];
+        const data = logMap.get(dateStr) || { wins: 0, losses: 0 };
+        const total = data.wins + data.losses;
+        let intensity = 0;
+        if (total > 0) {
+            if (data.losses > data.wins) intensity = -1;
+            else if (data.wins < 3) intensity = 1;
+            else if (data.wins < 6) intensity = 2;
+            else if (data.wins < 10) intensity = 3;
+            else intensity = 4;
         }
-
-        dChart.push({
-            label: bucket.label,
-            wins,
-            losses,
-            value: total,
-            displayValue: total > 0 ? `${rate}%` : 'No Logs',
-            isCurrent: isTodayReal(key),
-            fullDate,
-            showLabel,
-            bucketPeriod
-        });
-    });
-
-    return {
-        momentumChartData: dChart,
-        summaryStats: { momentumDisplay, summaryRank }
-    };
+        days.push({ date: new Date(current), intensity, ...data });
+        current.setDate(current.getDate() + 1);
+    }
+    return days;
   }, [logs, filter, viewDate]);
 
-  // --- Interaction Handlers ---
+  // Other Views: Chart Data
+  const chartData = useMemo(() => {
+      if (filter === 'Y') return null;
 
-  const interactionIndexRef = useRef<number | null>(null);
-  const startPos = useRef<{x: number, y: number} | null>(null);
+      let buckets: { label: string, wins: number, losses: number, isFuture?: boolean }[] = [];
+      const current = new Date(viewDate);
 
-  const updateInteraction = (clientX: number) => {
-    if (!svgRef.current || momentumChartData.length === 0) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const relativeX = Math.max(0, Math.min(1, x / rect.width));
-    const rawIndex = Math.floor(relativeX * momentumChartData.length);
-    const clampedIndex = Math.min(rawIndex, momentumChartData.length - 1);
-
-    // If current point has data, select it
-    if (momentumChartData[clampedIndex].value > 0) {
-        setInteractionIndex(clampedIndex);
-        return;
-    }
-
-    // Search for nearest non-empty point
-    let nearestIndex = clampedIndex;
-    let minDistance = Infinity;
-
-    for (let i = 0; i < momentumChartData.length; i++) {
-        if (momentumChartData[i].value > 0) {
-            const dist = Math.abs(i - clampedIndex);
-            if (dist < minDistance) {
-                minDistance = dist;
-                nearestIndex = i;
-            }
-        }
-    }
-
-    // If we found a point with data, use it; otherwise fall back to original (empty)
-    if (minDistance !== Infinity) {
-        setInteractionIndex(nearestIndex);
-    } else {
-        setInteractionIndex(clampedIndex);
-    }
-  };
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    // Don't stop propagation immediately to allow scrolling if needed
-    const startX = e.clientX;
-    const startY = e.clientY;
-    startPos.current = { x: startX, y: startY };
-    
-    // Start long press timer
-    longPressTimer.current = setTimeout(() => {
-        isDragging.current = true;
-        try { 
-            Haptics.impact({ style: ImpactStyle.Medium }); 
-        } catch(e) {}
-        (e.target as Element).setPointerCapture(e.pointerId);
-        updateInteraction(e.clientX);
-    }, 300); // Slightly faster activation
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    // If we haven't activated drag mode yet
-    if (!isDragging.current) {
-        if (longPressTimer.current && startPos.current) {
-            const dx = Math.abs(e.clientX - startPos.current.x);
-            const dy = Math.abs(e.clientY - startPos.current.y);
-            // If moved significantly, cancel long press (it's a scroll or swipe)
-            if (dx > 10 || dy > 10) {
-                clearTimeout(longPressTimer.current);
-                longPressTimer.current = null;
-                startPos.current = null;
-            }
-        }
-        return;
-    }
-    
-    e.preventDefault(); // Prevent scrolling while dragging
-    e.stopPropagation();
-    updateInteraction(e.clientX);
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (longPressTimer.current) {
-        clearTimeout(longPressTimer.current);
-        longPressTimer.current = null;
-    }
-
-    if (isDragging.current) {
-        isDragging.current = false;
-        try { (e.target as Element).releasePointerCapture(e.pointerId); } catch(e) {}
-        setInteractionIndex(null);
-    }
-  };
-
-  // --- Render ---
-
-  const getBarWidth = (count: number) => {
-      const gap = count > 12 ? 2 : 4;
-      const totalGap = (count - 1) * gap;
-      return Math.min((CHART_WIDTH - totalGap) / count, MAX_BAR_WIDTH);
-  };
-  const getGap = (count: number) => count > 12 ? 2 : 4;
-  const getColumnX = (index: number, count: number) => {
-     const gap = getGap(count);
-     const slotWidth = (CHART_WIDTH - ((count - 1) * gap)) / count;
-     return (index * (slotWidth + gap)) + (slotWidth / 2);
-  };
-
-  const renderBarChart = () => {
-    const dataMax = Math.max(...momentumChartData.map(d => d.value));
-    const maxVal = Math.max(dataMax, 4); 
-    const count = momentumChartData.length;
-    const barWidth = getBarWidth(count);
-
-    return (
-        <svg 
-            ref={svgRef}
-            viewBox={`0 -5 ${CHART_WIDTH} ${CHART_HEIGHT + 25}`} 
-            className="w-full h-full overflow-visible touch-pan-y"
-            preserveAspectRatio="none"
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            onPointerLeave={handlePointerUp}
-        >
-            {momentumChartData.map((d, i) => {
-                const total = d.wins + d.losses;
-                if (total === 0) {
-                     const cx = getColumnX(i, count);
-                     return <rect key={i} x={cx - barWidth/2} y={CHART_HEIGHT - 2} width={barWidth} height={2} rx={1} fill="#ffffff10" />;
-                }
-                const cx = getColumnX(i, count);
-                const x = cx - (barWidth / 2);
-                const winH = (d.wins / maxVal) * CHART_HEIGHT;
-                const lossH = (d.losses / maxVal) * CHART_HEIGHT;
-
-                return (
-                    <g key={i} className={`transition-opacity duration-300 ${interactionIndex !== null && interactionIndex !== i ? 'opacity-20' : 'opacity-100'}`}>
-                        <rect x={x} y={CHART_HEIGHT - winH - lossH} width={barWidth} height={lossH} rx={1} fill="#dc2626" />
-                        <rect x={x} y={CHART_HEIGHT - winH} width={barWidth} height={winH} rx={1} fill="#eab308" />
-                    </g>
-                );
-            })}
-        </svg>
-    );
-  };
-
-  const renderLabels = () => {
-    return (
-        <div className="absolute inset-0 pointer-events-none">
-            {momentumChartData.map((d, i) => {
-                if (!d.showLabel) return null;
-                const count = momentumChartData.length;
-                const cx = getColumnX(i, count);
-                const leftPct = (cx / CHART_WIDTH) * 100;
-                return (
-                    <div 
-                      key={i} 
-                      className={`absolute bottom-0 text-xs font-black uppercase tracking-widest transform -translate-x-1/2 ${d.isCurrent ? 'text-yellow-500' : 'text-white/20'}`}
-                      style={{ left: `${leftPct}%` }}
-                    >
-                        {d.label}
-                    </div>
-                );
-            })}
-        </div>
-    );
-  };
-
-  const activeData = interactionIndex !== null ? momentumChartData[interactionIndex] : null;
-  
-  // Calculate Header Logic
-  const headerValue = activeData ? activeData.displayValue : summaryStats.momentumDisplay;
-  const headerLabel = activeData && activeData.fullDate ? activeData.fullDate : 'Priority Score';
-  const labelColor = activeData ? 'text-yellow-500' : 'text-white/40';
-
-  // Calculate Rank Logic for Header
-  let displayedRank = null;
-  if (activeData) {
-      if (activeData.bucketPeriod && activeData.bucketPeriod !== 'H') {
-          displayedRank = getRankForPeriod(activeData.wins, activeData.bucketPeriod);
+      if (filter === 'D') {
+          // 24 Hours
+          for (let i = 0; i < 24; i++) {
+              buckets.push({ label: `${i}`, wins: 0, losses: 0 });
+          }
+          logs.forEach(l => {
+              const d = new Date(l.timestamp);
+              if (d.toDateString() === current.toDateString()) {
+                  const h = d.getHours();
+                  if (l.type === 'WIN') buckets[h].wins++;
+                  else buckets[h].losses++;
+              }
+          });
+      } else if (filter === 'W') {
+          // 7 Days
+          const start = new Date(current);
+          const day = start.getDay();
+          const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+          start.setDate(diff);
+          
+          const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+          for(let i=0; i<7; i++) {
+              const d = new Date(start);
+              d.setDate(start.getDate() + i);
+              const dayLogs = logs.filter(l => new Date(l.timestamp).toDateString() === d.toDateString());
+              const wins = dayLogs.filter(l => l.type === 'WIN').length;
+              const losses = dayLogs.filter(l => l.type === 'LOSS').length;
+              buckets.push({ label: days[i], wins, losses });
+          }
+      } else if (filter === 'M') {
+          // Days in Month
+          const year = current.getFullYear();
+          const month = current.getMonth();
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          
+          for(let i=1; i<=daysInMonth; i++) {
+              const d = new Date(year, month, i);
+              const dayLogs = logs.filter(l => new Date(l.timestamp).toDateString() === d.toDateString());
+              const wins = dayLogs.filter(l => l.type === 'WIN').length;
+              const losses = dayLogs.filter(l => l.type === 'LOSS').length;
+              buckets.push({ label: `${i}`, wins, losses });
+          }
+      } else if (filter === '3M') {
+          // 13 Weeks
+          const startMonth = Math.floor(current.getMonth() / 3) * 3;
+          const start = new Date(current.getFullYear(), startMonth, 1);
+          for(let i=0; i<13; i++) {
+              const wStart = new Date(start);
+              wStart.setDate(start.getDate() + (i*7));
+              const wEnd = new Date(wStart);
+              wEnd.setDate(wStart.getDate() + 7);
+              
+              const weekLogs = logs.filter(l => l.timestamp >= wStart.getTime() && l.timestamp < wEnd.getTime());
+              const wins = weekLogs.filter(l => l.type === 'WIN').length;
+              const losses = weekLogs.filter(l => l.type === 'LOSS').length;
+              buckets.push({ label: `W${i+1}`, wins, losses });
+          }
       }
-  } else {
-      displayedRank = summaryStats.summaryRank;
-  }
+
+      return buckets;
+  }, [logs, filter, viewDate]);
+
+  // --- 2. Current Stats Processing ---
+  const stats = useMemo(() => {
+      const wins = logs.filter(l => l.type === 'WIN').length;
+      const total = logs.length;
+      const rate = total > 0 ? Math.round((wins/total)*100) : 0;
+      const rank = getRankForPeriod(wins, 'LIFETIME'); 
+      
+      let streak = 0;
+      const sorted = [...logs].sort((a,b) => b.timestamp - a.timestamp);
+      for(const log of sorted) {
+          if (log.type === 'WIN') streak++;
+          else break;
+      }
+
+      return { wins, total, rate, rank, streak };
+  }, [logs]);
+
+  // --- 3. Render Helpers ---
+  const renderHeatmap = () => {
+      if (!heatmapData) return null;
+      const gridData = heatmapData; 
+      const realToday = new Date();
+      realToday.setHours(0,0,0,0);
+      const isCurrentYearView = viewDate.getFullYear() === realToday.getFullYear();
+      
+      // Calculate month starts relative to the grid
+      const monthLabels: { label: string, left: number }[] = [];
+      let currentMonth = -1;
+      
+      const totalWeeks = Math.ceil(gridData.length / 7);
+      
+      for(let col=0; col<totalWeeks; col++) {
+          const dataIndex = col * 7;
+          if (dataIndex < gridData.length) {
+              const d = gridData[dataIndex].date;
+              // In Calendar Mode, hide labels from prev year padding
+              if (!isCurrentYearView && d.getFullYear() < viewDate.getFullYear()) continue;
+
+              const m = d.getMonth();
+              if (m !== currentMonth) {
+                  // Show label if it's the start of the month OR the first column of the view
+                  if (d.getDate() <= 14 || col === 0) { 
+                       monthLabels.push({
+                          label: d.toLocaleDateString(undefined, { month: 'short' }),
+                          left: (col / totalWeeks) * 100
+                      });
+                      currentMonth = m;
+                  }
+              }
+          }
+      }
+
+      return (
+          <div className="flex flex-col gap-2">
+              <div className="relative w-full h-3 pl-8"> {/* Offset for left labels */}
+                  {monthLabels.map((m, i) => (
+                      <span key={i} className="absolute text-[8px] font-black uppercase tracking-widest text-white/20 transform -translate-x-1/2" style={{ left: `${m.left}%` }}>{m.label}</span>
+                  ))}
+              </div>
+
+              <div className="flex gap-2 w-full items-end">
+                  {/* Left Labels (Mon, Wed, Fri) */}
+                  <div className="flex flex-col gap-[2px] h-28 justify-end pb-[1px] text-[6px] font-black uppercase text-white/40 w-5 shrink-0 text-right">
+                      <div className="h-1.5"></div> {/* Sun */}
+                      <div className="h-1.5 flex items-center justify-end">Mon</div>
+                      <div className="h-1.5"></div> {/* Tue */}
+                      <div className="h-1.5 flex items-center justify-end">Wed</div>
+                      <div className="h-1.5"></div> {/* Thu */}
+                      <div className="h-1.5 flex items-center justify-end">Fri</div>
+                      <div className="h-1.5"></div> {/* Sat */}
+                  </div>
+
+                  <div className="flex gap-[2px] justify-between h-28 items-end flex-1">
+                      {Array.from({ length: 53 }).map((_, colIndex) => (
+                          <div key={colIndex} className="flex flex-col gap-[2px] h-full justify-end">
+                              {Array.from({ length: 7 }).map((_, rowIndex) => {
+                                  const dataIndex = colIndex * 7 + rowIndex;
+                                  const day = gridData[dataIndex];
+                                  
+                                  // Visibility Logic
+                                  let isVisible = true;
+                                  if (day) {
+                                      const dayDate = new Date(day.date);
+                                      dayDate.setHours(0,0,0,0);
+                                      
+                                      if (isCurrentYearView) {
+                                          // Rolling mode: Hide ONLY future relative to real today
+                                          if (dayDate > realToday) isVisible = false;
+                                      } else {
+                                          // Calendar mode: Hide dates outside target year
+                                          if (dayDate.getFullYear() !== viewDate.getFullYear()) isVisible = false;
+                                      }
+                                  } else {
+                                      isVisible = false;
+                                  }
+
+                                  let bgClass = "bg-white/5"; 
+                                  if (!isVisible) bgClass = "invisible";
+                                  else if (day) {
+                                      if (day.intensity === -1) bgClass = "bg-red-900/50 shadow-[0_0_5px_rgba(220,38,38,0.2)]";
+                                      else if (day.intensity === 1) bgClass = "bg-yellow-900/40";
+                                      else if (day.intensity === 2) bgClass = "bg-yellow-700/60";
+                                      else if (day.intensity === 3) bgClass = "bg-yellow-500/80 shadow-[0_0_5px_rgba(234,179,8,0.4)]";
+                                      else if (day.intensity === 4) bgClass = "bg-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.8)] z-10";
+                                  }
+                                  return (
+                                    <div 
+                                        key={rowIndex} 
+                                        className={`w-1.5 h-1.5 rounded-[1px] transition-all duration-500 ${bgClass}`}
+                                        onMouseEnter={(e) => {
+                                            if (!isVisible || !day) return;
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            setHoverData({ 
+                                                date: day.date.toLocaleDateString(undefined, {month:'short', day:'numeric'}), 
+                                                wins: day.wins, 
+                                                losses: day.losses 
+                                            });
+                                            setHoverPos({ x: rect.left + rect.width / 2, y: rect.top });
+                                        }}
+                                        onMouseLeave={() => {
+                                            setHoverData(null);
+                                            setHoverPos(null);
+                                        }}
+                                    />
+                                  );
+                              })}
+                          </div>
+                      ))}
+                  </div>
+              </div>
+
+              <div className="flex justify-end items-center gap-2 mt-1">
+                  <span className="text-[8px] font-black uppercase tracking-widest text-white/20">Less</span>
+                  <div className="flex gap-1">
+                      <div className="w-1.5 h-1.5 rounded-[1px] bg-white/5" />
+                      <div className="w-1.5 h-1.5 rounded-[1px] bg-yellow-900/40" />
+                      <div className="w-1.5 h-1.5 rounded-[1px] bg-yellow-700/60" />
+                      <div className="w-1.5 h-1.5 rounded-[1px] bg-yellow-500/80" />
+                      <div className="w-1.5 h-1.5 rounded-[1px] bg-yellow-400 shadow-[0_0_5px_rgba(234,179,8,0.5)]" />
+                  </div>
+                  <span className="text-[8px] font-black uppercase tracking-widest text-white/20">More</span>
+              </div>
+
+              {/* Unified Tooltip */}
+              {hoverData && hoverPos && (
+                  <div 
+                      className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2 bg-zinc-900 border border-white/10 px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md"
+                      style={{ left: hoverPos.x, top: hoverPos.y - 8 }}
+                  >
+                      <span className="block text-[10px] font-black uppercase tracking-widest text-yellow-500 mb-0.5">{hoverData.date}</span>
+                      <span className="block text-[10px] font-mono text-white/60">{hoverData.wins} WINS / {hoverData.losses} LOSSES</span>
+                      {/* Triangle Pointer */}
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-zinc-900 border-r border-b border-white/10"></div>
+                  </div>
+              )}
+          </div>
+      );
+  };
+
+  const renderChart = () => {
+      if (!chartData) return null;
+      const maxVal = Math.max(...chartData.map(d => d.wins + d.losses), 1);
+
+      return (
+          <div className="flex items-end gap-1 h-32 w-full pt-6">
+              {chartData.map((d, i) => {
+                  const total = d.wins + d.losses;
+                  const winH = (d.wins / maxVal) * 100;
+                  const lossH = (d.losses / maxVal) * 100;
+                  
+                  return (
+                      <div key={i} className="flex-1 flex flex-col justify-end h-full group relative gap-[1px]">
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-900 border border-white/10 px-2 py-1 rounded text-[9px] font-mono whitespace-nowrap z-20 pointer-events-none">
+                              {d.label}: {d.wins}W {d.losses}L
+                          </div>
+                          <div style={{ height: `${lossH}%` }} className="w-full bg-red-500/50 rounded-[1px] transition-all duration-500" />
+                          <div style={{ height: `${winH}%` }} className="w-full bg-yellow-500 rounded-[1px] shadow-[0_0_10px_rgba(234,179,8,0.3)] transition-all duration-500" />
+                          {total === 0 && <div className="w-full h-[2px] bg-white/5 rounded-full" />}
+                      </div>
+                  );
+              })}
+          </div>
+      );
+  };
+
+  const renderVisual = () => {
+      if (filter === 'Y') return renderHeatmap();
+      return renderChart();
+  };
+
+  const getHeaderInfo = () => {
+      const current = new Date(viewDate);
+      if (filter === 'D') {
+          return {
+              label: isCurrentView ? "LIVE FEED" : "DAILY LOG",
+              date: current.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+          };
+      }
+      if (filter === 'W') {
+          const day = current.getDay();
+          const diff = current.getDate() - day + (day === 0 ? -6 : 1);
+          const start = new Date(current);
+          start.setDate(diff);
+          const end = new Date(start);
+          end.setDate(start.getDate() + 6);
+          return {
+              label: "WEEKLY REPORT",
+              date: `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+          };
+      }
+      if (filter === 'M') {
+          return {
+              label: "MONTHLY OVERVIEW",
+              date: current.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+          };
+      }
+      if (filter === '3M') {
+          const q = Math.floor(current.getMonth() / 3) + 1;
+          return {
+              label: "QUARTERLY STRATEGY",
+              date: `Q${q} ${current.getFullYear()}`
+          };
+      }
+      if (filter === 'Y') {
+          return {
+              label: "ANNUAL TOPOLOGY",
+              date: `${current.getFullYear()}`
+          };
+      }
+      return { label: "ARCHIVE", date: current.toDateString() };
+  };
+
+  const headerInfo = getHeaderInfo();
 
   return (
-    <div className="mb-8 w-full">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-[2rem] px-5 py-6 shadow-2xl relative overflow-hidden">
-            <div className="mb-4 relative z-10 pointer-events-none">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h3 className={`text-xs font-black uppercase tracking-[0.2em] mb-1.5 transition-colors duration-300 italic ${labelColor}`}>{headerLabel}</h3>
-                        <div className="flex items-center gap-3">
-                            <span className="text-5xl font-black text-white tracking-tighter italic tabular-nums block h-12">{headerValue}</span>
-                            {displayedRank && (
-                                <div className="flex items-center gap-1.5 bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700 animate-fade-in">
-                                    <svg 
-                                        xmlns="http://www.w3.org/2000/svg" 
-                                        viewBox="0 0 24 24" 
-                                        fill="none" 
-                                        stroke="currentColor" 
-                                        strokeWidth="2.5" 
-                                        className={`w-5 h-5 ${displayedRank.color}`}
-                                    >
-                                        <path d={displayedRank.icon} />
-                                    </svg>
-                                    <span className={`text-sm font-black uppercase tracking-tighter italic ${displayedRank.color}`}>
-                                        {displayedRank.name}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    
-                    <div className="pointer-events-auto flex items-center gap-1.5">
-                        <button 
-                            onClick={() => onNavigate(-1)}
-                            disabled={!canGoBack}
-                            className={`w-9 h-11 rounded-xl flex items-center justify-center transition-all active:scale-95 border ${!canGoBack ? 'bg-zinc-800 border-zinc-800 text-zinc-700 cursor-not-allowed' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700 hover:border-zinc-600'}`}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                        </button>
-                        <button 
-                            onClick={() => onNavigate(1)}
-                            disabled={!canGoForward}
-                            className={`w-9 h-11 rounded-xl flex items-center justify-center transition-all active:scale-95 border ${!canGoForward ? 'bg-zinc-800 border-zinc-800 text-zinc-700 cursor-not-allowed' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-700 hover:border-zinc-600'}`}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <div className="h-28 w-full pt-2 relative">
-                {momentumChartData.length > 0 ? (
-                    <>
-                        {renderBarChart()}
-                        {renderLabels()}
-                    </>
-                ) : (
-                    <div className="h-full flex items-center justify-center text-zinc-700 text-sm font-black uppercase tracking-widest italic">No Combat Data</div>
-                )}
-            </div>
-        </div>
+    <div className="w-full space-y-4 mb-6">
+      
+      {/* HEADER: Navigation & Rank */}
+      <div className="flex items-center justify-between px-2">
+          <div className="flex items-center gap-4">
+              <button onClick={() => onNavigate(-1)} disabled={!canGoBack} className="p-2 rounded-full hover:bg-white/5 disabled:opacity-20 transition-colors">
+                  <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+              <div className="flex flex-col items-center cursor-pointer active:scale-95 transition-transform" onClick={onReset}>
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">{headerInfo.label}</span>
+                  <span className="text-sm font-black uppercase tracking-widest text-white">{headerInfo.date}</span>
+              </div>
+              <button onClick={() => onNavigate(1)} disabled={!canGoForward} className="p-2 rounded-full hover:bg-white/5 disabled:opacity-20 transition-colors">
+                  <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+          </div>
+          
+          <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${stats.rank.color.replace('text-', 'border-').replace('500', '500/30')} bg-black/40`}>
+              <svg className={`w-3 h-3 ${stats.rank.color}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0"><path fill="currentColor" d={stats.rank.icon} /></svg>
+              <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${stats.rank.color}`}>{stats.rank.name}</span>
+          </div>
+      </div>
+
+      {/* PRIMARY VISUAL: THE SOVEREIGN GRID */}
+      <div className="relative w-full bg-black/40 border border-white/5 rounded-3xl p-5 overflow-visible group">
+          {/* Decorative Grid Lines */}
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 blur-[60px] rounded-full" />
+
+          <div className="relative z-10 flex flex-col gap-4">
+              <div className="flex justify-between items-end">
+                  <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 mb-1">Momentum Velocity</div>
+                      <div className="text-5xl font-black italic tracking-tighter text-white drop-shadow-xl flex items-baseline gap-2">
+                          {stats.rate}%
+                          <span className="text-xs font-bold text-white/40 not-italic tracking-normal">WIN RATE</span>
+                      </div>
+                  </div>
+                  <div className="text-right">
+                      <div className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 mb-1">Active Streak</div>
+                      <div className="text-2xl font-black italic text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]">
+                          {stats.streak} <span className="text-xs text-yellow-500/50">CYCLES</span>
+                      </div>
+                  </div>
+              </div>
+
+              {/* The Heatmap / Chart */}
+              <div className="mt-2 pt-4 border-t border-white/5">
+                  <div className="flex justify-between items-center mb-2">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-white/20">
+                          {filter === 'Y' ? 'Annual Topology' : 'Temporal Distribution'}
+                      </span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-white/20">
+                          {filter === 'Y' ? 'L-365' : filter}
+                      </span>
+                  </div>
+                  {renderVisual()}
+              </div>
+          </div>
+      </div>
+
+      {/* TELEMETRY DECK */}
+      <div className="grid grid-cols-2 gap-3">
+          <div className="bg-zinc-900/50 border border-white/5 p-4 rounded-2xl flex flex-col justify-between h-24 relative overflow-hidden">
+              <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-2 translate-y-2">
+                  <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-white"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              </div>
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Total Operations</span>
+              <span className="text-3xl font-black text-white tracking-tighter">{stats.total}</span>
+          </div>
+          
+          <div className="bg-zinc-900/50 border border-white/5 p-4 rounded-2xl flex flex-col justify-between h-24 relative overflow-hidden">
+              <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-2 translate-y-2">
+                  <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-green-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </div>
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Successful Executions</span>
+              <span className="text-3xl font-black text-green-500 tracking-tighter drop-shadow-[0_0_10px_rgba(34,197,94,0.3)]">{stats.wins}</span>
+          </div>
+      </div>
+
     </div>
   );
 };

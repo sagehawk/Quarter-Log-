@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" href="/icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -28,6 +28,7 @@
             },
             fontFamily: {
               sans: ['"Kanit"', 'sans-serif'],
+              mono: ['"JetBrains Mono"', 'monospace'],
             },
             animation: {
               'fade-in': 'fadeIn 0.4s ease-out forwards',
@@ -115,6 +116,11 @@
         border-color: rgba(255, 255, 255, 0.3);
       }
       
+      .mask-linear-fade {
+        mask-image: linear-gradient(to right, transparent, black 20%);
+        -webkit-mask-image: linear-gradient(to right, transparent, black 20%);
+      }
+
       /* Utilities */
       .safe-top {
         top: max(1.5rem, env(safe-area-inset-top));

@@ -14,7 +14,7 @@ import Toast from './components/Toast';
 import StatsCard from './components/StatsCard';
 import Onboarding from './components/Onboarding';
 import StatusCard from './components/StatusCard';
-import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState } from './types';
+import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState, FilterType } from './types';
 import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification, sendReportNotification } from './utils/notifications';
 import { generateAIReport } from './utils/aiService';
 import TimerPlugin from './utils/nativeTimer';
@@ -30,8 +30,6 @@ const STORAGE_KEY_FREEZE = 'ironlog_freeze_state';
 const STORAGE_KEY_SEEN_FREEZE_WARNING = 'ironlog_seen_freeze_warning';
 const STORAGE_KEY_CYCLE_DURATION = 'ironlog_cycle_duration';
 const STORAGE_KEY_BREAK_UNTIL = 'ironlog_break_until';
-
-type FilterType = 'D' | 'W' | 'M' | '3M' | 'Y';
 
 const WORKER_CODE = `
 let intervalId = null;
