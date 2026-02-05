@@ -21,6 +21,7 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
     onDismiss
 }) => {
   const [animateProgress, setAnimateProgress] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
   
   const { currentRank, nextRank, progress, winsToNext } = getRankProgress(totalWins);
   const isPromotion = type === 'WIN' && progress < 5 && totalWins > 0; 
@@ -35,6 +36,20 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
     }
   }, [isVisible, progress, type]);
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.touches[0].clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStart === null) return;
+    const currentY = e.touches[0].clientY;
+    const diff = Math.abs(currentY - touchStart);
+    
+    if (diff > 10) { // Sensitive swipe detection
+      onDismiss?.();
+    }
+  };
+
   if (!isVisible) return null;
 
   // Defeat / Loss Mode
@@ -43,6 +58,8 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
         <div 
             className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-auto cursor-pointer"
             onClick={onDismiss}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
         >
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" />
             
@@ -79,6 +96,8 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
     <div 
         className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-auto cursor-pointer"
         onClick={onDismiss}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" />
       

@@ -147,3 +147,32 @@ export const sendNotification = async (title: string, body: string, isTest: bool
   // Use a very short delay for immediate notifications to ensure execution order
   return scheduleNotification(title, body, 100); 
 };
+
+export const sendReportNotification = async (title: string, body: string) => {
+  try {
+    if (Capacitor.getPlatform() === 'web') {
+      if (Notification.permission === 'granted') {
+          new Notification(title, { body, icon: '/icon.png' });
+      }
+      return;
+    }
+
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          title,
+          body,
+          id: 2, // Unique ID for Reports
+          schedule: { at: new Date(Date.now() + 100) },
+          sound: 'beep.wav',
+          smallIcon: 'ic_stat_status_bar_logo',
+          channelId: CHANNEL_ID,
+          actionTypeId: '', // No actions, just click
+          extra: { type: 'AI_REPORT' } // identifying data
+        }
+      ]
+    });
+  } catch (e) {
+    console.error("Failed to send report notification", e);
+  }
+};

@@ -20,7 +20,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class TimerForegroundService extends Service {
-    public static final String CHANNEL_ID = "QuarterLogLive_v4";
+    public static final String CHANNEL_ID = "QuarterLogLive_v5";
     public static final String ALERT_CHANNEL_ID = "QuarterLogAlert_v2_Silent";
     public static final int NOTIFICATION_ID = 1;
     public static final int ALERT_NOTIFICATION_ID = 2;
@@ -133,12 +133,11 @@ public class TimerForegroundService extends Service {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 NotificationManager manager = getSystemService(NotificationManager.class);
      
-                NotificationChannel serviceChannel = new NotificationChannel(
-                        CHANNEL_ID,
-                        "Live Timer Status",
-                        NotificationManager.IMPORTANCE_HIGH 
-                );
-                serviceChannel.setDescription("Shows the active cycle countdown");
+                            NotificationChannel serviceChannel = new NotificationChannel(
+                                    CHANNEL_ID,
+                                    "Live Timer Status",
+                                    NotificationManager.IMPORTANCE_LOW 
+                            );                serviceChannel.setDescription("Shows the active cycle countdown");
                 serviceChannel.setSound(null, null);
                 serviceChannel.enableVibration(false);
                 serviceChannel.setShowBadge(false);
@@ -224,7 +223,7 @@ public class TimerForegroundService extends Service {
                 PendingIntent winPendingIntent = PendingIntent.getService(this, 10, winIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     
                 NotificationCompat.Action winAction = new NotificationCompat.Action.Builder(
-                        0, "DONE", winPendingIntent)
+                        0, "WIN", winPendingIntent)
                         .build();
                 
                 Intent lossIntent = new Intent(this, TimerForegroundService.class);
@@ -243,7 +242,6 @@ public class TimerForegroundService extends Service {
                                     .setAutoCancel(false) // Don't dismiss on click
                                     .setOngoing(true)     // Persistent
                                     .setPriority(NotificationCompat.PRIORITY_HIGH)
-                                    .setFullScreenIntent(fullScreenPendingIntent, true) 
                                     .addAction(winAction)
                                     .addAction(lossAction)
                                     .setSound(null)

@@ -118,15 +118,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div 
-        className="absolute inset-0 bg-black/95 backdrop-blur-md animate-fade-in"
-        onClick={handleSaveAndClose}
-      />
-      <div className="relative bg-[#0a0a0a] border border-white/10 w-full max-w-sm rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,1)] flex flex-col max-h-[90vh] overflow-hidden transform transition-all animate-slide-up">
+    <div className="fixed inset-0 z-50 bg-black flex flex-col overflow-hidden animate-fade-in">
         
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-8 pb-0">
-            <div className="text-center mb-10">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-8 pb-32">
+            <div className="text-center mb-10 mt-10">
             <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic">Tactical Configuration</h2>
             <p className="text-yellow-500/40 text-xs font-black uppercase tracking-[0.3em] mt-2 italic">Refine your operational edge</p>
         </div>
@@ -316,7 +311,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               CLOSE COMMAND
             </button>
         </div>
-      </div>
     </div>
   );
 };

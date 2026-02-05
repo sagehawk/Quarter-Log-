@@ -2,123 +2,103 @@ import { GoogleGenAI } from "@google/genai";
 import { LogEntry, UserGoal, ScheduleConfig, AIPersona } from "../types";
 
 export const generateAIReport = async (
-  logs: LogEntry[],
+  targetLogs: LogEntry[],
   period: string, // 'Day', 'Week', 'Month'
   goals: UserGoal[],
-  persona: AIPersona, // Keeping argument for compatibility, but ignoring it logic-wise
+  persona: AIPersona, 
   schedule: ScheduleConfig,
   type: 'FULL' | 'BRIEF' = 'FULL',
-  strategicPriority?: string
+  strategicPriority?: string,
+  allLogs: LogEntry[] = []
 ): Promise<string> => {
   
-  // Check both process.env (from vite define) and import.meta.env (standard Vite)
   const apiKey = process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
-  console.log("Debug: API Key present?", !!apiKey);
 
   if (!apiKey) {
-    return "Configuration Error: API Key is missing. Create a .env file in your project root with VITE_GEMINI_API_KEY=your_key.";
+    return "Configuration Error: API Key is missing.";
   }
 
   const ai = new GoogleGenAI({ apiKey });
 
-  if (!logs || logs.length === 0) {
+  if (!targetLogs || targetLogs.length === 0) {
     return "No field data. The leaderboard remains empty.";
   }
 
-  // 1. Calculate Win Rate
-  const totalLogs = logs.length;
-  const wins = logs.filter(l => l.type === 'WIN').length;
-  const losses = logs.filter(l => l.type === 'LOSS').length;
-  const winRate = totalLogs > 0 ? Math.round((wins / totalLogs) * 100) : 0;
+  // Metrics for Target Period (Current Day Only)
+  const targetWins = targetLogs.filter(l => l.type === 'WIN').length;
+  const winRate = targetLogs.length > 0 ? Math.round((targetWins / targetLogs.length) * 100) : 0;
 
-  // 2. Format Logs
-  const logText = logs
-    .sort((a, b) => a.timestamp - b.timestamp)
-    .map(l => `[${l.type || 'NEUTRAL'}] ${l.text}`)
-    .join('\n');
-
-  // 3. Define Context & Persona based on Battlefields (Goals)
-  const goalDefinitions: Record<UserGoal, { persona: string, context: string }> = {
-    'FOCUS': {
-      persona: "EFFICIENCY AUDITOR (Objective, systems-oriented, waste-reduction)",
-      context: "User optimizes for deep work. Identify time leakage and distraction patterns."
-    },
-    'BUSINESS': {
-      persona: "ROI ANALYST (Data-driven, output-focused, leverage-obsessed)",
-      context: "User optimizes for high-value output. Distinguish between 'activity' and 'productivity'."
-    },
-    'LIFE': {
-      persona: "BEHAVIORAL STRATEGIST (Pattern-seeking, holistic, sustainability-focused)",
-      context: "User optimizes for balance and momentum. Identify energy drains vs. sources."
-    }
+  // Formatting Logs for Prompt (12-Hour Format)
+  const formatTime12h = (timestamp: number) => {
+    const date = new Date(timestamp);
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    const strMinutes = minutes < 10 ? '0'+minutes : minutes;
+    return `${hours}:${strMinutes} ${ampm}`;
   };
 
-  // Default to FOCUS if empty
-  const activeGoals = goals.length > 0 ? goals : ['FOCUS' as UserGoal];
+  const logText = targetLogs
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .map(l => `[${formatTime12h(l.timestamp)}] ${l.type}: ${l.text}`)
+    .join('\n');
 
-  const combinedPersona = activeGoals.map(g => goalDefinitions[g].persona).join(" + ");
-  const combinedContext = activeGoals.map(g => goalDefinitions[g].context).join(" ");
-  const priorityContext = strategicPriority ? `\nSTRATEGIC PRIORITY: "${strategicPriority}"\n` : "";
+  const priorityContext = strategicPriority ? `MARKET DOMINANCE: ${strategicPriority}` : "MARKET DOMINANCE: Scaled Execution";
 
   const systemInstruction = `
-  You are a ${combinedPersona}.
+  You are the BIOLOGICAL STRATEGIST.
   ${priorityContext}
-  YOUR ROLE: Conduct a "CEO Audit" of the user's recent performance logs.
-  
-  CORE DIRECTIVE:
-  - EXTREME BREVITY: No fluff. No filler words. Use "telegram style".
-  - REVEAL HIDDEN PATTERNS: Look for non-obvious clusters (e.g., "Losses spike after 2 PM").
-  - NO OBVIOUS OBSERVATIONS: Do NOT say "You won because you worked."
-  - DATA, NOT FLUFF: Use the logs as raw data.
-  - REVEAL, DON'T PREACH: State the observed pattern clearly.
-  - SUGGEST LEVERAGE: Provide specific, high-leverage process adjustments.
 
-  TONE: Clinical, Data-Driven, Ultra-Concise.
+  YOUR ROLE: Conduct a tactical audit of the CURRENT DAY'S logs.
+
+  CORE DIRECTIVES:
+  - TELEGRAM STYLE: Strip auxiliary verbs. Use high-status directives.
+  - REAL-TIME ANALYSIS: Analyze the provided logs as the current state of the day. Do not assume the day is over.
+  - IDENTIFY FRICTION: Pinpoint specific times where momentum was lost.
+  - STATUS-DRIVEN: Address user as Elite Operator.
+  - NO HISTORY: Do not reference past days or long-term trends. Focus ONLY on the provided logs.
+
+  TONE: Brutal, Clinical, High-Resolution, Sovereign.
   `;
 
-  // 4. Construct Prompt
   let prompt = "";
-  
   if (type === 'BRIEF') {
-      prompt = `
-      AUDIT TARGET: ${period} Logs
-      METRICS: ${winRate}% Win Rate (${wins} Wins, ${losses} Losses)
-      CONTEXT: ${combinedContext}
-      
-      LOGS:
-      ${logText}
-
-      TASK:
-      Write a single, data-driven insight (max 10 words).
-      Start with "Report Ready:" and then give the insight.
-      `;
+    prompt = `
+    AUDIT TARGET: Current Session
+    METRICS: ${winRate}% Velocity
+    
+    TASK:
+    Generate a single, high-status biological insight (max 15 words).
+    Start with "Report Ready:"
+    `;
   } else {
-      prompt = `
-      AUDIT TARGET: ${period} Logs
-      METRICS: ${winRate}% Win Rate (${wins} Wins, ${losses} Losses)
-      CONTEXT: ${combinedContext}
+    prompt = `
+    AUDIT TARGET: Current Day Logs
+    METRICS: ${winRate}% Velocity (${targetWins} Successes, ${targetLogs.length - targetWins} Failures)
 
-      LOGS:
-      ${logText}
+    LOG DATA:
+    ${logText}
 
-      TASK:
-      Generate a CEO Performance Audit (max 100 words).
-      
-      STRUCTURE (Use Markdown):
-      
-      ## EXECUTIVE SUMMARY
-      One sentence on the trend.
+    TASK:
+    Generate a Sovereign Performance Debrief (max 100 words).
 
-      ## PATTERNS
-      Directly state the causal link between time/context and outcome. (e.g. "After 2pm, efficiency drops 40%.")
+    STRUCTURE:
+    ## MOMENTUM ANALYSIS
+    One sentence on the current trajectory.
 
-      ## FIX
-      One specific, high-leverage adjustment.
+    ## TACTICAL FRICTION
+    Identify specific windows where velocity was lost based on the logs.
 
-      FORMATTING RULES:
-      - Use **Bold** for key data points.
-      - Be clinical. No introductions.
-      `;
+    ## STRATEGIC REFEED
+    One high-status directive to restore or maintain the "Winner Effect" immediately.
+
+    FORMATTING:
+    - **Bold** percentages and time-stamps.
+    - Clinical language. Zero filler.
+    - Use 12-hour time format.
+    `;
   }
 
   try {
@@ -127,7 +107,7 @@ export const generateAIReport = async (
       contents: prompt,
       config: {
         systemInstruction: systemInstruction,
-        temperature: 0.8,
+        temperature: 0.7,
       }
     });
 

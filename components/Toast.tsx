@@ -5,9 +5,10 @@ interface ToastProps {
   message: string;
   isVisible: boolean;
   onClose: () => void;
+  onAction?: () => void;
 }
 
-const Toast: React.FC<ToastProps> = ({ title, message, isVisible, onClose }) => {
+const Toast: React.FC<ToastProps> = ({ title, message, isVisible, onClose, onAction }) => {
   const [shouldRender, setShouldRender] = useState(false);
 
   useEffect(() => {
@@ -28,7 +29,7 @@ const Toast: React.FC<ToastProps> = ({ title, message, isVisible, onClose }) => 
   if (!shouldRender) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[100] flex justify-center pointer-events-none p-4">
+    <div className="fixed top-12 left-0 right-0 z-[100] flex justify-center pointer-events-none p-4">
       <div 
         className={`
           bg-slate-800/90 backdrop-blur-md border border-slate-600/50 
@@ -37,7 +38,10 @@ const Toast: React.FC<ToastProps> = ({ title, message, isVisible, onClose }) => 
           transform transition-all duration-500 cubic-bezier(0.34, 1.56, 0.64, 1)
           ${isVisible ? 'translate-y-0 opacity-100 scale-100' : '-translate-y-24 opacity-0 scale-95'}
         `}
-        onClick={onClose}
+        onClick={() => {
+            if (onAction) onAction();
+            onClose();
+        }}
         role="alert"
       >
         <div className="bg-brand-600/20 p-2 rounded-full shrink-0 mt-0.5">
