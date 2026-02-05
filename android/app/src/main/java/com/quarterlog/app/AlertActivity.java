@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -82,7 +83,10 @@ public class AlertActivity extends Activity {
         
         Button btnWin = new Button(this);
         btnWin.setText("DONE");
-        btnWin.setBackgroundColor(Color.parseColor("#eab308")); 
+        GradientDrawable winBg = new GradientDrawable();
+        winBg.setColor(Color.parseColor("#eab308"));
+        winBg.setCornerRadius(dpToPx(30));
+        btnWin.setBackground(winBg);
         btnWin.setTextColor(Color.BLACK);
         btnWin.setTypeface(null, Typeface.BOLD);
         btnWin.setOnClickListener(v -> submit("ACTION_WIN", ""));
@@ -92,7 +96,10 @@ public class AlertActivity extends Activity {
 
         Button btnLoss = new Button(this);
         btnLoss.setText("MISS");
-        btnLoss.setBackgroundColor(Color.parseColor("#dc2626")); 
+        GradientDrawable lossBg = new GradientDrawable();
+        lossBg.setColor(Color.parseColor("#dc2626"));
+        lossBg.setCornerRadius(dpToPx(30));
+        btnLoss.setBackground(lossBg);
         btnLoss.setTextColor(Color.WHITE);
         btnLoss.setTypeface(null, Typeface.BOLD);
         btnLoss.setOnClickListener(v -> submit("ACTION_LOSS", ""));

@@ -9,18 +9,25 @@ interface SettingsModalProps {
   currentDurationMs: number;
   logs: LogEntry[];
   schedule?: ScheduleConfig; 
+  breakUntil: number | null;
   onSave: (minutes: number) => void;
   onSaveSchedule?: (schedule: ScheduleConfig) => void;
+  onTakeBreak: (durationMs: number | null) => void;
   onClose: () => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
   isOpen, 
+  currentDurationMs,
   schedule, 
+  breakUntil,
+  onSave,
   onSaveSchedule, 
+  onTakeBreak,
   onClose 
 }) => {
   const [showTroubleshoot, setShowTroubleshoot] = useState(false);
+  const [duration, setDuration] = useState(Math.floor(currentDurationMs / 60000));
   const [localSchedule, setLocalSchedule] = useState<ScheduleConfig>(schedule || {
     enabled: true,
     startTime: '09:00',
@@ -31,7 +38,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-        const storedGoal = localStorage.getItem('ironlog_goal'); // Updated key
+        setDuration(Math.floor(currentDurationMs / 60000));
+        // ... (existing goal loading)
+        const storedGoal = localStorage.getItem('ironlog_goal');
         if (storedGoal) {
             try {
                 const parsed = JSON.parse(storedGoal);
@@ -51,8 +60,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             setLocalSchedule({ ...schedule, enabled: true });
         }
     }
-  }, [isOpen, schedule]);
+  }, [isOpen, schedule, currentDurationMs]);
 
+  // ... (existing methods: toggleGoal, checkPermissions, toggleDay)
   const toggleGoal = (goal: UserGoal) => {
       setGoals(prev => {
           let newGoals: UserGoal[];
@@ -61,10 +71,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           } else {
               newGoals = [...prev, goal];
           }
-          
-          // Ensure at least one goal is always selected (fallback to clicked if it was the last one being removed, or just allow empty? Let's allow empty or enforce 1. Enforcing 1 is safer).
           if (newGoals.length === 0) newGoals = [goal]; 
-
           localStorage.setItem('ironlog_goal', JSON.stringify(newGoals));
           return newGoals;
       });
@@ -84,8 +91,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleSaveAndClose = () => {
+    onSave(duration * 60000); // Convert minutes to ms
     if (onSaveSchedule) {
-      onSaveSchedule({ ...localSchedule, enabled: true });
+      onSaveSchedule({ ...localSchedule });
     }
     onClose();
   };
@@ -105,8 +113,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       window.open('https://play.google.com/store/apps/details?id=com.quarterlog.app', '_system');
   };
 
-  const isSelected = (g: UserGoal) => goals.includes(g);
-
   if (!isOpen) return null;
 
   const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -125,18 +131,48 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <p className="text-yellow-500/40 text-xs font-black uppercase tracking-[0.3em] mt-2 italic">Refine your operational edge</p>
         </div>
         
+        {/* Cycle Duration */}
+        <div className="mb-10">
+             <div className="flex items-center justify-between mb-4">
+                <span className="text-white font-black uppercase text-sm tracking-[0.2em] italic border-l-4 border-yellow-500 pl-4">Cycle Length</span>
+                <span className="text-yellow-500 font-black italic">{duration}m</span>
+             </div>
+             <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
+                 <input 
+                    type="range" 
+                    min="5" 
+                    max="60" 
+                    step="5" 
+                    value={duration} 
+                    onChange={(e) => setDuration(parseInt(e.target.value))}
+                    className="w-full accent-yellow-500 h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                 />
+                 <div className="flex justify-between mt-2 text-[10px] font-black text-white/20 uppercase tracking-widest">
+                     <span>5m</span>
+                     <span>30m</span>
+                     <span>60m</span>
+                 </div>
+             </div>
+        </div>
+
         {/* Schedule Section */}
         {onSaveSchedule && (
         <div className="mb-10">
           <div className="flex items-center justify-between mb-6">
-            <span className="text-white font-black uppercase text-sm tracking-[0.2em] italic border-l-4 border-yellow-500 pl-4">Cycle Window</span>
+            <span className="text-white font-black uppercase text-sm tracking-[0.2em] italic border-l-4 border-yellow-500 pl-4">Active Duty</span>
+            <button 
+                onClick={() => setLocalSchedule(p => ({ ...p, enabled: !p.enabled }))}
+                className={`w-12 h-6 rounded-full transition-colors relative ${localSchedule.enabled ? 'bg-yellow-500' : 'bg-zinc-800'}`}
+            >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-black transition-all ${localSchedule.enabled ? 'left-7' : 'left-1'}`} />
+            </button>
           </div>
 
-          <div className="bg-white/5 rounded-3xl p-6 space-y-6 border border-white/5 shadow-inner">
+          <div className={`bg-white/5 rounded-3xl p-6 space-y-6 border border-white/5 shadow-inner transition-opacity ${localSchedule.enabled ? 'opacity-100' : 'opacity-30 pointer-events-none'}`}>
             
             {/* Days */}
             <div>
-              <label className="text-xs uppercase font-black text-white/30 block mb-3 tracking-[0.2em] italic">Active Battlegrounds</label>
+              <label className="text-xs uppercase font-black text-white/30 block mb-3 tracking-[0.2em] italic">Battlegrounds</label>
               <div className="flex justify-between gap-1.5">
                 {days.map((day, idx) => (
                   <button
@@ -162,7 +198,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="time" 
                     value={localSchedule.startTime}
                     onChange={(e) => setLocalSchedule(p => ({ ...p, startTime: e.target.value }))}
-                    className="w-full bg-black/40 text-white font-black text-sm rounded-xl px-4 py-4 border border-white/10 outline-none focus:border-yellow-500/50 transition-all"
+                    className="w-full bg-black/40 text-white font-black text-sm rounded-xl px-4 py-4 border border-white/10 outline-none focus:border-yellow-500/50 transition-all text-center"
                   />
                </div>
                <div className="flex-1">
@@ -171,17 +207,51 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="time" 
                     value={localSchedule.endTime}
                     onChange={(e) => setLocalSchedule(p => ({ ...p, endTime: e.target.value }))}
-                    className="w-full bg-black/40 text-white font-black text-sm rounded-xl px-4 py-4 border border-white/10 outline-none focus:border-yellow-500/50 transition-all"
+                    className="w-full bg-black/40 text-white font-black text-sm rounded-xl px-4 py-4 border border-white/10 outline-none focus:border-yellow-500/50 transition-all text-center"
                   />
                </div>
             </div>
 
           </div>
-          <p className="text-xs text-white/20 mt-4 text-center font-black uppercase tracking-[0.1em] italic">
-            Cycle auto-restarts within these parameters.
-          </p>
         </div>
         )}
+
+        {/* Stand Down Protocol (Timed Breaks) */}
+        <div className="mb-10">
+            <div className="flex items-center justify-between mb-6">
+                <span className="text-white font-black uppercase text-sm tracking-[0.2em] italic border-l-4 border-yellow-500 pl-4">Stand Down</span>
+            </div>
+            
+            {breakUntil && breakUntil > Date.now() ? (
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-3xl p-6 text-center space-y-4">
+                    <p className="text-yellow-500 font-black uppercase tracking-[0.2em] text-xs italic">Operations Paused Until</p>
+                    <p className="text-2xl font-black text-white italic">{new Date(breakUntil).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                    <button 
+                        onClick={() => onTakeBreak(null)}
+                        className="w-full py-3 bg-yellow-500 text-black font-black uppercase tracking-[0.2em] rounded-xl text-xs italic active:scale-95 transition-transform"
+                    >
+                        Resume Operations
+                    </button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 gap-3">
+                    {[
+                        { label: '15 Mins', val: 15 * 60 * 1000 },
+                        { label: '1 Hour', val: 60 * 60 * 1000 },
+                        { label: '8 Hours', val: 8 * 60 * 60 * 1000 },
+                        { label: '24 Hours', val: 24 * 60 * 60 * 1000 },
+                    ].map((opt) => (
+                        <button 
+                            key={opt.label}
+                            onClick={() => onTakeBreak(opt.val)}
+                            className="py-4 bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 rounded-2xl text-xs font-black uppercase text-white/60 hover:text-white transition-all italic active:scale-95"
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
 
         {/* Divider */}
         <div className="h-px bg-white/5 my-10"></div>

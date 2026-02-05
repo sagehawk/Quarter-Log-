@@ -28,6 +28,8 @@ const STORAGE_KEY_TIMER_TARGET = 'ironlog_timer_target';
 const STORAGE_KEY_REPORTS = 'ironlog_ai_reports';
 const STORAGE_KEY_FREEZE = 'ironlog_freeze_state';
 const STORAGE_KEY_SEEN_FREEZE_WARNING = 'ironlog_seen_freeze_warning';
+const STORAGE_KEY_CYCLE_DURATION = 'ironlog_cycle_duration';
+const STORAGE_KEY_BREAK_UNTIL = 'ironlog_break_until';
 
 type FilterType = 'D' | 'W' | 'M' | '3M' | 'Y';
 
@@ -53,6 +55,9 @@ const App: React.FC = () => {
   const [hasOnboarded, setHasOnboarded] = useState<boolean>(true); 
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
   const [timeLeft, setTimeLeft] = useState(DEFAULT_INTERVAL_MS);
+  const [cycleDuration, setCycleDuration] = useState(DEFAULT_INTERVAL_MS);
+  const [breakUntil, setBreakUntil] = useState<number | null>(null);
+  
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [reports, setReports] = useState<Record<string, AIReport>>({});
   const [schedule, setSchedule] = useState<ScheduleConfig>({
@@ -99,12 +104,12 @@ const App: React.FC = () => {
   const hasCheckedAutoReport = useRef(false);
   const statusRef = useRef(status);
   const lastNativeInputTime = useRef(0);
+  const blockStatsRef = useRef({ total: 0, remaining: 0 });
 
   useEffect(() => { statusRef.current = status; }, [status]);
 
   useEffect(() => {
     const setupListener = async () => {
-      // Check for pending native log from cold start
       try {
           const pending = await TimerPlugin.checkPendingLog();
           if (pending && pending.input) {
@@ -118,7 +123,6 @@ const App: React.FC = () => {
 
       const handler = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
         if (!isActive) {
-           // App went to background
            if (statusRef.current === AppStatus.RUNNING && endTimeRef.current) {
                const remaining = endTimeRef.current - Date.now();
                if (remaining > 0) {
@@ -130,10 +134,7 @@ const App: React.FC = () => {
                }
            }
         } else {
-           // App came to foreground
            TimerPlugin.stop();
-           
-           // Debounce Modal Opening if native input just happened
            if (Date.now() - lastNativeInputTime.current < 2000) return;
         }
       });
@@ -202,6 +203,16 @@ const App: React.FC = () => {
         setStrategicPriority(storedPriority);
         setPriorityInput(storedPriority);
     }
+
+    const storedDuration = localStorage.getItem(STORAGE_KEY_CYCLE_DURATION);
+    if (storedDuration) setCycleDuration(parseInt(storedDuration, 10));
+
+    const storedBreak = localStorage.getItem(STORAGE_KEY_BREAK_UNTIL);
+    if (storedBreak) {
+        const ts = parseInt(storedBreak, 10);
+        if (ts > Date.now()) setBreakUntil(ts);
+        else localStorage.removeItem(STORAGE_KEY_BREAK_UNTIL);
+    }
     
     const initNotifications = async () => {
         await configureNotificationChannel();
@@ -253,6 +264,11 @@ const App: React.FC = () => {
   }, [freezeState]);
 
   useEffect(() => {
+      if (breakUntil) localStorage.setItem(STORAGE_KEY_BREAK_UNTIL, breakUntil.toString());
+      else localStorage.removeItem(STORAGE_KEY_BREAK_UNTIL);
+  }, [breakUntil]);
+
+  useEffect(() => {
     if (!hasOnboarded || logs.length === 0 || hasCheckedAutoReport.current) return;
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -300,7 +316,47 @@ const App: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const handleDurationSave = (ms: number) => {
+      setCycleDuration(ms);
+      localStorage.setItem(STORAGE_KEY_CYCLE_DURATION, ms.toString());
+      setIsSettingsModalOpen(false);
+      if (status === AppStatus.IDLE) {
+          setTimeLeft(ms);
+      }
+  };
+
+  useEffect(() => {
+      const setupBackListener = async () => {
+          const handler = await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+              if (isEntryModalOpen) { setIsEntryModalOpen(false); return; }
+              if (isSettingsModalOpen) { setIsSettingsModalOpen(false); return; }
+              if (isAIModalOpen) { setIsAIModalOpen(false); return; }
+              if (isRankModalOpen) { setIsRankModalOpen(false); return; }
+              if (isEditingPriority) { setIsEditingPriority(false); return; }
+              
+              CapacitorApp.exitApp();
+          });
+          return handler;
+      };
+      
+      const handlerPromise = setupBackListener();
+      
+      return () => {
+          handlerPromise.then(h => h.remove());
+      };
+  }, [isEntryModalOpen, isSettingsModalOpen, isAIModalOpen, isRankModalOpen, isEditingPriority]);
+
+  const handleTakeBreak = (durationMs: number | null) => {
+      if (durationMs === null) {
+          setBreakUntil(null);
+      } else {
+          setBreakUntil(Date.now() + durationMs);
+          pauseTimer();
+      }
+  };
+
   const isWithinSchedule = useCallback(() => {
+    if (breakUntil && Date.now() < breakUntil) return false;
     const onboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED);
     if (!onboarded || !schedule.enabled) return false;
     const now = new Date();
@@ -315,10 +371,9 @@ const App: React.FC = () => {
     if (startTotal <= endTotal) {
       return currentMinutes >= startTotal && currentMinutes < endTotal;
     } else {
-      // Overnight schedule (e.g., 23:00 to 02:00)
       return currentMinutes >= startTotal || currentMinutes < endTotal;
     }
-  }, [schedule]);
+  }, [schedule, breakUntil]);
 
   const scheduleNextStartNotification = useCallback(async () => {
       if (!schedule.enabled || schedule.daysOfWeek.length === 0) return;
@@ -326,7 +381,6 @@ const App: React.FC = () => {
       const now = new Date();
       const [startH, startM] = schedule.startTime.split(':').map(Number);
       
-      // Look ahead up to 7 days
       for (let i = 0; i <= 7; i++) {
           const checkDate = new Date(now);
           checkDate.setDate(now.getDate() + i);
@@ -335,10 +389,8 @@ const App: React.FC = () => {
               const targetTime = new Date(checkDate);
               targetTime.setHours(startH, startM, 0, 0);
               
-              // If it's today but passed, skip
               if (targetTime.getTime() <= now.getTime()) continue;
               
-              // We found the next start time
               await scheduleNotification(
                   "Ready to Win?", 
                   "Time to start your priority tracking for the day.", 
@@ -349,7 +401,12 @@ const App: React.FC = () => {
       }
   }, [schedule]);
 
-  // NEW: Calculate Blocks Remaining
+  const [minuteTick, setMinuteTick] = useState(0);
+  useEffect(() => {
+      const i = setInterval(() => setMinuteTick(p => p + 1), 60000);
+      return () => clearInterval(i);
+  }, []);
+
   const getBlockStats = useCallback(() => {
     if (!schedule.enabled) return { total: 0, remaining: 0 };
     
@@ -362,31 +419,26 @@ const App: React.FC = () => {
     const currentTotal = now.getHours() * 60 + now.getMinutes();
     
     let totalDuration = endTotal - startTotal;
-    if (totalDuration < 0) totalDuration += 1440; // Overnight schedule correction
+    if (totalDuration < 0) totalDuration += 1440; 
 
     if (totalDuration <= 0) return { total: 0, remaining: 0 };
 
     const totalBlocks = Math.floor(totalDuration / 15);
     
-    // Calculate elapsed from start
     let elapsed = 0;
     if (startTotal <= endTotal) {
-        // Normal schedule
-        elapsed = currentTotal - startTotal;
+        if (currentTotal >= startTotal) {
+            elapsed = currentTotal - startTotal;
+        }
     } else {
-        // Overnight schedule
         if (currentTotal >= startTotal) {
             elapsed = currentTotal - startTotal;
         } else if (currentTotal < endTotal) {
             elapsed = (1440 - startTotal) + currentTotal;
-        } else {
-            // Outside of schedule (between end and start)
-            elapsed = 0;
         }
     }
     
     if (elapsed < 0) elapsed = 0;
-    // Cap elapsed at total duration (day over)
     if (elapsed > totalDuration) elapsed = totalDuration;
     
     const usedBlocks = Math.floor(elapsed / 15);
@@ -395,19 +447,7 @@ const App: React.FC = () => {
     return { total: totalBlocks, remaining };
   }, [schedule]);
 
-  // Use a timer to update block stats every minute if visible, but calculating on render is fine for now
-  // Since schedule doesn't change often and minute tick will trigger re-render if we had one.
-  // Actually, we need to force re-render every minute to update "Remaining" if no other state changes.
-  // The worker tick handles timeLeft, but not this. 
-  // Let's add a minute ticker.
-  const [minuteTick, setMinuteTick] = useState(0);
-  useEffect(() => {
-      const i = setInterval(() => setMinuteTick(p => p + 1), 60000);
-      return () => clearInterval(i);
-  }, []);
-
   const blockStats = useMemo(() => getBlockStats(), [getBlockStats, minuteTick]);
-  const blockStatsRef = useRef(blockStats);
   useEffect(() => { blockStatsRef.current = blockStats; }, [blockStats]);
 
   const handleTimerComplete = useCallback(async () => {
@@ -431,7 +471,7 @@ const App: React.FC = () => {
   const triggerTick = () => tickRef.current();
 
   const startTimer = useCallback(async (overrideTime?: number) => {
-    const timeToUse = overrideTime ?? DEFAULT_INTERVAL_MS;
+    const timeToUse = overrideTime ?? cycleDuration;
     setIsPaused(false);
     setStatus(AppStatus.RUNNING);
     const now = Date.now();
@@ -439,24 +479,31 @@ const App: React.FC = () => {
     endTimeRef.current = targetTime;
     localStorage.setItem(STORAGE_KEY_TIMER_TARGET, targetTime.toString());
     
-        // Notification with Remaining Opportunities
-        const stats = getBlockStats();
-        const currentCycle = Math.max(1, stats.total - stats.remaining + 1);
-        await cancelNotification();
-        await scheduleNotification("Cycle Complete", `Declare your status for Cycle ${currentCycle}/${stats.total}`, timeToUse);
-        
-        workerRef.current?.postMessage({ command: 'start' });
-        tickLogic();    }, [tickLogic, getBlockStats]);
+    const stats = getBlockStats();
+    const currentCycle = Math.max(1, stats.total - stats.remaining + 1);
+    await cancelNotification();
+    await scheduleNotification("Cycle Complete", `Declare your status for Cycle ${currentCycle}/${stats.total}`, timeToUse);
+    
+    TimerPlugin.start({ 
+        duration: timeToUse,
+        totalCycles: stats.total,
+        cyclesLeft: stats.remaining
+    });
+
+    workerRef.current?.postMessage({ command: 'start' });
+    setStatus(AppStatus.RUNNING);
+    tickLogic(); 
+  }, [tickLogic, getBlockStats, cycleDuration]);
 
   const pauseTimer = useCallback(async () => {
     setIsPaused(true);
     await cancelNotification();
     workerRef.current?.postMessage({ command: 'stop' });
     setStatus(AppStatus.IDLE);
-    setTimeLeft(DEFAULT_INTERVAL_MS);
+    setTimeLeft(cycleDuration);
     localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
     scheduleNextStartNotification();
-  }, [scheduleNextStartNotification]);
+  }, [scheduleNextStartNotification, cycleDuration]);
 
   const handleToggleTimer = () => {
       if (status === AppStatus.RUNNING) pauseTimer();
@@ -476,11 +523,8 @@ const App: React.FC = () => {
     const configWithEnabled = { ...newSchedule, enabled: true };
     setSchedule(configWithEnabled);
     localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
-    
-    // Refresh priority state from localStorage
     const storedPriority = localStorage.getItem('ironlog_strategic_priority');
     if (storedPriority) setStrategicPriority(storedPriority);
-
     setIsSettingsModalOpen(false);
   };
 
@@ -567,7 +611,6 @@ const App: React.FC = () => {
     return checkSame(now, viewDate);
   }, [viewDate, filter]);
 
-  // MOVE FILTERED LOGS HERE (Before using it)
   const filteredLogs = useMemo(() => {
     const current = new Date(viewDate);
     let startTime = 0;
@@ -654,17 +697,14 @@ const App: React.FC = () => {
     return { canGoBack: viewStart > minTimestamp, canGoForward: viewEnd < maxTimestamp };
   }, [viewDate, filter, logs]);
 
-  // PERSISTENT RANK CALCULATION (Lifetime)
   const totalLifetimeWins = useMemo(() => logs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [logs]);
   
-  // DAILY RANK CALCULATION
   const dailyWins = useMemo(() => {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     return logs.filter(l => l.type === 'WIN' && !l.isFrozenWin && l.timestamp >= startOfDay).length;
   }, [logs]);
   
-  // CURRENT PERIOD RANK CALCULATION
   const currentPeriodWins = useMemo(() => filteredLogs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [filteredLogs]);
 
   const handleManualLogStart = () => {
@@ -675,7 +715,6 @@ const App: React.FC = () => {
 
   const handleLogSave = useCallback(async (text: string, type: 'WIN' | 'LOSS' = 'WIN', isFromNotification: boolean = false) => {
     if (editingLog) {
-        // Edit Mode
         const updatedLogs = logs.map(l => l.id === editingLog.id ? { ...l, text, type } : l);
         setLogs(updatedLogs);
         setEditingLog(null);
@@ -723,21 +762,21 @@ const App: React.FC = () => {
     } catch(e) {}
 
     localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
-    setTimeLeft(DEFAULT_INTERVAL_MS);
-    if (isWithinSchedule()) await startTimer(DEFAULT_INTERVAL_MS);
-    else {
+    setTimeLeft(cycleDuration);
+    if (isWithinSchedule()) await startTimer(cycleDuration);
+    else { 
        setStatus(AppStatus.IDLE);
        setIsPaused(false);
        scheduleNextStartNotification();
     }
-  }, [startTimer, isWithinSchedule, logs, scheduleNextStartNotification]);
+  }, [startTimer, isWithinSchedule, logs, scheduleNextStartNotification, cycleDuration]);
 
   const handleLogClose = () => {
     setIsEntryModalOpen(false);
     setEditingLog(null);
     setToast(prev => ({ ...prev, visible: false }));
     if (!isManualEntry && !editingLog) {
-       setTimeLeft(DEFAULT_INTERVAL_MS);
+       setTimeLeft(cycleDuration);
        if (isWithinSchedule()) startTimer();
        else {
           setStatus(AppStatus.IDLE);
@@ -765,7 +804,7 @@ const App: React.FC = () => {
         if (Date.now() - lastNativeInputTime.current < 2000) return;
         try {
             const pending = await TimerPlugin.checkPendingLog();
-            if (pending && pending.type) { // Allow empty input
+            if (pending && pending.type) {
                 lastNativeInputTime.current = Date.now();
                 setIsEntryModalOpen(false);
                 handleLogSave(pending.input || "", pending.type, true);
@@ -790,9 +829,7 @@ const App: React.FC = () => {
       }
     });
     const notificationSub = LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
-        // Clear all delivered notifications to ensure the UI doesn't linger in the tray
         LocalNotifications.removeAllDeliveredNotifications();
-
         if (notification.actionId === 'WIN_INPUT' && notification.inputValue) {
            handleLogSave(notification.inputValue, 'WIN', true);
         } else if (notification.actionId === 'LOSS_INPUT' && notification.inputValue) {
@@ -808,11 +845,10 @@ const App: React.FC = () => {
     const handleNativeInput = (event: any) => {
         try {
             const data = typeof event.detail === 'string' ? JSON.parse(event.detail) : event.detail;
-            if (data.type) { // Allow empty input
+            if (data.type) {
                 lastNativeInputTime.current = Date.now();
                 setIsEntryModalOpen(false);
                 handleLogSave(data.input || "", data.type, true);
-                
                 LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
                 LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
             }
@@ -953,7 +989,7 @@ const App: React.FC = () => {
                   }}
               />
               <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setIsSettingsModalOpen(true); }} className="text-zinc-500 hover:text-white bg-zinc-900 hover:bg-zinc-800 p-2.5 rounded-xl transition-all border border-zinc-800 hover:border-zinc-700" title="Settings" >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 1-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
               </button>
           </div>
         </header>
@@ -1055,7 +1091,17 @@ const App: React.FC = () => {
       </div>
 
       <EntryModal isOpen={isEntryModalOpen} onSave={handleLogSave} onClose={handleLogClose} isManual={isManualEntry} initialEntry={editingLog ? { text: editingLog.text, type: editingLog.type || 'WIN' } : null} />
-      <SettingsModal isOpen={isSettingsModalOpen} currentDurationMs={DEFAULT_INTERVAL_MS} logs={logs} schedule={schedule} onSave={() => {}} onSaveSchedule={handleScheduleSave} onClose={() => setIsSettingsModalOpen(false)} />
+      <SettingsModal 
+        isOpen={isSettingsModalOpen} 
+        currentDurationMs={cycleDuration} 
+        logs={logs} 
+        schedule={schedule} 
+        breakUntil={breakUntil}
+        onSave={handleDurationSave} 
+        onSaveSchedule={handleScheduleSave} 
+        onTakeBreak={handleTakeBreak}
+        onClose={() => setIsSettingsModalOpen(false)} 
+      />
       <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Quarterly'} onClose={() => setIsAIModalOpen(false)} onGenerate={handleGenerateAIReport} />
       <RankHierarchyModal 
         isOpen={isRankModalOpen} 

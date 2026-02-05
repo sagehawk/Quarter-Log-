@@ -235,21 +235,20 @@ public class TimerForegroundService extends Service {
                         0, "MISS", lossPendingIntent)
                         .build();
     
-                Notification notification = new NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
-                        .setContentTitle("Cycle Complete")
-                        .setContentText(contentText)
-                        .setSmallIcon(iconResId)
-                        .setContentIntent(pendingIntent)
-                        .setAutoCancel(false) // Don't dismiss on click
-                        .setOngoing(true)     // Persistent
-                        .setPriority(NotificationCompat.PRIORITY_HIGH)
-                        // .setFullScreenIntent(fullScreenPendingIntent, true) // Removed AlertActivity launch
-                        .addAction(winAction)
-                        .addAction(lossAction)
-                        .setSound(null)
-                        .setVibrate(new long[]{0L})
-                        .build();
-    
+                            Notification notification = new NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
+                                    .setContentTitle("Cycle Complete")
+                                    .setContentText(contentText)
+                                    .setSmallIcon(iconResId)
+                                    .setContentIntent(pendingIntent)
+                                    .setAutoCancel(false) // Don't dismiss on click
+                                    .setOngoing(true)     // Persistent
+                                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                                    .setFullScreenIntent(fullScreenPendingIntent, true) 
+                                    .addAction(winAction)
+                                    .addAction(lossAction)
+                                    .setSound(null)
+                                    .setVibrate(new long[]{0L})
+                                    .build();    
                 NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                 if (mNotificationManager != null) {
                     mNotificationManager.notify(ALERT_NOTIFICATION_ID, notification); 
