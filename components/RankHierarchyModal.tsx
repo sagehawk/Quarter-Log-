@@ -11,37 +11,20 @@ interface RankHierarchyModalProps {
 const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose, currentWins, period }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Convert friendly period name back to key if necessary, or ensure App passes key.
-  // App passes: 'Daily' -> 'D', 'Weekly' -> 'W', etc.
-  // Actually App.tsx logic: period={filter === 'D' ? 'Daily' : ...}
-  // We need the KEY ('D', 'W') to get thresholds.
-  // Let's deduce the key or accept key as prop. 
-  // Easier to map back:
   const getPeriodKey = (p: string) => {
       if (p.startsWith('Daily')) return 'D';
       if (p.startsWith('Weekly')) return 'W';
       if (p.startsWith('Monthly')) return 'M';
       if (p.startsWith('Quarterly')) return '3M';
-      if (p.startsWith('Year')) return 'Y'; // 'Quarterly (Year)' logic in App.tsx was weird, let's assume 'Y' won't be passed as 'Quarterly'.
-      // App.tsx: period={filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Quarterly' + (filter === 'Y' ? ' (Year)' : '')}
-      // If filter is Y, it says "Quarterly (Year)" ? That looks like a bug in my previous read of App.tsx logic.
-      // Let's re-read App.tsx logic in my head:
-      // filter === 'Y' ? ' (Year)' : '' -> This appends to 'Quarterly' only if ... wait.
-      // filter === 'M' ? 'Monthly' : 'Quarterly' ...
-      // If filter is 'Y', it falls to 'Quarterly' + ' (Year)' -> "Quarterly (Year)".
-      // This is confusing. I should fix App.tsx to pass the Key or clean this up.
-      // For now, I'll map "Quarterly (Year)" to 'Y'.
       if (p.includes('Year')) return 'Y';
-      return '3M'; // Default to Quarterly if not matched above
+      return '3M'; 
   };
 
   const periodKey = getPeriodKey(period);
   const thresholds = getThresholdsForPeriod(periodKey);
 
-  // Scroll to current rank on open
   useEffect(() => {
     if (isOpen && scrollRef.current) {
-      // Find current rank index
       let rankIndex = 0;
       for (let i = RANKS.length - 1; i >= 0; i--) {
         if (currentWins >= thresholds[i]) {
@@ -49,9 +32,8 @@ const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose
           break;
         }
       }
-      // Scroll calculation
-      const rowHeight = 80; // approx
-      scrollRef.current.scrollTop = (rankIndex * rowHeight) - 100; 
+      const rowHeight = 100; 
+      scrollRef.current.scrollTop = (rankIndex * rowHeight) - 150; 
     }
   }, [isOpen, currentWins, thresholds]);
 
@@ -67,22 +49,23 @@ const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose
       <div className="relative w-full max-w-sm bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,1)] flex flex-col animate-slide-up max-h-[85vh] overflow-hidden">
         
         {/* Header */}
-        <div className="p-8 pb-4 z-10 bg-[#0a0a0a] border-b border-white/5 shrink-0">
-            <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">
-                Hierarchy
+        <div className="p-8 pb-6 z-10 bg-[#0a0a0a] border-b border-white/5 shrink-0 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 blur-[50px] rounded-full pointer-events-none" />
+            <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic relative z-10">
+                Clearance Levels
             </h2>
-            <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center justify-between mt-2 relative z-10">
                 <span className="text-yellow-500/60 text-[10px] font-black uppercase tracking-[0.2em] italic">
-                    {period} Progression
+                    {period} Protocol
                 </span>
-                <span className="bg-white/10 px-3 py-1 rounded-full text-xs font-black text-white tabular-nums">
-                    {currentWins} WINS
+                <span className="bg-zinc-900 border border-white/10 px-3 py-1 rounded-lg text-xs font-mono font-bold text-white tabular-nums">
+                    ORD: {currentWins}
                 </span>
             </div>
         </div>
 
         {/* Rank List */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-3">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-0">
             {RANKS.map((rank, index) => {
                 const threshold = thresholds[index];
                 const nextThreshold = thresholds[index + 1];
@@ -95,46 +78,59 @@ const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose
                     : 100;
 
                 return (
-                    <div 
-                        key={rank.name}
-                        className={`relative p-4 rounded-2xl border transition-all duration-300 ${
-                            isCurrent 
-                                ? 'bg-white/10 border-yellow-500/50 shadow-[0_0_30px_rgba(234,179,8,0.1)] scale-[1.02]' 
-                                : isUnlocked 
-                                    ? 'bg-white/5 border-white/5 opacity-60' 
-                                    : 'bg-black/40 border-white/5 opacity-30 grayscale'
-                        }`}
-                    >
-                        <div className="flex items-center gap-4 relative z-10">
-                            {/* Icon */}
-                            <div className={`w-12 h-12 flex items-center justify-center rounded-xl bg-black/50 border border-white/10 shrink-0 ${rank.color}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6">
-                                    <path d={rank.icon} />
-                                </svg>
+                    <div key={rank.name} className="relative pl-4 pb-10 last:pb-0 group">
+                        {/* Connecting Line */}
+                        {index !== RANKS.length - 1 && (
+                            <div className={`absolute left-[27px] top-10 bottom-0 w-[2px] ${isUnlocked && currentWins >= nextThreshold ? 'bg-yellow-500/20' : 'bg-white/5'}`} />
+                        )}
+
+                        <div className="flex items-start gap-5 relative z-10">
+                            {/* Node */}
+                            <div className={`w-6 h-6 rounded-full border-[3px] shrink-0 flex items-center justify-center mt-1 transition-all duration-500 ${
+                                isCurrent 
+                                    ? 'border-yellow-500 bg-black shadow-[0_0_15px_rgba(234,179,8,0.6)] scale-110' 
+                                    : isUnlocked 
+                                        ? 'border-yellow-500/50 bg-yellow-500/10' 
+                                        : 'border-white/10 bg-black'
+                            }`}>
+                                {isUnlocked && <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />}
                             </div>
 
-                            <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-baseline mb-1">
-                                    <h3 className={`font-black uppercase tracking-widest text-sm italic ${isUnlocked ? 'text-white' : 'text-white/40'}`}>
-                                        {rank.name}
-                                    </h3>
-                                    <span className="text-[10px] font-bold text-white/20 font-mono">
-                                        {threshold}+
-                                    </span>
-                                </div>
-                                
-                                {/* Mini Progress for Current Rank */}
-                                {isCurrent && nextThreshold && (
-                                    <div className="h-1.5 w-full bg-black/50 rounded-full overflow-hidden mt-2">
-                                        <div 
-                                            className={`h-full ${rank.color.replace('text-', 'bg-')} shadow-[0_0_10px_currentColor]`} 
-                                            style={{ width: `${progressToNext}%` }}
-                                        />
+                            {/* Card */}
+                            <div className={`flex-1 transition-all duration-300 ${isCurrent ? 'opacity-100' : isUnlocked ? 'opacity-60 hover:opacity-80' : 'opacity-30 grayscale'}`}>
+                                <div className={`p-4 rounded-2xl border transition-all ${
+                                    isCurrent 
+                                        ? 'bg-zinc-900 border-yellow-500/30 shadow-lg' 
+                                        : 'bg-transparent border-white/5'
+                                }`}>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h3 className={`font-black uppercase tracking-widest text-sm italic ${isCurrent ? 'text-yellow-500' : 'text-white'}`}>
+                                            {rank.name}
+                                        </h3>
+                                        <div className="flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={isUnlocked ? "text-yellow-500" : "text-white/20"}>
+                                                {isUnlocked ? <polyline points="20 6 9 17 4 12"></polyline> : <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>}
+                                            </svg>
+                                            <span className="text-[10px] font-mono font-bold text-white/40">{threshold}</span>
+                                        </div>
                                     </div>
-                                )}
-                                {isCurrent && !nextThreshold && (
-                                     <div className="text-[9px] text-yellow-500 font-black uppercase tracking-widest mt-1">Max Rank Achieved</div>
-                                )}
+
+                                    {/* Progress Bar for Current */}
+                                    {isCurrent && nextThreshold && (
+                                        <div className="mt-3">
+                                            <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-white/30 mb-1">
+                                                <span>Progress</span>
+                                                <span>{Math.round(progressToNext)}%</span>
+                                            </div>
+                                            <div className="h-1 w-full bg-black rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)] transition-all duration-1000 ease-out" 
+                                                    style={{ width: `${progressToNext}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -142,12 +138,12 @@ const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose
             })}
         </div>
 
-        <div className="p-6 bg-[#0a0a0a] border-t border-white/5 shrink-0">
+        <div className="p-6 bg-[#0a0a0a] border-t border-white/5 shrink-0 z-20">
             <button 
                 onClick={onClose}
-                className="w-full py-4 bg-white/5 hover:bg-white/10 text-white/40 font-black uppercase tracking-[0.2em] rounded-xl transition-all text-[10px] italic"
+                className="w-full py-4 bg-zinc-900 hover:bg-zinc-800 text-white/40 font-black uppercase tracking-[0.2em] rounded-xl transition-all text-[10px] italic border border-white/5"
             >
-                Close Intel
+                Acknwloedge
             </button>
         </div>
       </div>

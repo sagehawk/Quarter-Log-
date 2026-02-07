@@ -5,6 +5,7 @@ export interface LogEntry {
   text: string;
   type?: 'WIN' | 'LOSS';
   isFrozenWin?: boolean;
+  duration?: number; // Duration in ms
 }
 
 export interface FreezeState {

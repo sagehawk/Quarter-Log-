@@ -737,14 +737,30 @@ const App: React.FC = () => {
     setIsEntryModalOpen(true);
   };
 
-  const handleLogSave = useCallback(async (text: string, type: 'WIN' | 'LOSS' = 'WIN', isFromNotification: boolean = false) => {
+  const handleLogSave = useCallback(async (text: string, type: 'WIN' | 'LOSS' = 'WIN', timestampOrIsNotification?: number | boolean, duration?: number) => {
+    let timestamp = Date.now();
+    let isFromNotification = false;
+    let finalDuration = duration;
+
+    if (typeof timestampOrIsNotification === 'boolean') {
+        isFromNotification = timestampOrIsNotification;
+    } else if (typeof timestampOrIsNotification === 'number') {
+        timestamp = timestampOrIsNotification;
+    }
+
     let finalText = text.trim();
     if (!finalText) {
         finalText = type === 'WIN' ? "Focused on priority" : "Distracted / Off-track";
     }
 
     if (editingLog) {
-        const updatedLogs = logs.map(l => l.id === editingLog.id ? { ...l, text: finalText, type } : l);
+        const updatedLogs = logs.map(l => l.id === editingLog.id ? { 
+            ...l, 
+            text: finalText, 
+            type,
+            timestamp: timestamp, 
+            duration: finalDuration 
+        } : l);
         setLogs(updatedLogs);
         setEditingLog(null);
         setIsEntryModalOpen(false);
@@ -754,10 +770,11 @@ const App: React.FC = () => {
 
     const newLog: LogEntry = {
       id: crypto.randomUUID(),
-      timestamp: Date.now(),
+      timestamp: timestamp,
       text: finalText,
       type,
-      isFrozenWin: false
+      isFrozenWin: false,
+      duration: finalDuration
     };
 
     const updatedLogs = [newLog, ...logs];
@@ -794,7 +811,7 @@ const App: React.FC = () => {
        setIsPaused(false);
        scheduleNextStartNotification();
     }
-  }, [startTimer, isWithinSchedule, logs, scheduleNextStartNotification, cycleDuration]);
+  }, [startTimer, isWithinSchedule, logs, scheduleNextStartNotification, cycleDuration, editingLog]);
 
   const handleLogClose = () => {
     setIsEntryModalOpen(false);
@@ -873,10 +890,10 @@ const App: React.FC = () => {
              return;
         }
 
-        if (notification.actionId === 'WIN_INPUT' && notification.inputValue) {
-           handleLogSave(notification.inputValue, 'WIN', true);
-        } else if (notification.actionId === 'LOSS_INPUT' && notification.inputValue) {
-           handleLogSave(notification.inputValue, 'LOSS', true);
+        if (notification.actionId === 'WIN_INPUT') {
+           handleLogSave(notification.inputValue || "Focused on priority", 'WIN', true);
+        } else if (notification.actionId === 'LOSS_INPUT') {
+           handleLogSave(notification.inputValue || "Distracted / Off-track", 'LOSS', true);
         } else if (notification.actionId === 'log_input' && notification.inputValue) {
            handleLogSave(notification.inputValue, 'WIN', true);
         } else {
@@ -992,6 +1009,71 @@ const App: React.FC = () => {
       }
   };
 
+  const checkAndGenerateEndShiftReport = useCallback(async () => {
+      if (!schedule.enabled || !hasOnboarded) return;
+      
+      const now = new Date();
+      const dateKey = `D_${now.toISOString().substring(0, 10)}`;
+      
+      // If report already exists for today, skip
+      if (reports[dateKey]) return;
+
+      // Check if shift is over
+      const [endH, endM] = schedule.endTime.split(':').map(Number);
+      const endTotal = endH * 60 + endM;
+      const currentTotal = now.getHours() * 60 + now.getMinutes();
+      
+      // Allow a buffer (e.g., 5 mins after end time) or strict check
+      // If current time > end time, and we have logs for today
+      if (currentTotal >= endTotal) {
+          const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const todaysLogs = logs.filter(l => l.timestamp >= startOfDay.getTime());
+          
+          if (todaysLogs.length > 0) {
+              const goals = getStoredGoals();
+              const priority = localStorage.getItem('ironlog_strategic_priority') || undefined;
+              const persona = 'LOGIC';
+              
+              // Generate Brief Notification first
+              const summary = await generateAIReport(todaysLogs, 'Day', goals, persona, schedule, 'BRIEF', priority, logs);
+              await sendReportNotification("End of Shift Debrief", summary.replace('Report Ready:', '').trim());
+              
+              const fullContent = await generateAIReport(todaysLogs, 'Day', goals, persona, schedule, 'FULL', priority, logs);
+              
+              const newReport: AIReport = {
+                  id: crypto.randomUUID(),
+                  dateKey,
+                  content: fullContent,
+                  summary,
+                  timestamp: Date.now(),
+                  period: 'D',
+                  logCount: todaysLogs.length,
+                  read: false 
+              };
+              
+              setReports(prev => ({ ...prev, [dateKey]: newReport }));
+              
+              setToast({ 
+                  title: "Shift Complete", 
+                  message: "Tactical debrief is ready.", 
+                  visible: true,
+                  onAction: () => {
+                      setAiReportContent(fullContent);
+                      setOverrideReport(newReport);
+                      setIsAIModalOpen(true);
+                  }
+              });
+          }
+      }
+  }, [schedule, hasOnboarded, reports, logs]);
+
+  useEffect(() => {
+      // Check for end of shift on mount and periodically
+      checkAndGenerateEndShiftReport();
+      const interval = setInterval(checkAndGenerateEndShiftReport, 60000 * 5); // Check every 5 mins
+      return () => clearInterval(interval);
+  }, [checkAndGenerateEndShiftReport]);
+
   const handleOpenAIModal = () => {
       if (savedReportForView) {
           setAiReportContent(savedReportForView.content);
@@ -1002,6 +1084,10 @@ const App: React.FC = () => {
       } else setAiReportContent(null);
       setIsAIModalOpen(true);
   };
+
+  const initialEntryProp = useMemo(() => 
+    editingLog ? { text: editingLog.text, type: editingLog.type || 'WIN', timestamp: editingLog.timestamp, duration: editingLog.duration } : null
+  , [editingLog]);
 
   if (!hasOnboarded) return <Onboarding onComplete={handleOnboardingComplete} />;
 
@@ -1114,22 +1200,26 @@ const App: React.FC = () => {
             </div>
             {filteredLogs.length > 0 && (
                <div className="flex items-center justify-between mb-6 px-1 gap-4">
-                   <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleOpenAIModal(); }} className={`flex-1 flex items-center gap-3 py-4 px-6 rounded-2xl transition-all border ${savedReportForView ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-yellow-500 hover:border-yellow-500/30 hover:bg-zinc-800'}`} >
-                      <div className={`p-2 rounded-lg transition-colors ${savedReportForView ? 'bg-yellow-500/20' : 'bg-zinc-800'}`}>
-                          {savedReportForView ? (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                          ) : (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                          )}
-                      </div>
-                      <div className="flex flex-col items-start">
-                           <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">{savedReportForView ? 'The Cornerman' : 'Get Insight'}</span>
-                           {savedReportForView && savedReportForView.read === false && ( <span className="text-xs text-yellow-500/60 font-black uppercase tracking-widest leading-none mt-2 animate-pulse">New Tactical Analysis</span> )}
-                           {!savedReportForView && ( <span className="text-xs opacity-40 font-black uppercase tracking-widest leading-none mt-2">Analyze Performance</span> )}
-                      </div>
-                   </button>
-                   <button onClick={handleCopyClick} className="flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 transition-all active:scale-95 shadow-inner" title="Export Logs" >
-                       {copyFeedback ? ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500"><polyline points="20 6 9 17 4 12"></polyline></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> )}
+                   {savedReportForView ? (
+                     <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleOpenAIModal(); }} className="flex-1 flex items-center gap-3 py-4 px-6 rounded-2xl transition-all border bg-yellow-500/10 border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20" >
+                        <div className="p-2 rounded-lg transition-colors bg-yellow-500/20">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        </div>
+                        <div className="flex flex-col items-start">
+                             <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">The Cornerman</span>
+                             {savedReportForView.read === false && ( <span className="text-xs text-yellow-500/60 font-black uppercase tracking-widest leading-none mt-2 animate-pulse">New Tactical Analysis</span> )}
+                        </div>
+                     </button>
+                   ) : (
+                     <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleOpenAIModal(); }} className="flex-0 p-4 rounded-2xl transition-all border bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800" title="Generate Insight">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                     </button>
+                   )}
+                   <button onClick={handleCopyClick} className={`flex items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 transition-all active:scale-95 shadow-inner ${savedReportForView ? 'w-14 h-14' : 'flex-1 py-4 px-6'}`} title="Export Logs" >
+                       <div className="flex items-center gap-2">
+                           {copyFeedback ? ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500"><polyline points="20 6 9 17 4 12"></polyline></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> )}
+                           {!savedReportForView && <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">EXPORT DATA</span>}
+                       </div>
                    </button>
                </div>
             )}
@@ -1138,7 +1228,14 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      <EntryModal isOpen={isEntryModalOpen} onSave={handleLogSave} onClose={handleLogClose} isManual={isManualEntry} initialEntry={editingLog ? { text: editingLog.text, type: editingLog.type || 'WIN' } : null} />
+      <EntryModal 
+        isOpen={isEntryModalOpen} 
+        onSave={handleLogSave} 
+        onClose={handleLogClose} 
+        isManual={isManualEntry} 
+        initialEntry={initialEntryProp} 
+        defaultDuration={cycleDuration}
+      />
       <SettingsModal 
         isOpen={isSettingsModalOpen} 
         currentDurationMs={cycleDuration} 

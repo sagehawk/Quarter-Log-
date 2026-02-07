@@ -73,16 +73,12 @@ export const registerNotificationActions = async () => {
             {
               id: 'WIN_INPUT',
               title: 'DONE',
-              input: true,
-              inputPlaceholder: 'Notes...',
-              inputButtonTitle: 'LOG'
+              foreground: true
             },
             {
               id: 'LOSS_INPUT',
               title: 'MISS',
-              input: true,
-              inputPlaceholder: 'Notes...',
-              inputButtonTitle: 'LOG'
+              foreground: true
             }
           ]
         }
@@ -123,7 +119,9 @@ export const scheduleNotification = async (title: string, body: string, delayMs:
           smallIcon: 'ic_stat_status_bar_logo', // Ensure this matches capacitor.config
           channelId: CHANNEL_ID, // Use the high-priority channel
           actionTypeId: 'LOG_ACTIVITY',
-          extra: null
+          extra: null,
+          ongoing: true,
+          autoCancel: false
         }
       ]
     });

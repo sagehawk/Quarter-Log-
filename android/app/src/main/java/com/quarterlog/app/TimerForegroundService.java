@@ -251,7 +251,7 @@ public class TimerForegroundService extends Service {
                         0, "MISS", lossPendingIntent)
                         .build();
     
-                            Notification notification = new NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
+                            Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                                     .setContentTitle("Cycle Complete")
                                     .setContentText(contentText)
                                     .setSmallIcon(iconResId)
@@ -259,6 +259,8 @@ public class TimerForegroundService extends Service {
                                     .setAutoCancel(false) // Don't dismiss on click
                                     .setOngoing(true)     // Persistent
                                     .setPriority(NotificationCompat.PRIORITY_HIGH)
+                                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                                     .addAction(winAction)
                                     .addAction(lossAction)
                                     .setSound(null)
@@ -266,7 +268,7 @@ public class TimerForegroundService extends Service {
                                     .build();    
                 NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                 if (mNotificationManager != null) {
-                    mNotificationManager.notify(ALERT_NOTIFICATION_ID, notification); 
+                    mNotificationManager.notify(NOTIFICATION_ID, notification); 
                 }
             } catch (Exception e) {
                 e.printStackTrace();
