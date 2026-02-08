@@ -15,9 +15,6 @@ const MAX_CHARS = 500;
 const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManual = false, initialEntry = null, defaultDuration = 900000 }) => {
   const [text, setText] = useState('');
   const [type, setType] = useState<'WIN' | 'LOSS' | null>(null);
-  const [dateStr, setDateStr] = useState('');
-  const [timeStr, setTimeStr] = useState('');
-  const [durationMin, setDurationMin] = useState(15);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -25,45 +22,24 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
       if (initialEntry) {
         setText(initialEntry.text);
         setType(initialEntry.type);
-        const d = initialEntry.timestamp ? new Date(initialEntry.timestamp) : new Date();
-        // Adjust for local timezone offset when using toISOString-like formatting manually
-        // or just use valueAsDate-like approach, but strings are easier for inputs
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        const hours = String(d.getHours()).padStart(2, '0');
-        const minutes = String(d.getMinutes()).padStart(2, '0');
-        
-        setDateStr(`${year}-${month}-${day}`);
-        setTimeStr(`${hours}:${minutes}`);
-        setDurationMin(initialEntry.duration ? Math.round(initialEntry.duration / 60000) : Math.round(defaultDuration / 60000));
       } else {
         setText('');
         setType(null);
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        
-        setDateStr(`${year}-${month}-${day}`);
-        setTimeStr(`${hours}:${minutes}`);
-        setDurationMin(Math.round(defaultDuration / 60000));
       }
       try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
     }
-  }, [isOpen, initialEntry, defaultDuration]);
+  }, [isOpen, initialEntry]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (type) {
-      // Construct timestamp
-      const [year, month, day] = dateStr.split('-').map(Number);
-      const [hours, minutes] = timeStr.split(':').map(Number);
-      const d = new Date(year, month - 1, day, hours, minutes);
-      const timestamp = d.getTime();
-      const duration = durationMin * 60 * 1000;
+      let timestamp = Date.now();
+      let duration = defaultDuration;
+
+      if (initialEntry) {
+          timestamp = initialEntry.timestamp || Date.now();
+          duration = initialEntry.duration || defaultDuration;
+      }
 
       onSave(text.trim() || (type === 'WIN' ? 'Focused on priority.' : 'Distracted / Off-track.'), type, timestamp, duration);
       setText('');
@@ -139,38 +115,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
         </div>
         
         <form onSubmit={handleSubmit}>
-          {/* Time & Duration Controls */}
-          <div className="grid grid-cols-3 gap-3 mb-6">
-              <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-mono text-white/40 uppercase tracking-widest ml-1">Date</label>
-                  <input 
-                      type="date" 
-                      value={dateStr}
-                      onChange={(e) => setDateStr(e.target.value)}
-                      className="bg-zinc-900 text-white text-xs font-mono rounded-xl border border-zinc-800 p-3 outline-none focus:border-white/20"
-                  />
-              </div>
-              <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-mono text-white/40 uppercase tracking-widest ml-1">Time</label>
-                  <input 
-                      type="time" 
-                      value={timeStr}
-                      onChange={(e) => setTimeStr(e.target.value)}
-                      className="bg-zinc-900 text-white text-xs font-mono rounded-xl border border-zinc-800 p-3 outline-none focus:border-white/20"
-                  />
-              </div>
-              <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-mono text-white/40 uppercase tracking-widest ml-1">Dur (Min)</label>
-                  <input 
-                      type="number" 
-                      value={durationMin}
-                      onChange={(e) => setDurationMin(Math.max(1, parseInt(e.target.value) || 0))}
-                      min="1"
-                      className="bg-zinc-900 text-white text-xs font-mono rounded-xl border border-zinc-800 p-3 outline-none focus:border-white/20"
-                  />
-              </div>
-          </div>
-
+          
           <div className="relative mb-6 group">
             <textarea
                 ref={inputRef}

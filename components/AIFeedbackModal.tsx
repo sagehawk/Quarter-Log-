@@ -109,7 +109,7 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
                 <div className="flex items-center gap-2 mb-2">
                     <div className="w-2 h-2 bg-yellow-500 animate-pulse rounded-sm" />
                     <span className="text-xs font-mono uppercase tracking-[0.3em] text-yellow-500">
-                        CLASSIFIED // {period.toUpperCase()}
+                        CLASSIFIED // {period.toUpperCase()} // {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
                     </span>
                 </div>
                 <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">
@@ -123,7 +123,11 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 pb-32 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px]">
+        <div 
+            className="flex-1 overflow-y-auto custom-scrollbar p-6 pb-32 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px]"
+            onTouchMove={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+        >
             {isLoading ? (
                 <div className="flex flex-col items-center justify-center h-full space-y-8">
                     <div className="relative">

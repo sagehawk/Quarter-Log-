@@ -8,6 +8,7 @@ interface FeedbackOverlayProps {
   customTitle?: string;
   customSub?: string;
   isFrozen?: boolean;
+  period?: string;
   onDismiss?: () => void;
 }
 
@@ -18,12 +19,13 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
     customTitle, 
     customSub,
     isFrozen = false,
+    period = 'D',
     onDismiss
 }) => {
   const [animateProgress, setAnimateProgress] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   
-  const { currentRank, nextRank, progress, winsToNext } = getRankProgress(totalWins);
+  const { currentRank, nextRank, progress, winsToNext } = getRankProgress(totalWins, period);
   const isPromotion = type === 'WIN' && progress < 5 && totalWins > 0; 
 
   useEffect(() => {

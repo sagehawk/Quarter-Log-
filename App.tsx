@@ -85,10 +85,19 @@ const App: React.FC = () => {
   const [aiReportContent, setAiReportContent] = useState<string | null>(null);
   const [overrideReport, setOverrideReport] = useState<AIReport | null>(null);
 
-  const [toast, setToast] = useState<{title: string, message: string, visible: boolean, onAction?: () => void}>({ title: '', message: '', visible: false });
-  const [feedbackState, setFeedbackState] = useState<{ visible: boolean, totalWins: number, type: 'WIN' | 'LOSS', customTitle?: string, customSub?: string }>({ 
-      visible: false, totalWins: 0, type: 'WIN' 
-  });
+    const [toast, setToast] = useState<{title: string, message: string, visible: boolean, onAction?: () => void}>({ title: '', message: '', visible: false });
+
+    const [feedbackState, setFeedbackState] = useState<{ visible: boolean, totalWins: number, type: 'WIN' | 'LOSS', customTitle?: string, customSub?: string, period?: string }>({
+
+        visible: false,
+
+        totalWins: 0,
+
+        type: 'WIN',
+
+        period: 'D'
+
+    });
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   
@@ -783,14 +792,17 @@ const App: React.FC = () => {
     setToast(prev => ({ ...prev, visible: false }));
     
     try { 
-        const totalWinsForRank = updatedLogs.filter(l => l.type === 'WIN').length;
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const dailyWins = updatedLogs.filter(l => l.type === 'WIN' && l.timestamp >= startOfDay).length;
 
         if (type === 'WIN') {
             await Haptics.notification({ type: NotificationType.Success });
             setFeedbackState({ 
                 visible: true, 
-                totalWins: totalWinsForRank, 
-                type: 'WIN',
+                totalWins: dailyWins, 
+                type: 'WIN', 
+                period: 'D',
                 customTitle: "COMPLETE",
                 customSub: "CYCLE SECURED."
             });
@@ -1129,6 +1141,7 @@ const App: React.FC = () => {
           type={feedbackState.type}
           customTitle={feedbackState.customTitle}
           customSub={feedbackState.customSub}
+          period={feedbackState.period}
           isFrozen={freezeState.isFrozen}
           onDismiss={() => setFeedbackState(prev => ({ ...prev, visible: false }))}
         />
@@ -1206,7 +1219,7 @@ const App: React.FC = () => {
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                         </div>
                         <div className="flex flex-col items-start">
-                             <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">The Cornerman</span>
+                             <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">Tactical Intel</span>
                              {savedReportForView.read === false && ( <span className="text-xs text-yellow-500/60 font-black uppercase tracking-widest leading-none mt-2 animate-pulse">New Tactical Analysis</span> )}
                         </div>
                      </button>

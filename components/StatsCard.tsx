@@ -163,7 +163,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
       const wins = logs.filter(l => l.type === 'WIN').length;
       const total = logs.length;
       const rate = total > 0 ? Math.round((wins/total)*100) : 0;
-      const rank = getRankForPeriod(wins, 'LIFETIME'); 
+      const rank = filter === 'D' ? getRankForPeriod(wins, 'D') : getRankForPeriod(wins, 'LIFETIME'); 
       
       let streak = 0;
       const sorted = [...logs].sort((a,b) => b.timestamp - a.timestamp);
@@ -173,7 +173,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
       }
 
       return { wins, total, rate, rank, streak };
-  }, [logs]);
+  }, [logs, filter]);
 
   // --- 3. Render Helpers ---
   const renderHeatmap = () => {
@@ -446,10 +446,12 @@ const StatsCard: React.FC<StatsCardProps> = ({
               </button>
           </div>
           
+          {filter === 'D' && (
           <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${stats.rank.color.replace('text-', 'border-').replace('500', '500/30')} bg-black/40`}>
               <svg className={`w-3 h-3 ${stats.rank.color}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0"><path fill="currentColor" d={stats.rank.icon} /></svg>
               <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${stats.rank.color}`}>{stats.rank.name}</span>
           </div>
+          )}
       </div>
 
       {/* PRIMARY VISUAL: THE SOVEREIGN GRID */}

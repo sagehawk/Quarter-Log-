@@ -148,19 +148,12 @@ export const sendNotification = async (title: string, body: string, isTest: bool
 
 export const sendReportNotification = async (title: string, body: string) => {
   try {
-    if (Capacitor.getPlatform() === 'web') {
-      if (Notification.permission === 'granted') {
-          new Notification(title, { body, icon: '/icon.png' });
-      }
-      return;
-    }
-
     await LocalNotifications.schedule({
       notifications: [
         {
           title,
           body,
-          id: 2, // Unique ID for Reports
+          id: 3, // Unique ID for Reports
           schedule: { at: new Date(Date.now() + 100) },
           sound: 'beep.wav',
           smallIcon: 'ic_stat_status_bar_logo',
