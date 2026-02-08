@@ -13,6 +13,7 @@ interface SettingsModalProps {
   onSave: (minutes: number) => void;
   onSaveSchedule?: (schedule: ScheduleConfig) => void;
   onTakeBreak: (durationMs: number | null) => void;
+  onLoadDemoData?: () => void;
   onClose: () => void;
 }
 
@@ -24,6 +25,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onSave,
   onSaveSchedule, 
   onTakeBreak,
+  onLoadDemoData,
   onClose 
 }) => {
   const [showTroubleshoot, setShowTroubleshoot] = useState(false);
@@ -306,6 +308,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
         <div className="p-8 pt-6 border-t border-white/5 bg-[#0a0a0a] z-10">
             <div className="max-w-xl mx-auto w-full">
+            {onLoadDemoData && (
+                 <button 
+                    onClick={onLoadDemoData}
+                    className="w-full text-center text-[10px] text-white/5 hover:text-white/20 uppercase tracking-widest transition-colors mb-2"
+                 >
+                     // Load Simulation Data //
+                 </button>
+            )}
             <button
               type="button"
               onClick={handleSaveAndClose}

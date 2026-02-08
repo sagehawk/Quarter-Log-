@@ -13,6 +13,8 @@ import RankHierarchyModal from './components/RankHierarchyModal';
 import Toast from './components/Toast';
 import StatsCard from './components/StatsCard';
 import Onboarding from './components/Onboarding';
+import ExportModal from './components/ExportModal';
+import { generateDemoData } from './utils/demoData';
 import StatusCard from './components/StatusCard';
 import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState, FilterType } from './types';
 import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification, sendReportNotification } from './utils/notifications';
@@ -81,6 +83,7 @@ const App: React.FC = () => {
   
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [isRankModalOpen, setIsRankModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [aiReportLoading, setAiReportLoading] = useState(false);
   const [aiReportContent, setAiReportContent] = useState<string | null>(null);
   const [overrideReport, setOverrideReport] = useState<AIReport | null>(null);
@@ -956,14 +959,7 @@ const App: React.FC = () => {
   const handleCopyClick = async () => {
     if (filteredLogs.length === 0) return;
     try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
-    const text = formatLogsForExport(filteredLogs);
-    try {
-        await navigator.clipboard.writeText(text);
-        setCopyFeedback(true);
-        setTimeout(() => setCopyFeedback(false), 2000);
-    } catch(e) {
-        setToast({ title: "Error", message: "Failed to copy logs.", visible: true });
-    }
+    setIsExportModalOpen(true);
   };
 
   const getCurrentDateKey = () => {
@@ -1100,6 +1096,15 @@ const App: React.FC = () => {
   const initialEntryProp = useMemo(() => 
     editingLog ? { text: editingLog.text, type: editingLog.type || 'WIN', timestamp: editingLog.timestamp, duration: editingLog.duration } : null
   , [editingLog]);
+
+  const handleLoadDemoData = () => {
+      if (confirm("Load Demo Data? This will replace current logs.")) {
+          const demoLogs = generateDemoData();
+          setLogs(demoLogs);
+          setToast({ title: "Demo Data Loaded", message: "System populated with simulation data.", visible: true });
+          setIsSettingsModalOpen(false);
+      }
+  };
 
   if (!hasOnboarded) return <Onboarding onComplete={handleOnboardingComplete} />;
 
@@ -1258,7 +1263,14 @@ const App: React.FC = () => {
         onSave={handleDurationSave} 
         onSaveSchedule={handleScheduleSave} 
         onTakeBreak={handleTakeBreak}
+        onLoadDemoData={handleLoadDemoData}
         onClose={() => setIsSettingsModalOpen(false)} 
+      />
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        logs={filteredLogs}
+        onSuccess={(msg) => setToast({ title: "Export Success", message: msg, visible: true })}
       />
       <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Quarterly'} onClose={() => { setIsAIModalOpen(false); setOverrideReport(null); }} onGenerate={handleGenerateAIReport} />
       <RankHierarchyModal 
