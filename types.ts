@@ -29,7 +29,7 @@ export interface ScheduleConfig {
 
 export type UserGoal = 'FOCUS' | 'BUSINESS' | 'LIFE';
 
-export type AIPersona = 'TOUGH' | 'LOGIC' | 'KIND';
+export type AIPersona = 'LOGIC' | 'AGGRESSIVE' | 'STOIC';
 
 export type FilterType = 'D' | 'W' | 'M' | '3M' | 'Y';
 

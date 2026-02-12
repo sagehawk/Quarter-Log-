@@ -4,12 +4,13 @@ import { UserGoal, ScheduleConfig } from '../types';
 import { requestNotificationPermission } from '../utils/notifications';
 
 interface OnboardingProps {
-  onComplete: (goals: UserGoal[], schedule: ScheduleConfig, priority?: string) => void;
+  onComplete: (goals: UserGoal[], schedule: ScheduleConfig, priority?: string, startChallenge?: boolean) => void;
 }
 
 const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [step, setStep] = useState(1);
   const [priority, setPriority] = useState("");
+  const [isChallenge, setIsChallenge] = useState(true); // Default to challenge mode
   
   const [schedule, setSchedule] = useState<ScheduleConfig>({
       enabled: true,
@@ -45,7 +46,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
   const handleFinish = () => {
      try { Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
-     onComplete(['BUSINESS'], schedule, priority);
+     onComplete(['BUSINESS'], schedule, priority, isChallenge);
   };
 
   const calculateTotalBlocks = () => {
@@ -80,34 +81,36 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
         <div className="max-w-md w-full relative z-10 flex flex-col justify-center">
         
-        {/* Step 1: The Hook (Rebranded) */}
+        {/* Step 1: The Hook (Rebranded for Challenge) */}
         {step === 1 && (
             <div className="space-y-10 animate-fade-in">
                 <div className="space-y-2">
                     <h1 className="text-6xl font-black italic uppercase tracking-tighter leading-[0.8] text-transparent bg-clip-text bg-gradient-to-b from-white to-white/50">
-                        Respect<br/><span className="text-yellow-500">Yourself</span>
+                        7-Day<br/><span className="text-yellow-500">Reset</span>
                     </h1>
                 </div>
                 
                 <div className="space-y-6 text-left px-2">
                     <p className="text-white/60 font-medium text-lg leading-relaxed">
-                        Time is the only currency you cannot earn back.
+                        You aren't lazy. Your dopamine receptors are fried.
                     </p>
                     <div className="pl-4 border-l-2 border-yellow-500/50 space-y-4">
                         <p className="text-xl font-bold text-white leading-tight">
-                            Operate at a CEO level.
+                            The Protocol:
                         </p>
-                        <p className="text-white/40 text-sm font-bold uppercase tracking-widest">
-                             Even if you aren't one yet.
-                        </p>
+                        <ul className="space-y-2 text-sm text-white/80 font-mono uppercase tracking-widest">
+                            <li>1. 15-Minute Cycles</li>
+                            <li>2. Binary Scoring (Win/Loss)</li>
+                            <li>3. Radical Accountability</li>
+                        </ul>
                     </div>
                     <p className="text-white/60 font-medium text-lg leading-relaxed">
-                        We will rig the game to build your authority.
+                        Commit to the 7-Day Challenge. Fix your brain.
                     </p>
                 </div>
                 
                 <button onClick={handleNext} className="w-full py-5 bg-white hover:bg-yellow-500 text-black font-black uppercase tracking-[0.2em] rounded-xl transition-all shadow-[0_0_30px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(234,179,8,0.4)] text-lg animate-slide-up">
-                    Enter The Arena
+                    Accept Challenge
                 </button>
             </div>
         )}

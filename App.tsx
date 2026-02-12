@@ -7,6 +7,7 @@ import LogList from './components/LogList';
 import EntryModal from './components/EntryModal';
 import SettingsModal from './components/SettingsModal';
 import AIFeedbackModal from './components/AIFeedbackModal';
+import PersonaSelector from './components/PersonaSelector';
 import FeedbackOverlay from './components/FeedbackOverlay';
 import RankHUD from './components/RankHUD';
 import RankHierarchyModal from './components/RankHierarchyModal';
@@ -16,9 +17,9 @@ import Onboarding from './components/Onboarding';
 import ExportModal from './components/ExportModal';
 import { generateDemoData } from './utils/demoData';
 import StatusCard from './components/StatusCard';
-import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState, FilterType } from './types';
+import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState, FilterType, AIPersona } from './types';
 import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification, sendReportNotification, sendFeedbackNotification } from './utils/notifications';
-import { generateAIReport, generateInstantFeedback } from './utils/aiService';
+import { generateAIReport, generateInstantFeedback, generateProtocolRecovery } from './utils/aiService';
 import TimerPlugin from './utils/nativeTimer';
 
 const STORAGE_KEY_LOGS = 'ironlog_entries';
@@ -32,6 +33,7 @@ const STORAGE_KEY_FREEZE = 'ironlog_freeze_state';
 const STORAGE_KEY_SEEN_FREEZE_WARNING = 'ironlog_seen_freeze_warning';
 const STORAGE_KEY_CYCLE_DURATION = 'ironlog_cycle_duration';
 const STORAGE_KEY_BREAK_UNTIL = 'ironlog_break_until';
+const STORAGE_KEY_CHALLENGE_START = 'ironlog_challenge_start';
 
 const WORKER_CODE = `
 let intervalId = null;
@@ -57,6 +59,8 @@ const App: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(DEFAULT_INTERVAL_MS);
   const [cycleDuration, setCycleDuration] = useState(DEFAULT_INTERVAL_MS);
   const [breakUntil, setBreakUntil] = useState<number | null>(null);
+  const [challengeStartDate, setChallengeStartDate] = useState<number | null>(null);
+  const [persona, setPersona] = useState<AIPersona>('LOGIC');
   
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [reports, setReports] = useState<Record<string, AIReport>>({});
@@ -80,8 +84,46 @@ const App: React.FC = () => {
   const [isManualEntry, setIsManualEntry] = useState(false);
   const [editingLog, setEditingLog] = useState<LogEntry | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
   
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+
+  // ...
+
+  const currentStreak = useMemo(() => {
+      const winsByDate = new Set<string>();
+      logs.forEach(l => {
+          if (l.type === 'WIN') {
+              const dateStr = new Date(l.timestamp).toDateString();
+              winsByDate.add(dateStr);
+          }
+      });
+
+      let streak = 0;
+      const today = new Date();
+      // If we have a win today, count it. If not, check yesterday to start streak.
+      if (winsByDate.has(today.toDateString())) streak++;
+      
+      let checkDate = new Date();
+      if (streak === 0) {
+           // If no win today yet, maybe streak is alive from yesterday
+           checkDate.setDate(today.getDate() - 1);
+           if (!winsByDate.has(checkDate.toDateString())) return 0;
+           streak++; // Yesterday had a win, so streak is at least 1 (active)
+      }
+
+      // Count backwards
+      for (let i = 1; i < 365; i++) {
+          const d = new Date(checkDate);
+          d.setDate(checkDate.getDate() - i);
+          if (winsByDate.has(d.toDateString())) {
+              streak++;
+          } else {
+              break;
+          }
+      }
+      return streak;
+  }, [logs]);
   const [isRankModalOpen, setIsRankModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [aiReportLoading, setAiReportLoading] = useState(false);
@@ -196,6 +238,9 @@ const App: React.FC = () => {
         } catch (e) { console.error(e); }
     }
 
+    const storedPersona = localStorage.getItem(STORAGE_KEY_PERSONA);
+    if (storedPersona) setPersona(storedPersona as AIPersona);
+
     const storedSchedule = localStorage.getItem(STORAGE_KEY_SCHEDULE);
     if (storedSchedule) {
       try { 
@@ -219,6 +264,9 @@ const App: React.FC = () => {
         if (ts > Date.now()) setBreakUntil(ts);
         else localStorage.removeItem(STORAGE_KEY_BREAK_UNTIL);
     }
+
+    const storedChallenge = localStorage.getItem(STORAGE_KEY_CHALLENGE_START);
+    if (storedChallenge) setChallengeStartDate(parseInt(storedChallenge, 10));
     
     const initNotifications = async () => {
         await configureNotificationChannel();
@@ -541,7 +589,7 @@ const App: React.FC = () => {
     setIsSettingsModalOpen(false);
   };
 
-  const handleOnboardingComplete = (goals: UserGoal[], config: ScheduleConfig, priority?: string) => {
+  const handleOnboardingComplete = (goals: UserGoal[], config: ScheduleConfig, priority?: string, startChallenge?: boolean) => {
       const configWithEnabled = { ...config, enabled: true };
       localStorage.setItem(STORAGE_KEY_ONBOARDED, 'true');
       localStorage.setItem(STORAGE_KEY_GOAL, JSON.stringify(goals));
@@ -551,6 +599,11 @@ const App: React.FC = () => {
           localStorage.setItem('ironlog_strategic_priority', priority);
           setStrategicPriority(priority);
           setPriorityInput(priority);
+      }
+      if (startChallenge) {
+          const now = Date.now();
+          localStorage.setItem(STORAGE_KEY_CHALLENGE_START, now.toString());
+          setChallengeStartDate(now);
       }
       setSchedule(configWithEnabled);
       setHasOnboarded(true);
@@ -571,6 +624,13 @@ const App: React.FC = () => {
          
          if (shouldStart) startTimer();
       }, 500);
+  };
+
+  const handlePersonaSave = (newPersona: AIPersona) => {
+      setPersona(newPersona);
+      localStorage.setItem(STORAGE_KEY_PERSONA, newPersona);
+      setIsPersonaModalOpen(false);
+      try { Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
   };
 
   const handleNavigate = (direction: -1 | 1) => {
@@ -803,7 +863,13 @@ const App: React.FC = () => {
         // Trigger AI Logic
         const runFeedback = async () => {
              const strategic = localStorage.getItem('ironlog_strategic_priority') || undefined;
-             const feedback = await generateInstantFeedback(newLog, updatedLogs.slice(1, 10), strategic);
+             let feedback = "Processing...";
+             
+             if (type === 'LOSS') {
+                 feedback = await generateProtocolRecovery(newLog, updatedLogs.slice(1, 10), strategic, persona);
+             } else {
+                 feedback = await generateInstantFeedback(newLog, updatedLogs.slice(1, 10), strategic, persona);
+             }
              
              if (isFromNotification) {
                  await sendFeedbackNotification(feedback);
@@ -1092,7 +1158,6 @@ const App: React.FC = () => {
       if (filter !== 'D') return; // Only Daily allowed
       const goals = getStoredGoals();
       const priority = localStorage.getItem('ironlog_strategic_priority') || undefined;
-      const persona = 'LOGIC';
       
       setAiReportLoading(true);
       try {
@@ -1149,6 +1214,12 @@ const App: React.FC = () => {
       }
   };
 
+  const currentChallengeDay = useMemo(() => {
+    if (!challengeStartDate) return 0;
+    const diff = Date.now() - challengeStartDate;
+    return Math.floor(diff / 86400000) + 1;
+  }, [challengeStartDate]);
+
   if (!hasOnboarded) return <Onboarding onComplete={handleOnboardingComplete} />;
 
   return (
@@ -1196,6 +1267,27 @@ const App: React.FC = () => {
         />
         <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} onAction={toast.onAction} />
         <main className="max-w-xl mx-auto p-5 pt-44 flex flex-col min-h-[calc(100vh-80px)]">
+          {/* Challenge Banner */}
+          {currentChallengeDay > 0 && currentChallengeDay <= 7 && (
+              <div className="mb-6 p-1 rounded-2xl bg-gradient-to-r from-yellow-500/20 via-yellow-500/10 to-transparent border border-yellow-500/20 animate-fade-in relative overflow-hidden">
+                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-20" />
+                  <div className="flex items-center justify-between px-4 py-3 relative z-10">
+                      <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center text-black font-black text-lg shadow-[0_0_15px_rgba(234,179,8,0.5)]">
+                              {currentChallengeDay}
+                          </div>
+                          <div className="flex flex-col">
+                              <span className="text-xs font-black uppercase tracking-[0.2em] text-yellow-500">Dopamine Detox</span>
+                              <span className="text-[10px] text-white/40 uppercase tracking-widest font-mono">Day {currentChallengeDay} of 7</span>
+                          </div>
+                      </div>
+                      <div className="h-1 flex-1 max-w-[80px] bg-white/10 rounded-full ml-4 overflow-hidden">
+                          <div className="h-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.8)]" style={{ width: `${(currentChallengeDay / 7) * 100}%` }} />
+                      </div>
+                  </div>
+              </div>
+          )}
+
           {/* Strategic Priority / North Star */}
           <section className="mb-6 group">
               {isEditingPriority ? (
@@ -1308,7 +1400,15 @@ const App: React.FC = () => {
         onSaveSchedule={handleScheduleSave} 
         onTakeBreak={handleTakeBreak}
         onLoadDemoData={handleLoadDemoData}
+        onOpenPersona={() => setIsPersonaModalOpen(true)}
         onClose={() => setIsSettingsModalOpen(false)} 
+      />
+      <PersonaSelector 
+        isOpen={isPersonaModalOpen}
+        currentPersona={persona}
+        currentStreak={currentStreak}
+        onSelect={handlePersonaSave}
+        onClose={() => setIsPersonaModalOpen(false)}
       />
       <ExportModal
         isOpen={isExportModalOpen}

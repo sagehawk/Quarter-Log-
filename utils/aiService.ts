@@ -1,6 +1,33 @@
 import { GoogleGenAI } from "@google/genai";
 import { LogEntry, UserGoal, ScheduleConfig, AIPersona } from "../types";
 
+const getPersonaInstruction = (persona: AIPersona = 'LOGIC'): string => {
+    switch (persona) {
+        case 'AGGRESSIVE':
+            return `
+            TONE: Aggressive, Drill Sergeant, High Intensity.
+            - Call out weakness immediately.
+            - Use short, punchy sentences.
+            - Demand immediate correction.
+            - NO softness. NO "maybe".
+            `;
+        case 'STOIC':
+            return `
+            TONE: Calm, Philosophical, Detached.
+            - Focus on what is within control.
+            - Reference endurance, virtue, and long-term vision.
+            - Reject emotional reactions to failure.
+            `;
+        case 'LOGIC':
+        default:
+            return `
+            TONE: Clinical, Grounded, Objectively Challenging.
+            - Use facts and past actions as evidence.
+            - No emotion, just cause and effect.
+            `;
+    }
+};
+
 export const generateAIReport = async (
   targetLogs: LogEntry[],
   period: string, // 'Day', 'Week', 'Month'
@@ -42,9 +69,12 @@ export const generateAIReport = async (
     .join('\n');
 
   const priorityContext = strategicPriority ? `Target Objective: ${strategicPriority}` : "Target: General Self-Improvement";
+  const personaStyle = getPersonaInstruction(persona);
 
   const systemInstruction = `
-  You are a Psychological Conditioning Agent. 
+  You are a Tactical Performance Agent.
+  ${personaStyle}
+  
   Your Goal: Irrefutably prove to the user they are capable of more by using their own past actions as evidence.
   ${priorityContext}
 
@@ -60,9 +90,6 @@ export const generateAIReport = async (
   RULES:
   - NO "Good job" or "Keep it up".
   - NO Markdown headers.
-  - Tone: Logical, Grounded, Challenging.
-  - If they did X (e.g., worked out), challenge them to apply that discipline to Y (e.g., focused work).
-  - If they failed (LOSS), identifying the blocker (e.g., "didn't apply to jobs") and pivoting to the immediate fix (e.g., "Since you didn't apply, you can probably just spend 15 minutes fixing your resume").
   - Keep it under 50 words.
   `;
 
@@ -92,8 +119,9 @@ export const generateAIReport = async (
 
 export const generateInstantFeedback = async (
   latestLog: LogEntry,
-  recentLogs: LogEntry[], // Context from the day
-  strategicPriority?: string
+  recentLogs: LogEntry[], 
+  strategicPriority?: string,
+  persona: AIPersona = 'LOGIC'
 ): Promise<string> => {
   const apiKey = process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) return "Log recorded.";
@@ -106,9 +134,12 @@ export const generateInstantFeedback = async (
     .join('\n');
 
   const priorityContext = strategicPriority ? `Target Objective: ${strategicPriority}` : "";
+  const personaStyle = getPersonaInstruction(persona);
 
   const systemInstruction = `
-  You are a Psychological Conditioning Agent. 
+  You are a Tactical Performance Agent.
+  ${personaStyle}
+  
   Your Goal: Irrefutably prove to the user they are capable of more by using their own past actions as evidence.
   ${priorityContext}
 
@@ -120,7 +151,6 @@ export const generateInstantFeedback = async (
   STYLE GUIDANCE:
   - Ideally use the format: "Since you could [Action X], you can probably [Action Y]."
   - NO "Good job", "Keep it up", or fluff.
-  - Tone: Logical, Grounded, Challenging.
   - Keep response under 50 words.
   `;
 
@@ -148,5 +178,62 @@ export const generateInstantFeedback = async (
   } catch (error) {
     console.error("Instant Feedback Error:", error);
     return "Log recorded.";
+  }
+};
+
+export const generateProtocolRecovery = async (
+  latestLog: LogEntry,
+  recentLogs: LogEntry[], 
+  strategicPriority?: string,
+  persona: AIPersona = 'LOGIC'
+): Promise<string> => {
+  const apiKey = process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) return "Reset and re-engage.";
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  const priorityContext = strategicPriority ? `Target Objective: ${strategicPriority}` : "";
+  const personaStyle = getPersonaInstruction(persona);
+
+  const systemInstruction = `
+  You are a Tactical Recovery Agent.
+  ${personaStyle}
+  
+  The user just FAILED a 15-minute block (logged a "LOSS").
+  Your Goal: Stop the "shame spiral" immediately. Do NOT scold. Do NOT offer pity.
+  
+  METHODOLOGY:
+  1. ANALYZE the failure reason provided in the log.
+  2. PRESCRIBE one specific "Micro-Action" (takes < 2 minutes) to reset their state.
+  3. Examples: "Drink water.", "Do 5 pushups.", "Close all tabs.", "Stand up."
+
+  STRICT OUTPUT RULES:
+  - Format: "Protocol Reset: [Micro-Action]."
+  - Max 15 words.
+  - Tone: Urgent, command-driven.
+  ${priorityContext}
+  `;
+
+  const prompt = `
+  FAILURE LOG:
+  "${latestLog.text}"
+
+  GENERATE RECOVERY STEP:
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: systemInstruction,
+        temperature: 0.6,
+        maxOutputTokens: 50,
+      }
+    });
+    return response.text || "Protocol Reset: Stand up and deep breathe.";
+  } catch (error) {
+    console.error("Recovery Generation Error:", error);
+    return "Protocol Reset: Stand up and deep breathe.";
   }
 };

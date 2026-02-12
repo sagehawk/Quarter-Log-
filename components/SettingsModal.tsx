@@ -14,6 +14,7 @@ interface SettingsModalProps {
   onSaveSchedule?: (schedule: ScheduleConfig) => void;
   onTakeBreak: (durationMs: number | null) => void;
   onLoadDemoData?: () => void;
+  onOpenPersona: () => void;
   onClose: () => void;
 }
 
@@ -26,6 +27,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveSchedule, 
   onTakeBreak,
   onLoadDemoData,
+  onOpenPersona,
   onClose 
 }) => {
   const [showTroubleshoot, setShowTroubleshoot] = useState(false);
@@ -213,6 +215,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
         )}
+
+        {/* Tactical Persona */}
+        <div className="mb-10">
+             <div className="flex items-center justify-between mb-4">
+                <span className="text-white font-black uppercase text-sm tracking-[0.2em] italic border-l-4 border-yellow-500 pl-4">Tactical AI</span>
+             </div>
+             <button 
+                onClick={onOpenPersona}
+                className="w-full bg-white/5 hover:bg-white/10 p-6 rounded-3xl border border-white/5 flex items-center justify-between group transition-all"
+             >
+                 <div className="flex items-center gap-4">
+                     <div className="p-3 bg-yellow-500 text-black rounded-xl">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                     </div>
+                     <div className="text-left">
+                         <span className="block text-white font-black uppercase text-sm tracking-wide">Configure Persona</span>
+                         <span className="block text-white/40 text-[10px] font-mono mt-1">UNLOCK SPECIALIZED ADVISORS</span>
+                     </div>
+                 </div>
+                 <div className="text-white/20 group-hover:text-white transition-colors">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                 </div>
+             </button>
+        </div>
 
         {/* Stand Down Protocol (Timed Breaks) */}
         <div className="mb-10">
