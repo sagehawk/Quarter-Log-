@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
@@ -37,8 +36,8 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
           const text = headerMatch[3];
           return (
             <div key={i} className="mt-8 mb-4 border-b border-white/10 pb-1">
-                <h3 className="text-yellow-500 font-mono font-bold uppercase tracking-widest text-xs flex items-center gap-2">
-                    <span className="w-1 h-3 bg-yellow-500"></span>
+                <h3 className="text-green-500 font-mono font-bold uppercase tracking-widest text-xs flex items-center gap-2">
+                    <span className="w-1 h-3 bg-green-500"></span>
                     {text}
                 </h3>
             </div>
@@ -62,7 +61,7 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
          const content = trimmed.replace(/^[-*]\s*/, '');
          return (
             <div key={i} className="flex gap-4 mb-3 pl-1 relative">
-                <span className="text-yellow-500/50 font-mono mt-1 text-xs">{'>'}</span>
+                <span className="text-green-500/50 font-mono mt-1 text-xs">{'>'}</span>
                 <span className="text-white/90 font-mono text-sm leading-relaxed">{parseInlineStyles(content)}</span>
             </div>
          );
@@ -87,7 +86,7 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
           const subParts = part.split(/(\*.*?\*)/g); 
           return subParts.map((sub, subIndex) => {
              if (sub.startsWith('*') && sub.endsWith('*')) {
-                 return <em key={`${index}-${subIndex}`} className="text-yellow-500 not-italic">{sub.slice(1, -1)}</em>;
+                 return <em key={`${index}-${subIndex}`} className="text-green-500 not-italic">{sub.slice(1, -1)}</em>;
              }
              return sub;
           });
@@ -107,8 +106,8 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
         <div className="p-6 border-b border-white/10 flex justify-between items-start bg-zinc-900/30 pt-[calc(2rem+env(safe-area-inset-top))]">
             <div>
                 <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2 h-2 bg-yellow-500 animate-pulse rounded-sm" />
-                    <span className="text-xs font-mono uppercase tracking-[0.3em] text-yellow-500">
+                    <div className="w-2 h-2 bg-green-500 animate-pulse rounded-sm" />
+                    <span className="text-xs font-mono uppercase tracking-[0.3em] text-green-500">
                         CLASSIFIED // {period.toUpperCase()} // {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
                     </span>
                 </div>
@@ -131,10 +130,10 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
             {isLoading ? (
                 <div className="flex flex-col items-center justify-center h-full space-y-8">
                     <div className="relative">
-                        <div className="w-16 h-16 border-4 border-white/10 border-t-yellow-500 rounded-full animate-spin"></div>
+                        <div className="w-16 h-16 border-4 border-white/10 border-t-green-500 rounded-full animate-spin"></div>
                     </div>
                     <div className="flex flex-col items-center gap-2">
-                        <p className="text-yellow-500 font-mono text-sm uppercase tracking-widest animate-pulse">Decrypting Biometrics...</p>
+                        <p className="text-green-500 font-mono text-sm uppercase tracking-widest animate-pulse">Decrypting Biometrics...</p>
                         <p className="text-white/20 font-mono text-xs">SECURE_CHANNEL_ESTABLISHED</p>
                     </div>
                 </div>
@@ -156,7 +155,7 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
                             try { Haptics.impact({ style: ImpactStyle.Heavy }); } catch(e) {}
                             onGenerate();
                         }}
-                        className="w-full max-w-xs py-5 bg-yellow-500 hover:bg-yellow-400 text-black font-black uppercase tracking-[0.2em] rounded-xl shadow-[0_0_30px_rgba(234,179,8,0.3)] transition-all active:scale-[0.98] text-base"
+                        className="w-full max-w-xs py-5 bg-green-500 hover:bg-green-400 text-black font-black uppercase tracking-[0.2em] rounded-xl shadow-[0_0_30px_rgba(34,197,94,0.3)] transition-all active:scale-[0.98] text-base"
                     >
                         INITIATE ANALYSIS
                     </button>

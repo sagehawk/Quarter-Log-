@@ -50,12 +50,12 @@ const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose
         
         {/* Header */}
         <div className="p-8 pb-6 z-10 bg-[#0a0a0a] border-b border-white/5 shrink-0 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 blur-[50px] rounded-full pointer-events-none" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 blur-[50px] rounded-full pointer-events-none" />
             <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic relative z-10">
                 Clearance Levels
             </h2>
             <div className="flex items-center justify-between mt-2 relative z-10">
-                <span className="text-yellow-500/60 text-[10px] font-black uppercase tracking-[0.2em] italic">
+                <span className="text-green-500/60 text-[10px] font-black uppercase tracking-[0.2em] italic">
                     {period} Protocol
                 </span>
                 <span className="bg-zinc-900 border border-white/10 px-3 py-1 rounded-lg text-xs font-mono font-bold text-white tabular-nums">
@@ -81,34 +81,34 @@ const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose
                     <div key={rank.name} className="relative pl-4 pb-10 last:pb-0 group">
                         {/* Connecting Line */}
                         {index !== RANKS.length - 1 && (
-                            <div className={`absolute left-[27px] top-10 bottom-0 w-[2px] ${isUnlocked && currentWins >= nextThreshold ? 'bg-yellow-500/20' : 'bg-white/5'}`} />
+                            <div className={`absolute left-[27px] top-10 bottom-0 w-[2px] ${isUnlocked && currentWins >= nextThreshold ? 'bg-green-500/20' : 'bg-white/5'}`} />
                         )}
 
                         <div className="flex items-start gap-5 relative z-10">
                             {/* Node */}
                             <div className={`w-6 h-6 rounded-full border-[3px] shrink-0 flex items-center justify-center mt-1 transition-all duration-500 ${
                                 isCurrent 
-                                    ? 'border-yellow-500 bg-black shadow-[0_0_15px_rgba(234,179,8,0.6)] scale-110' 
+                                    ? 'border-green-500 bg-black shadow-[0_0_15px_rgba(34,197,94,0.6)] scale-110' 
                                     : isUnlocked 
-                                        ? 'border-yellow-500/50 bg-yellow-500/10' 
+                                        ? 'border-green-500/50 bg-green-500/10' 
                                         : 'border-white/10 bg-black'
                             }`}>
-                                {isUnlocked && <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />}
+                                {isUnlocked && <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
                             </div>
 
                             {/* Card */}
                             <div className={`flex-1 transition-all duration-300 ${isCurrent ? 'opacity-100' : isUnlocked ? 'opacity-60 hover:opacity-80' : 'opacity-30 grayscale'}`}>
                                 <div className={`p-4 rounded-2xl border transition-all ${
                                     isCurrent 
-                                        ? 'bg-zinc-900 border-yellow-500/30 shadow-lg' 
+                                        ? 'bg-zinc-900 border-green-500/30 shadow-lg' 
                                         : 'bg-transparent border-white/5'
                                 }`}>
                                     <div className="flex justify-between items-center mb-2">
-                                        <h3 className={`font-black uppercase tracking-widest text-sm italic ${isCurrent ? 'text-yellow-500' : 'text-white'}`}>
+                                        <h3 className={`font-black uppercase tracking-widest text-sm italic ${isCurrent ? 'text-green-500' : 'text-white'}`}>
                                             {rank.name}
                                         </h3>
                                         <div className="flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={isUnlocked ? "text-yellow-500" : "text-white/20"}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={isUnlocked ? "text-green-500" : "text-white/20"}>
                                                 {isUnlocked ? <polyline points="20 6 9 17 4 12"></polyline> : <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>}
                                             </svg>
                                             <span className="text-[10px] font-mono font-bold text-white/40">{threshold}</span>
@@ -124,7 +124,7 @@ const RankHierarchyModal: React.FC<RankHierarchyModalProps> = ({ isOpen, onClose
                                             </div>
                                             <div className="h-1 w-full bg-black rounded-full overflow-hidden">
                                                 <div 
-                                                    className="h-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)] transition-all duration-1000 ease-out" 
+                                                    className="h-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)] transition-all duration-1000 ease-out" 
                                                     style={{ width: `${progressToNext}%` }}
                                                 />
                                             </div>

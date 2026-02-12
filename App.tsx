@@ -91,32 +91,44 @@ const App: React.FC = () => {
   // ...
 
   const currentStreak = useMemo(() => {
-      const winsByDate = new Set<string>();
+      const winsByDate = new Map<string, number>();
+      
+      // 1. Group wins by date
       logs.forEach(l => {
           if (l.type === 'WIN') {
               const dateStr = new Date(l.timestamp).toDateString();
-              winsByDate.add(dateStr);
+              winsByDate.set(dateStr, (winsByDate.get(dateStr) || 0) + 1);
+          }
+      });
+
+      // 2. Identify "Valid Streak Days" (>= 4 wins)
+      const validStreakDates = new Set<string>();
+      winsByDate.forEach((count, dateStr) => {
+          if (count >= 4) {
+              validStreakDates.add(dateStr);
           }
       });
 
       let streak = 0;
       const today = new Date();
-      // If we have a win today, count it. If not, check yesterday to start streak.
-      if (winsByDate.has(today.toDateString())) streak++;
+      const todayStr = today.toDateString();
+      
+      // If we have met the quota today, count it.
+      if (validStreakDates.has(todayStr)) streak++;
       
       let checkDate = new Date();
+      // If quota not met today, check if streak is alive from yesterday
       if (streak === 0) {
-           // If no win today yet, maybe streak is alive from yesterday
            checkDate.setDate(today.getDate() - 1);
-           if (!winsByDate.has(checkDate.toDateString())) return 0;
-           streak++; // Yesterday had a win, so streak is at least 1 (active)
+           if (!validStreakDates.has(checkDate.toDateString())) return 0;
+           streak++; // Yesterday met quota, streak is active
       }
 
       // Count backwards
       for (let i = 1; i < 365; i++) {
           const d = new Date(checkDate);
           d.setDate(checkDate.getDate() - i);
-          if (winsByDate.has(d.toDateString())) {
+          if (validStreakDates.has(d.toDateString())) {
               streak++;
           } else {
               break;
@@ -124,6 +136,7 @@ const App: React.FC = () => {
       }
       return streak;
   }, [logs]);
+
   const [isRankModalOpen, setIsRankModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [aiReportLoading, setAiReportLoading] = useState(false);
@@ -141,6 +154,7 @@ const App: React.FC = () => {
     });
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [flashWin, setFlashWin] = useState(false);
   
   const [filter, setFilter] = useState<FilterType>('D');
   const [viewDate, setViewDate] = useState<Date>(new Date());
@@ -837,6 +851,8 @@ const App: React.FC = () => {
         const dailyWins = updatedLogs.filter(l => l.type === 'WIN' && l.timestamp >= startOfDay).length;
 
         if (type === 'WIN' && !isFromNotification) {
+            setFlashWin(true);
+            setTimeout(() => setFlashWin(false), 200);
             await Haptics.notification({ type: NotificationType.Success });
             setFeedbackState({ 
                 visible: true, 
@@ -1220,13 +1236,18 @@ const App: React.FC = () => {
     return Math.floor(diff / 86400000) + 1;
   }, [challengeStartDate]);
 
+  const currentChallengeProgress = useMemo(() => {
+      const dailyTarget = 4;
+      const progress = Math.min(dailyWins, dailyTarget);
+      return { wins: progress, target: dailyTarget, percent: (progress / dailyTarget) * 100 };
+  }, [dailyWins]);
+
   if (!hasOnboarded) return <Onboarding onComplete={handleOnboardingComplete} />;
 
   return (
     <div className="min-h-screen font-sans pb-[env(safe-area-inset-bottom)] text-white relative">
-      <div className="fixed inset-0 -z-50 bg-[#050505]" />
-      <div className="fixed inset-0 -z-40 bg-[linear-gradient(160deg,_#2a220a_0%,_#050505_40%,_#000000_100%)]" />
-      <div className="fixed inset-0 -z-30 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJnoiPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI2cpIiBvcGFjaXR5PSIwLjUiLz48L3N2Zz4=')] opacity-[0.05] pointer-events-none mix-blend-overlay" />
+      <div className="fixed inset-0 -z-50 bg-black" />
+      <div className={`fixed inset-0 pointer-events-none z-50 bg-green-500/20 transition-opacity duration-150 ease-out ${flashWin ? 'opacity-100' : 'opacity-0'}`} />
       
       <div className="relative z-10">
         <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center border-b ${isScrolled ? 'bg-[#050505]/80 backdrop-blur-md border-white/5' : 'border-transparent'}`} >
@@ -1269,20 +1290,27 @@ const App: React.FC = () => {
         <main className="max-w-xl mx-auto p-5 pt-44 flex flex-col min-h-[calc(100vh-80px)]">
           {/* Challenge Banner */}
           {currentChallengeDay > 0 && currentChallengeDay <= 7 && (
-              <div className="mb-6 p-1 rounded-2xl bg-gradient-to-r from-yellow-500/20 via-yellow-500/10 to-transparent border border-yellow-500/20 animate-fade-in relative overflow-hidden">
+              <div className="mb-6 p-1 rounded-2xl bg-gradient-to-r from-green-500/20 via-green-500/10 to-transparent border border-green-500/20 animate-fade-in relative overflow-hidden">
                   <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-20" />
                   <div className="flex items-center justify-between px-4 py-3 relative z-10">
                       <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center text-black font-black text-lg shadow-[0_0_15px_rgba(234,179,8,0.5)]">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-lg transition-colors ${currentChallengeProgress.wins >= 4 ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-zinc-900 border border-green-500/30 text-green-500'}`}>
                               {currentChallengeDay}
                           </div>
                           <div className="flex flex-col">
-                              <span className="text-xs font-black uppercase tracking-[0.2em] text-yellow-500">Dopamine Detox</span>
-                              <span className="text-[10px] text-white/40 uppercase tracking-widest font-mono">Day {currentChallengeDay} of 7</span>
+                              <span className="text-xs font-black uppercase tracking-[0.2em] text-green-500">
+                                  {currentChallengeProgress.wins >= 4 ? 'DAY SECURED' : 'DETOX PROTOCOL'}
+                              </span>
+                              <span className="text-[10px] text-white/40 uppercase tracking-widest font-mono">
+                                  {currentChallengeProgress.wins} / {currentChallengeProgress.target} Wins to Secure
+                              </span>
                           </div>
                       </div>
-                      <div className="h-1 flex-1 max-w-[80px] bg-white/10 rounded-full ml-4 overflow-hidden">
-                          <div className="h-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.8)]" style={{ width: `${(currentChallengeDay / 7) * 100}%` }} />
+                      <div className="h-1.5 flex-1 max-w-[100px] bg-white/10 rounded-full ml-4 overflow-hidden relative">
+                          <div 
+                            className={`h-full transition-all duration-700 ease-out ${currentChallengeProgress.wins >= 4 ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]' : 'bg-green-500/50'}`} 
+                            style={{ width: `${currentChallengeProgress.percent}%` }} 
+                          />
                       </div>
                   </div>
               </div>
@@ -1291,12 +1319,12 @@ const App: React.FC = () => {
           {/* Strategic Priority / North Star */}
           <section className="mb-6 group">
               {isEditingPriority ? (
-                  <div className="bg-black border border-yellow-500/50 rounded-3xl p-1 shadow-[0_0_30px_rgba(234,179,8,0.15)] animate-fade-in relative overflow-hidden">
-                      <div className="absolute inset-0 bg-yellow-500/5 pointer-events-none" />
+                  <div className="bg-black border border-green-500/50 rounded-3xl p-1 shadow-[0_0_30px_rgba(34,197,94,0.15)] animate-fade-in relative overflow-hidden">
+                      <div className="absolute inset-0 bg-green-500/5 pointer-events-none" />
                       <textarea 
                         value={priorityInput}
                         onChange={(e) => setPriorityInput(e.target.value)}
-                        className="w-full bg-transparent text-white font-black text-2xl p-6 outline-none resize-none italic tracking-tight placeholder:text-white/20 relative z-10"
+                        className="w-full bg-transparent text-white font-black text-2xl p-6 outline-none resize-none tracking-tight placeholder:text-white/20 relative z-10"
                         placeholder="Define your objective..."
                         rows={3}
                         autoFocus
@@ -1304,7 +1332,7 @@ const App: React.FC = () => {
                         onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); handlePrioritySave(); } }}
                       />
                       <div className="absolute bottom-4 right-4 z-20">
-                           <span className="text-[10px] font-black uppercase tracking-widest text-yellow-500 bg-black/50 px-2 py-1 rounded backdrop-blur-md">Press Enter</span>
+                           <span className="text-[10px] font-black uppercase tracking-widest text-green-500 bg-black/50 px-2 py-1 rounded backdrop-blur-md">Press Enter</span>
                       </div>
                   </div>
               ) : (
@@ -1313,13 +1341,13 @@ const App: React.FC = () => {
                         try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
                         setIsEditingPriority(true);
                     }}
-                    className="w-full text-left bg-gradient-to-br from-white/10 to-black border border-yellow-500/20 rounded-3xl p-6 transition-all active:scale-[0.98] shadow-2xl relative overflow-hidden group"
+                    className="w-full text-left bg-gradient-to-br from-white/10 to-black border border-green-500/20 rounded-3xl p-6 transition-all active:scale-[0.98] shadow-2xl relative overflow-hidden group"
                   >
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 blur-[50px] rounded-full pointer-events-none group-hover:bg-yellow-500/20 transition-all" />
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 blur-[50px] rounded-full pointer-events-none group-hover:bg-green-500/20 transition-all" />
 
                       <div className="flex items-center justify-between mb-3 relative z-10">
-                          <span className="text-xs font-black uppercase tracking-[0.3em] text-yellow-500 italic drop-shadow-sm flex items-center gap-2">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-yellow-500"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                          <span className="text-xs font-black uppercase tracking-[0.3em] text-green-500 italic drop-shadow-sm flex items-center gap-2">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-green-500"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                               North Star
                           </span>
                           
@@ -1336,8 +1364,8 @@ const App: React.FC = () => {
           </section>
           <section className="flex-1 flex flex-col">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-2xl font-black text-white tracking-tight uppercase italic">Priority Log</h2>
-              <button onClick={handleManualLogStart} className="text-zinc-500 hover:text-yellow-500 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-yellow-500/20" >
+              <h2 className="text-2xl font-black text-white tracking-tight uppercase">Priority Log</h2>
+              <button onClick={handleManualLogStart} className="text-zinc-500 hover:text-green-500 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-green-500/20" >
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 Manual Entry
               </button>
@@ -1346,7 +1374,7 @@ const App: React.FC = () => {
             <div className="flex justify-center mb-6">
               <div className="bg-zinc-900 p-1.5 rounded-2xl flex items-center justify-between w-full border border-zinc-800">
                   {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
-                  <button key={f} onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setFilter(f); setViewDate(new Date()); }} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-[0.2em] transition-all duration-300 ${ filter === f ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-zinc-500 hover:text-white hover:bg-zinc-800' }`} >
+                  <button key={f} onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setFilter(f); setViewDate(new Date()); }} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-[0.2em] transition-all duration-300 ${ filter === f ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'text-zinc-500 hover:text-white hover:bg-zinc-800' }`} >
                       {f}
                   </button>
                   ))}
@@ -1355,13 +1383,13 @@ const App: React.FC = () => {
             {filteredLogs.length > 0 && (
                <div className="flex items-center justify-between mb-6 px-1 gap-4">
                    {savedReportForView ? (
-                     <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleOpenAIModal(); }} className="flex-1 flex items-center gap-3 py-4 px-6 rounded-2xl transition-all border bg-yellow-500/10 border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20" >
-                        <div className="p-2 rounded-lg transition-colors bg-yellow-500/20">
+                     <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleOpenAIModal(); }} className="flex-1 flex items-center gap-3 py-4 px-6 rounded-2xl transition-all border bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20" >
+                        <div className="p-2 rounded-lg transition-colors bg-green-500/20">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                         </div>
                         <div className="flex flex-col items-start">
                              <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">Tactical Intel</span>
-                             {savedReportForView.read === false && ( <span className="text-xs text-yellow-500/60 font-black uppercase tracking-widest leading-none mt-2 animate-pulse">New Tactical Analysis</span> )}
+                             {savedReportForView.read === false && ( <span className="text-xs text-green-500/60 font-black uppercase tracking-widest leading-none mt-2 animate-pulse">New Tactical Analysis</span> )}
                         </div>
                      </button>
                    ) : (
@@ -1371,7 +1399,7 @@ const App: React.FC = () => {
                    )}
                    <button onClick={handleCopyClick} className={`flex items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 transition-all active:scale-95 shadow-inner ${savedReportForView ? 'w-14 h-14' : 'flex-1 py-4 px-6'}`} title="Export Logs" >
                        <div className="flex items-center gap-2">
-                           {copyFeedback ? ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500"><polyline points="20 6 9 17 4 12"></polyline></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> )}
+                           {copyFeedback ? ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> )}
                            {!savedReportForView && <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">EXPORT DATA</span>}
                        </div>
                    </button>

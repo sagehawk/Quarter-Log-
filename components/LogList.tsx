@@ -41,11 +41,11 @@ const LogList: React.FC<LogListProps> = ({ logs, onDelete, onEdit }) => {
         <div key={date} className="relative">
           {/* Date Header */}
           <div className="sticky top-[160px] z-20 mb-8 pl-8 flex items-center gap-4">
-             <div className="w-2 h-2 bg-yellow-500 rounded-full shadow-[0_0_10px_rgba(234,179,8,0.8)]"></div>
-             <span className="text-[10px] font-mono font-bold uppercase tracking-[0.3em] text-yellow-500/80">
+             <div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.8)]"></div>
+             <span className="text-[10px] font-mono font-bold uppercase tracking-[0.3em] text-green-500/80">
               {date}
              </span>
-             <div className="h-px bg-gradient-to-r from-yellow-500/20 to-transparent flex-1"></div>
+             <div className="h-px bg-gradient-to-r from-green-500/20 to-transparent flex-1"></div>
           </div>
           
           <div className="space-y-0 relative border-l border-white/5 ml-3">

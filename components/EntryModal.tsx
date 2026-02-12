@@ -61,8 +61,8 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
         <div className="flex justify-between items-start mb-6 border-b border-white/10 pb-4">
            <div>
                <div className="flex items-center gap-2 mb-1">
-                   <div className="w-2 h-2 bg-yellow-500 animate-pulse rounded-sm"></div>
-                   <span className="text-[10px] font-mono uppercase tracking-widest text-yellow-500">Uplink Active</span>
+                   <div className="w-2 h-2 bg-green-500 animate-pulse rounded-sm"></div>
+                   <span className="text-[10px] font-mono uppercase tracking-widest text-green-500">Uplink Active</span>
                </div>
                <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">
                  {initialEntry ? 'EDIT LOG' : isManual ? 'MANUAL ENTRY' : 'TACTICAL REPORT'}
@@ -85,8 +85,8 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
               }}
               className={`group relative overflow-hidden h-28 flex flex-col items-center justify-center gap-2 rounded-xl border transition-all duration-300 ${
                 type === 'WIN' 
-                ? 'bg-yellow-500 border-yellow-500 text-black shadow-[0_0_30px_rgba(234,179,8,0.4)]' 
-                : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-yellow-500/50 hover:text-yellow-500'
+                ? 'bg-green-500 border-green-500 text-black shadow-[0_0_30px_rgba(34,197,94,0.4)]' 
+                : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-green-500/50 hover:text-green-500'
               }`}
             >
                 <div className="p-2 rounded-lg bg-inherit border border-current opacity-80">
@@ -143,7 +143,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, isManu
               disabled={!type}
               className={`flex-[2] py-4 rounded-xl font-black transition-all uppercase tracking-[0.2em] text-sm shadow-xl ${
                 type 
-                ? 'bg-white text-black hover:bg-yellow-400 hover:shadow-yellow-500/20' 
+                ? 'bg-white text-black hover:bg-green-400 hover:shadow-green-500/20' 
                 : 'bg-zinc-900 border border-zinc-800 text-white/10 cursor-not-allowed'
               }`}
             >

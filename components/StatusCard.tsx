@@ -29,10 +29,10 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
   return (
     <div className="w-full bg-black/40 border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden backdrop-blur-xl group">
         {/* Active State Ambient Glow */}
-        <div className={`absolute top-0 right-0 w-64 h-64 bg-yellow-500/5 blur-[80px] rounded-full pointer-events-none transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
+        <div className={`absolute top-0 right-0 w-64 h-64 bg-green-500/5 blur-[80px] rounded-full pointer-events-none transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
         
         {/* Animated Border effect for active state */}
-        <div className={`absolute bottom-0 left-0 h-[1px] bg-gradient-to-r from-transparent via-yellow-500/50 to-transparent w-full transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
+        <div className={`absolute bottom-0 left-0 h-[1px] bg-gradient-to-r from-transparent via-green-500/50 to-transparent w-full transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
 
         <div className="relative z-10 flex flex-col gap-5">
             {/* Header Row */}
@@ -50,7 +50,7 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
                 <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">
                     <span className="text-[9px] font-black uppercase tracking-widest text-white/30">CYCLE</span>
                     <span className="text-xs font-mono font-bold text-white">
-                        <span className="text-yellow-500">{currentCycle}</span>
+                        <span className="text-green-500">{currentCycle}</span>
                         <span className="text-white/20 mx-0.5">/</span>
                         {blockStats.total}
                     </span>
@@ -60,12 +60,12 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
             {/* Timer Row */}
             <div className="flex justify-between items-end">
                 <div>
-                    <div className={`text-7xl font-mono font-bold tracking-tighter leading-none transition-colors duration-300 ${isActive ? 'text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.15)]' : 'text-white/10'}`}>
+                    <div className={`text-7xl font-mono font-bold tracking-tighter leading-none transition-colors duration-300 ${isActive ? 'text-white drop-shadow-[0_0_15px_rgba(34,197,94,0.15)]' : 'text-white/10'}`}>
                         {minutes}:{String(seconds).padStart(2, '0')}
                     </div>
                     <div className="flex items-center gap-2 mt-2">
-                        <div className="h-[1px] w-8 bg-yellow-500/50"></div>
-                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-yellow-500/60">
+                        <div className="h-[1px] w-8 bg-green-500/50"></div>
+                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-green-500/60">
                             {isActive ? 'TIMER ENGAGED' : 'AWAITING INPUT'}
                         </span>
                     </div>
@@ -73,7 +73,7 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
 
                 <button 
                   onClick={handleToggle}
-                  className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-xl active:scale-95 border group/btn relative overflow-hidden ${isActive ? 'bg-zinc-900 border-zinc-700 text-zinc-500 hover:text-red-500 hover:border-red-500/30' : 'bg-white text-black border-white hover:bg-yellow-400 hover:border-yellow-400 hover:shadow-[0_0_20px_rgba(234,179,8,0.4)]'}`}
+                  className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-xl active:scale-95 border group/btn relative overflow-hidden ${isActive ? 'bg-zinc-900 border-zinc-700 text-zinc-500 hover:text-red-500 hover:border-red-500/30' : 'bg-white text-black border-white hover:bg-green-400 hover:border-green-400 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]'}`}
                 >
                     {isActive ? (
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="relative z-10"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>
@@ -86,7 +86,7 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
             {/* Progress Bar */}
             <div className="relative w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
                 <div 
-                    className={`absolute inset-y-0 left-0 bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.6)] transition-all duration-1000 ease-linear ${!isActive ? 'opacity-0' : 'opacity-100'}`}
+                    className={`absolute inset-y-0 left-0 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)] transition-all duration-1000 ease-linear ${!isActive ? 'opacity-0' : 'opacity-100'}`}
                     style={{ width: `${progress}%` }}
                 />
                 {/* Tick marks overlay for 'ruler' effect */}

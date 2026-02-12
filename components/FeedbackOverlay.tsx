@@ -112,15 +112,15 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
       
       <div className="relative z-10 w-full animate-slide-up">
         {/* Banner Background */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/90 to-transparent border-y border-yellow-500/10" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/90 to-transparent border-y border-green-500/10" />
         
         <div className="relative flex flex-col items-center py-10 px-6 gap-8">
             
             {/* AI Message - The Hero */}
             {aiMessage && (
                 <div className="text-center space-y-4 max-w-md mx-auto z-20">
-                     <div className="inline-flex items-center gap-2 text-yellow-500/60 font-mono text-[10px] uppercase tracking-widest">
-                        <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse" />
+                     <div className="inline-flex items-center gap-2 text-green-500/60 font-mono text-[10px] uppercase tracking-widest">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                         Live Guidance
                      </div>
                      <h2 className="text-2xl md:text-3xl font-bold text-white leading-snug font-mono drop-shadow-md">
@@ -133,7 +133,7 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
             <div className={`flex flex-col items-center transition-all duration-500 ${isPromotion ? 'scale-110 opacity-100 my-4' : 'scale-75 opacity-40 grayscale-[0.5]'}`}>
                 {isPromotion && (
                     <div className="mb-4 animate-bounce-slight">
-                        <span className="bg-yellow-500 text-black font-black text-xs px-4 py-1 rounded-full tracking-[0.3em] uppercase shadow-[0_0_20px_rgba(234,179,8,0.6)]">
+                        <span className="bg-green-500 text-black font-black text-xs px-4 py-1 rounded-full tracking-[0.3em] uppercase shadow-[0_0_20px_rgba(34,197,94,0.6)]">
                             Rank Up
                         </span>
                     </div>

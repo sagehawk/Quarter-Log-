@@ -261,10 +261,10 @@ const StatsCard: React.FC<StatsCardProps> = ({
                                       if (!isVisible) bgClass = "invisible";
                                       else if (day) {
                                           if (day.intensity === -1) bgClass = "bg-red-900/50 shadow-[0_0_5px_rgba(220,38,38,0.2)]";
-                                          else if (day.intensity === 1) bgClass = "bg-yellow-900/40";
-                                          else if (day.intensity === 2) bgClass = "bg-yellow-700/60";
-                                          else if (day.intensity === 3) bgClass = "bg-yellow-500/80 shadow-[0_0_5px_rgba(234,179,8,0.4)]";
-                                          else if (day.intensity === 4) bgClass = "bg-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.8)] z-10";
+                                          else if (day.intensity === 1) bgClass = "bg-green-900/40";
+                                          else if (day.intensity === 2) bgClass = "bg-green-700/60";
+                                          else if (day.intensity === 3) bgClass = "bg-green-500/80 shadow-[0_0_5px_rgba(34,197,94,0.4)]";
+                                          else if (day.intensity === 4) bgClass = "bg-green-400 shadow-[0_0_10px_rgba(34,197,94,0.8)] z-10";
                                       }
                                       return (
                                         <div 
@@ -299,7 +299,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                       className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2 bg-zinc-900 border border-white/10 px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md"
                       style={{ left: hoverPos.x, top: hoverPos.y - 8 }}
                   >
-                      <span className="block text-[10px] font-black uppercase tracking-widest text-yellow-500 mb-0.5">{hoverData.date}</span>
+                      <span className="block text-[10px] font-black uppercase tracking-widest text-green-500 mb-0.5">{hoverData.date}</span>
                       <span className="block text-[10px] font-mono text-white/60">{hoverData.wins} WINS / {hoverData.losses} LOSSES</span>
                       {/* Triangle Pointer */}
                       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-zinc-900 border-r border-b border-white/10"></div>
@@ -358,7 +358,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                           )}
 
                           <div style={{ height: `${lossH}%` }} className="w-full bg-red-500/50 rounded-[1px] transition-all duration-500" />
-                          <div style={{ height: `${winH}%` }} className="w-full bg-yellow-500 rounded-[1px] shadow-[0_0_10px_rgba(234,179,8,0.3)] transition-all duration-500" />
+                          <div style={{ height: `${winH}%` }} className="w-full bg-green-500 rounded-[1px] shadow-[0_0_10px_rgba(34,197,94,0.3)] transition-all duration-500" />
                           {total === 0 && <div className="w-full h-[2px] bg-white/5 rounded-full" />}
                       </div>
                   );
@@ -370,7 +370,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                       className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2 bg-zinc-900 border border-white/10 px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md"
                       style={{ left: hoverPos.x, top: hoverPos.y - 8 }}
                   >
-                      <span className="block text-[10px] font-black uppercase tracking-widest text-yellow-500 mb-0.5">{hoverData.date}</span>
+                      <span className="block text-[10px] font-black uppercase tracking-widest text-green-500 mb-0.5">{hoverData.date}</span>
                       <span className="block text-[10px] font-mono text-white/60">{hoverData.wins} WINS / {hoverData.losses} LOSSES</span>
                       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-zinc-900 border-r border-b border-white/10"></div>
                   </div>
@@ -458,21 +458,21 @@ const StatsCard: React.FC<StatsCardProps> = ({
       <div className="relative w-full bg-black/40 border border-white/5 rounded-3xl p-5 overflow-visible group">
           {/* Decorative Grid Lines */}
           <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
-          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 blur-[60px] rounded-full" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 blur-[60px] rounded-full" />
 
           <div className="relative z-10 flex flex-col gap-4">
               <div className="flex justify-between items-end">
                   <div>
                       <div className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 mb-1">Momentum Velocity</div>
-                      <div className="text-5xl font-black italic tracking-tighter text-white drop-shadow-xl flex items-baseline gap-2">
+                      <div className="text-5xl font-black tracking-tighter text-white drop-shadow-xl flex items-baseline gap-2">
                           {stats.rate}%
-                          <span className="text-xs font-bold text-white/40 not-italic tracking-normal">WIN RATE</span>
+                          <span className="text-xs font-bold text-white/40 tracking-normal">WIN RATE</span>
                       </div>
                   </div>
                   <div className="text-right">
                       <div className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 mb-1">Active Streak</div>
-                      <div className="text-2xl font-black italic text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]">
-                          {stats.streak} <span className="text-xs text-yellow-500/50">CYCLES</span>
+                      <div className="text-2xl font-black text-green-500 drop-shadow-[0_0_10px_rgba(34,197,94,0.5)]">
+                          {stats.streak} <span className="text-xs text-green-500/50">CYCLES</span>
                       </div>
                   </div>
               </div>
