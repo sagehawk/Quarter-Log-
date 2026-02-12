@@ -17,8 +17,8 @@ import ExportModal from './components/ExportModal';
 import { generateDemoData } from './utils/demoData';
 import StatusCard from './components/StatusCard';
 import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState, FilterType } from './types';
-import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification, sendReportNotification } from './utils/notifications';
-import { generateAIReport } from './utils/aiService';
+import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification, sendReportNotification, sendFeedbackNotification } from './utils/notifications';
+import { generateAIReport, generateInstantFeedback } from './utils/aiService';
 import TimerPlugin from './utils/nativeTimer';
 
 const STORAGE_KEY_LOGS = 'ironlog_entries';
@@ -90,16 +90,12 @@ const App: React.FC = () => {
 
     const [toast, setToast] = useState<{title: string, message: string, visible: boolean, onAction?: () => void}>({ title: '', message: '', visible: false });
 
-    const [feedbackState, setFeedbackState] = useState<{ visible: boolean, totalWins: number, type: 'WIN' | 'LOSS', customTitle?: string, customSub?: string, period?: string }>({
-
+    const [feedbackState, setFeedbackState] = useState<{ visible: boolean, totalWins: number, type: 'WIN' | 'LOSS', customTitle?: string, customSub?: string, period?: string, aiMessage?: string | null }>({
         visible: false,
-
         totalWins: 0,
-
         type: 'WIN',
-
-        period: 'D'
-
+        period: 'D',
+        aiMessage: null
     });
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -112,7 +108,6 @@ const App: React.FC = () => {
 
   const endTimeRef = useRef<number | null>(null);
   const workerRef = useRef<Worker | null>(null);
-  const hasCheckedAutoReport = useRef(false);
   const statusRef = useRef(status);
   const lastNativeInputTime = useRef(0);
   const blockStatsRef = useRef({ total: 0, remaining: 0 });
@@ -126,7 +121,7 @@ const App: React.FC = () => {
           if (pending && pending.input) {
               lastNativeInputTime.current = Date.now();
               setIsEntryModalOpen(false);
-              handleLogSave(pending.input, pending.type, true);
+              handleLogSave(pending.input, pending.type, true, undefined, pending.activeEndTime);
               LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
               LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
           }
@@ -279,73 +274,7 @@ const App: React.FC = () => {
       else localStorage.removeItem(STORAGE_KEY_BREAK_UNTIL);
   }, [breakUntil]);
 
-  useEffect(() => {
-    if (!hasOnboarded || logs.length === 0 || hasCheckedAutoReport.current) return;
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const dateKey = `D_${yesterday.toISOString().substring(0, 10)}`;
-    if (reports[dateKey]) {
-        hasCheckedAutoReport.current = true;
-        return;
-    }
-    const startOfDay = new Date(yesterday);
-    startOfDay.setHours(0,0,0,0);
-    const endOfDay = new Date(yesterday);
-    endOfDay.setHours(23,59,59,999);
-    const yesterdaysLogs = logs.filter(l => l.timestamp >= startOfDay.getTime() && l.timestamp <= endOfDay.getTime());
-    if (yesterdaysLogs.length > 0) {
-        hasCheckedAutoReport.current = true; 
-        const runAutoGen = async () => {
-            const goals = getStoredGoals();
-            const priority = localStorage.getItem('ironlog_strategic_priority') || undefined;
-            const persona = 'LOGIC';
-            const summary = await generateAIReport(yesterdaysLogs, 'Day', goals, persona, schedule, 'BRIEF', priority, logs);
-            await sendReportNotification("Daily Report Ready", summary.replace('Report Ready:', '').trim());
-            
-            const tempReport: AIReport = {
-                id: 'temp',
-                dateKey,
-                content: `## TACTICAL SUMMARY\n${summary}\n\n*Gathering intelligence for full sovereign audit...*`,
-                summary,
-                timestamp: Date.now(),
-                period: 'D',
-                logCount: yesterdaysLogs.length,
-                read: false 
-            };
-
-            setToast({ 
-                title: "Report Ready", 
-                message: "Yesterday's analysis is available.", 
-                visible: true,
-                onAction: () => {
-                    setAiReportContent(tempReport.content);
-                    setOverrideReport(tempReport);
-                    setIsAIModalOpen(true);
-                }
-            });
-
-            const fullContent = await generateAIReport(yesterdaysLogs, 'Day', goals, persona, schedule, 'FULL', priority, logs);
-            const newReport: AIReport = {
-                id: crypto.randomUUID(),
-                dateKey,
-                content: fullContent,
-                summary,
-                timestamp: Date.now(),
-                period: 'D',
-                logCount: yesterdaysLogs.length,
-                read: false 
-            };
-            setReports(prev => ({ ...prev, [dateKey]: newReport }));
-            
-            // Auto-update if looking at temp report
-            setOverrideReport(prev => (prev?.id === 'temp' && prev.dateKey === dateKey) ? newReport : prev);
-            setAiReportContent(prev => (prev === tempReport.content) ? fullContent : prev);
-        };
-        runAutoGen();
-    } else {
-        hasCheckedAutoReport.current = true;
-    }
-  }, [logs, hasOnboarded, reports, schedule]);
+  // Removed auto-generation effect for yesterday's report
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
@@ -495,6 +424,42 @@ const App: React.FC = () => {
     setIsEntryModalOpen(true);
   }, []);
 
+  const scheduleNativeAutoStart = useCallback(async () => {
+      if (!schedule.enabled) {
+          try { await TimerPlugin.cancelDailyStart(); } catch(e) {}
+          return;
+      }
+      
+      const [startH, startM] = schedule.startTime.split(':').map(Number);
+      const [endH, endM] = schedule.endTime.split(':').map(Number);
+      
+      const startTotal = startH * 60 + startM;
+      const endTotal = endH * 60 + endM;
+      
+      let totalDuration = endTotal - startTotal;
+      if (totalDuration < 0) totalDuration += 1440;
+      
+      // Calculate cycles based on duration (convert ms to minutes)
+      const durationMin = Math.floor(cycleDuration / 60000);
+      const totalCycles = Math.floor(totalDuration / durationMin);
+      
+      try {
+          await TimerPlugin.scheduleDailyStart({
+              hour: startH,
+              minute: startM,
+              duration: cycleDuration,
+              totalCycles: totalCycles
+          });
+          console.log(`Scheduled auto-start for ${startH}:${startM} with ${totalCycles} cycles`);
+      } catch (e) {
+          console.error("Failed to schedule auto-start", e);
+      }
+  }, [schedule, cycleDuration]);
+
+  useEffect(() => {
+      scheduleNativeAutoStart();
+  }, [scheduleNativeAutoStart]);
+
   const tickLogic = useCallback(() => {
     if (!endTimeRef.current || status !== AppStatus.RUNNING) return;
     const now = Date.now();
@@ -507,29 +472,41 @@ const App: React.FC = () => {
   useEffect(() => { tickRef.current = tickLogic; }, [tickLogic]);
   const triggerTick = () => tickRef.current();
 
-  const startTimer = useCallback(async (overrideTime?: number) => {
-    const timeToUse = overrideTime ?? cycleDuration;
+  const startTimer = useCallback(async (overrideTime?: number, explicitEndTime?: number) => {
     setIsPaused(false);
     setStatus(AppStatus.RUNNING);
+    
     const now = Date.now();
-    const targetTime = now + timeToUse;
+    let targetTime = 0;
+    
+    if (explicitEndTime && explicitEndTime > now) {
+        targetTime = explicitEndTime;
+    } else {
+        const timeToUse = overrideTime ?? cycleDuration;
+        targetTime = now + timeToUse;
+    }
+    
     endTimeRef.current = targetTime;
     localStorage.setItem(STORAGE_KEY_TIMER_TARGET, targetTime.toString());
     
     const stats = getBlockStats();
-    const currentCycle = Math.max(1, stats.total - stats.remaining + 1);
     await cancelNotification();
     
-    TimerPlugin.start({ 
-        duration: timeToUse,
-        totalCycles: stats.total,
-        cyclesLeft: stats.remaining
-    });
+    const remaining = targetTime - now;
+    if (remaining > 0) {
+        TimerPlugin.start({ 
+            duration: remaining,
+            totalCycles: stats.total,
+            cyclesLeft: stats.remaining
+        });
 
-    workerRef.current?.postMessage({ command: 'start' });
-    setStatus(AppStatus.RUNNING);
-    tickLogic(); 
-  }, [tickLogic, getBlockStats, cycleDuration]);
+        workerRef.current?.postMessage({ command: 'start' });
+        setStatus(AppStatus.RUNNING);
+        tickLogic(); 
+    } else {
+        handleTimerComplete();
+    }
+  }, [tickLogic, getBlockStats, cycleDuration, handleTimerComplete]);
 
   const pauseTimer = useCallback(async () => {
     setIsPaused(true);
@@ -749,7 +726,7 @@ const App: React.FC = () => {
     setIsEntryModalOpen(true);
   };
 
-  const handleLogSave = useCallback(async (text: string, type: 'WIN' | 'LOSS' = 'WIN', timestampOrIsNotification?: number | boolean, duration?: number) => {
+  const handleLogSave = useCallback(async (text: string, type: 'WIN' | 'LOSS' = 'WIN', timestampOrIsNotification?: number | boolean, duration?: number, explicitEndTime?: number) => {
     let timestamp = Date.now();
     let isFromNotification = false;
     let finalDuration = duration;
@@ -799,34 +776,90 @@ const App: React.FC = () => {
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         const dailyWins = updatedLogs.filter(l => l.type === 'WIN' && l.timestamp >= startOfDay).length;
 
-        if (type === 'WIN') {
+        if (type === 'WIN' && !isFromNotification) {
             await Haptics.notification({ type: NotificationType.Success });
             setFeedbackState({ 
                 visible: true, 
                 totalWins: dailyWins, 
                 type: 'WIN', 
                 period: 'D',
-                customTitle: "COMPLETE",
-                customSub: "CYCLE SECURED."
+                customTitle: "ANALYZING...",
+                customSub: "CALCULATING NEXT STEP",
+                aiMessage: "Analyzing data..."
             });
-        } else {
+        } else if (!isFromNotification) {
             await Haptics.impact({ style: ImpactStyle.Medium });
-            // Alert removed per user request
+            setFeedbackState({ 
+                visible: true, 
+                totalWins: dailyWins, 
+                type: 'LOSS', 
+                period: 'D',
+                customTitle: "ANALYZING...",
+                customSub: "RECALIBRATING...",
+                aiMessage: "Analyzing data..."
+            });
         }
-        if (type === 'WIN') {
-            setTimeout(() => setFeedbackState(prev => ({ ...prev, visible: false })), 3500);
-        } 
+
+        // Trigger AI Logic
+        const runFeedback = async () => {
+             const strategic = localStorage.getItem('ironlog_strategic_priority') || undefined;
+             const feedback = await generateInstantFeedback(newLog, updatedLogs.slice(1, 10), strategic);
+             
+             if (isFromNotification) {
+                 await sendFeedbackNotification(feedback);
+             } else {
+                 setFeedbackState(prev => ({ 
+                     ...prev, 
+                     aiMessage: feedback,
+                     customTitle: type === 'WIN' ? "COMPLETE" : "HALTED",
+                     customSub: type === 'WIN' ? "CYCLE SECURED" : "RECALIBRATE"
+                 }));
+                 // Overlay remains until dismissed by user
+             }
+
+             // Update Daily Report silently by appending
+             const dateKey = `D_${now.toISOString().substring(0, 10)}`;
+             const existingReport = reports[dateKey];
+             
+             const timeStr = new Date(timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+             // Only append AI advice, not user log text
+             const newEntryBlock = `[${timeStr}] >> ${feedback}`;
+             
+             const finalContent = existingReport 
+                ? existingReport.content + "\n\n" + newEntryBlock 
+                : `TACTICAL LOG - ${now.toLocaleDateString()}\n================================\n\n${newEntryBlock}`;
+             
+             const newReport: AIReport = {
+                id: existingReport?.id || crypto.randomUUID(),
+                dateKey,
+                content: finalContent,
+                summary: existingReport?.summary || feedback,
+                timestamp: Date.now(),
+                period: 'D',
+                logCount: (existingReport?.logCount || 0) + 1,
+                read: true 
+             };
+             
+             setReports(prev => ({ ...prev, [dateKey]: newReport }));
+             
+             // Update live content if modal is open
+             if (isAIModalOpen && filter === 'D') {
+                 setAiReportContent(finalContent);
+             }
+        };
+        runFeedback();
+
     } catch(e) {}
 
     localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
     setTimeLeft(cycleDuration);
-    if (isWithinSchedule()) await startTimer(cycleDuration);
+    if (isWithinSchedule()) await startTimer(cycleDuration, explicitEndTime);
     else { 
        setStatus(AppStatus.IDLE);
        setIsPaused(false);
        scheduleNextStartNotification();
     }
-  }, [startTimer, isWithinSchedule, logs, scheduleNextStartNotification, cycleDuration, editingLog]);
+  }, [startTimer, isWithinSchedule, logs, scheduleNextStartNotification, cycleDuration, editingLog, isAIModalOpen, filter, schedule]);
 
   const handleLogClose = () => {
     setIsEntryModalOpen(false);
@@ -864,7 +897,7 @@ const App: React.FC = () => {
             if (pending && pending.type) {
                 lastNativeInputTime.current = Date.now();
                 setIsEntryModalOpen(false);
-                handleLogSave(pending.input || "", pending.type, true);
+                handleLogSave(pending.input || "", pending.type, true, undefined, pending.activeEndTime);
                 LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
                 LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
                 return;
@@ -889,10 +922,9 @@ const App: React.FC = () => {
         LocalNotifications.removeAllDeliveredNotifications();
         
         // Handle AI Report Click
-        if (notification.notification.extra?.type === 'AI_REPORT' || notification.notification.id === 2) {
-             const yesterday = new Date();
-             yesterday.setDate(yesterday.getDate() - 1);
-             const dateKey = `D_${yesterday.toISOString().substring(0, 10)}`;
+        if (notification.notification.extra?.type === 'AI_REPORT' || notification.notification.id === 3) {
+             const now = new Date();
+             const dateKey = `D_${now.toISOString().substring(0, 10)}`;
              const report = reports[dateKey];
              
              if (report) {
@@ -903,6 +935,24 @@ const App: React.FC = () => {
                  setToast({ title: "Report Error", message: "Could not load report.", visible: true });
              }
              return;
+        }
+
+        // Handle AI Feedback (Instant) Click
+        if (notification.notification.extra?.type === 'AI_FEEDBACK' || notification.notification.id === 4) {
+            const message = notification.notification.body;
+            if (message) {
+                setFeedbackState({ 
+                    visible: true, 
+                    totalWins: dailyWins, // rough estimate, state might be stale but acceptable for this view
+                    type: 'WIN', // Assume win or generic for feedback display
+                    period: 'D',
+                    customTitle: "TACTICAL UPDATE",
+                    customSub: "RECEIVED",
+                    aiMessage: message
+                });
+                // Keep it visible for a bit longer or until dismissed
+            }
+            return;
         }
 
         if (notification.actionId === 'WIN_INPUT') {
@@ -917,13 +967,13 @@ const App: React.FC = () => {
         }
     });
 
-    const handleNativeInput = (event: any) => {
+    const handleNativeInput = async () => {
         try {
-            const data = typeof event.detail === 'string' ? JSON.parse(event.detail) : event.detail;
-            if (data.type) {
+            const pending = await TimerPlugin.checkPendingLog();
+            if (pending && pending.type) {
                 lastNativeInputTime.current = Date.now();
                 setIsEntryModalOpen(false);
-                handleLogSave(data.input || "", data.type, true);
+                handleLogSave(pending.input || "", pending.type, true, undefined, pending.activeEndTime);
                 LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
                 LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
             }
@@ -965,37 +1015,93 @@ const App: React.FC = () => {
   const getCurrentDateKey = () => {
      const current = new Date(viewDate);
      if (filter === 'D') return `D_${current.toISOString().substring(0, 10)}`;
-     if (filter === 'M') return `M_${current.toISOString().substring(0, 7)}`;
-     if (filter === 'Y') return `Y_${current.getFullYear()}`;
-     if (filter === 'W') {
-        const day = current.getDay();
-        const diff = current.getDate() - day + (day === 0 ? -6 : 1);
-        const monday = new Date(current);
-        monday.setDate(diff);
-        return `W_${monday.toISOString().substring(0, 10)}`;
-     }
-     return `Q_${current.getFullYear()}_${Math.floor(current.getMonth()/3)}`;
+     return `D_${current.toISOString().substring(0, 10)}`; // Fallback
   };
 
   const savedReportForView = useMemo(() => {
       if (overrideReport) return overrideReport;
-      const key = getCurrentDateKey();
-      return reports[key] || null;
+      
+      if (filter === 'D') {
+          const key = getCurrentDateKey();
+          return reports[key] || null;
+      }
+
+      // Aggregate Logic for W, M, 3M, Y
+      const current = new Date(viewDate);
+      let startTime = 0; 
+      let endTime = 0;
+      switch (filter) {
+        case 'W': {
+            const day = current.getDay();
+            const diff = current.getDate() - day + (day === 0 ? -6 : 1);
+            const startOfWeek = new Date(current);
+            startOfWeek.setDate(diff);
+            startOfWeek.setHours(0,0,0,0);
+            startTime = startOfWeek.getTime();
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 7);
+            endTime = endOfWeek.getTime() - 1;
+            break;
+        }
+        case 'M': 
+            startTime = new Date(current.getFullYear(), current.getMonth(), 1).getTime(); 
+            endTime = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59).getTime();
+            break;
+        case '3M': {
+            const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
+            const qStart = new Date(current.getFullYear(), qStartMonth, 1);
+            startTime = qStart.getTime();
+            const qEnd = new Date(qStart);
+            qEnd.setMonth(qEnd.getMonth() + 3);
+            endTime = qEnd.getTime() - 1;
+            break;
+        }
+        case 'Y': 
+            startTime = new Date(current.getFullYear(), 0, 1).getTime(); 
+            endTime = new Date(current.getFullYear(), 11, 31, 23, 59, 59).getTime();
+            break;
+        default: return null;
+      }
+
+      const dailyReports = Object.values(reports).filter(r => 
+          r.period === 'D' && r.timestamp >= startTime && r.timestamp <= endTime
+      ).sort((a,b) => a.timestamp - b.timestamp);
+      
+      if (dailyReports.length === 0) return null;
+      
+      return {
+          id: 'aggregate',
+          dateKey: 'AGGREGATE',
+          content: dailyReports.map(r => `--- ${new Date(r.timestamp).toLocaleDateString()} ---\n${r.content}`).join('\n\n'),
+          summary: "Aggregate Report",
+          timestamp: Date.now(),
+          period: filter,
+          logCount: dailyReports.length,
+          read: true
+      } as AIReport;
+
   }, [viewDate, filter, reports, overrideReport]);
 
   const canUpdateReport = useMemo(() => {
      if (!savedReportForView) return false;
+     if (savedReportForView.id === 'aggregate') return false; // Cannot manually regenerate aggregate
      return filteredLogs.length !== savedReportForView.logCount;
   }, [savedReportForView, filteredLogs]);
 
   const handleGenerateAIReport = async () => {
+      if (filter !== 'D') return; // Only Daily allowed
       const goals = getStoredGoals();
       const priority = localStorage.getItem('ironlog_strategic_priority') || undefined;
       const persona = 'LOGIC';
-      const periodMap: Record<FilterType, string> = { 'D': 'Day', 'W': 'Week', 'M': 'Month', '3M': 'Quarter', 'Y': 'Year' };
+      
       setAiReportLoading(true);
       try {
-        const content = await generateAIReport(filteredLogs, periodMap[filter], goals, persona, schedule, 'FULL', priority, logs);
+        // Enforce STRICT limit: Only logs from today
+        const current = new Date(viewDate);
+        const startOfDay = new Date(current.getFullYear(), current.getMonth(), current.getDate());
+        const todaysLogs = logs.filter(l => l.timestamp >= startOfDay.getTime() && l.timestamp < startOfDay.getTime() + 86400000);
+
+        const content = await generateAIReport(todaysLogs, 'Day', goals, persona, schedule, 'FULL', priority, logs);
         const key = getCurrentDateKey();
         const newReport: AIReport = {
             id: crypto.randomUUID(),
@@ -1004,7 +1110,7 @@ const App: React.FC = () => {
             summary: savedReportForView?.summary || "Manual Analysis", 
             timestamp: Date.now(),
             period: filter,
-            logCount: filteredLogs.length, 
+            logCount: todaysLogs.length, 
             read: true 
         };
         setReports(prev => ({ ...prev, [key]: newReport }));
@@ -1017,70 +1123,7 @@ const App: React.FC = () => {
       }
   };
 
-  const checkAndGenerateEndShiftReport = useCallback(async () => {
-      if (!schedule.enabled || !hasOnboarded) return;
-      
-      const now = new Date();
-      const dateKey = `D_${now.toISOString().substring(0, 10)}`;
-      
-      // If report already exists for today, skip
-      if (reports[dateKey]) return;
-
-      // Check if shift is over
-      const [endH, endM] = schedule.endTime.split(':').map(Number);
-      const endTotal = endH * 60 + endM;
-      const currentTotal = now.getHours() * 60 + now.getMinutes();
-      
-      // Allow a buffer (e.g., 5 mins after end time) or strict check
-      // If current time > end time, and we have logs for today
-      if (currentTotal >= endTotal) {
-          const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          const todaysLogs = logs.filter(l => l.timestamp >= startOfDay.getTime());
-          
-          if (todaysLogs.length > 0) {
-              const goals = getStoredGoals();
-              const priority = localStorage.getItem('ironlog_strategic_priority') || undefined;
-              const persona = 'LOGIC';
-              
-              // Generate Brief Notification first
-              const summary = await generateAIReport(todaysLogs, 'Day', goals, persona, schedule, 'BRIEF', priority, logs);
-              await sendReportNotification("End of Shift Debrief", summary.replace('Report Ready:', '').trim());
-              
-              const fullContent = await generateAIReport(todaysLogs, 'Day', goals, persona, schedule, 'FULL', priority, logs);
-              
-              const newReport: AIReport = {
-                  id: crypto.randomUUID(),
-                  dateKey,
-                  content: fullContent,
-                  summary,
-                  timestamp: Date.now(),
-                  period: 'D',
-                  logCount: todaysLogs.length,
-                  read: false 
-              };
-              
-              setReports(prev => ({ ...prev, [dateKey]: newReport }));
-              
-              setToast({ 
-                  title: "Shift Complete", 
-                  message: "Tactical debrief is ready.", 
-                  visible: true,
-                  onAction: () => {
-                      setAiReportContent(fullContent);
-                      setOverrideReport(newReport);
-                      setIsAIModalOpen(true);
-                  }
-              });
-          }
-      }
-  }, [schedule, hasOnboarded, reports, logs]);
-
-  useEffect(() => {
-      // Check for end of shift on mount and periodically
-      checkAndGenerateEndShiftReport();
-      const interval = setInterval(checkAndGenerateEndShiftReport, 60000 * 5); // Check every 5 mins
-      return () => clearInterval(interval);
-  }, [checkAndGenerateEndShiftReport]);
+  // Removed checkAndGenerateEndShiftReport logic
 
   const handleOpenAIModal = () => {
       if (savedReportForView) {
@@ -1146,6 +1189,7 @@ const App: React.FC = () => {
           type={feedbackState.type}
           customTitle={feedbackState.customTitle}
           customSub={feedbackState.customSub}
+          aiMessage={feedbackState.aiMessage}
           period={feedbackState.period}
           isFrozen={freezeState.isFrozen}
           onDismiss={() => setFeedbackState(prev => ({ ...prev, visible: false }))}
@@ -1229,7 +1273,7 @@ const App: React.FC = () => {
                         </div>
                      </button>
                    ) : (
-                     <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleOpenAIModal(); }} className="flex-0 p-4 rounded-2xl transition-all border bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800" title="Generate Insight">
+                     <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleGenerateAIReport(); }} className="flex-0 p-4 rounded-2xl transition-all border bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800" title="Generate Insight">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                      </button>
                    )}
@@ -1272,7 +1316,7 @@ const App: React.FC = () => {
         logs={filteredLogs}
         onSuccess={(msg) => setToast({ title: "Export Success", message: msg, visible: true })}
       />
-      <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={filter === 'D' ? 'Daily' : filter === 'W' ? 'Weekly' : filter === 'M' ? 'Monthly' : 'Quarterly'} onClose={() => { setIsAIModalOpen(false); setOverrideReport(null); }} onGenerate={handleGenerateAIReport} />
+      <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={'Daily'} onClose={() => { setIsAIModalOpen(false); setOverrideReport(null); }} onGenerate={handleGenerateAIReport} />
       <RankHierarchyModal 
         isOpen={isRankModalOpen} 
         onClose={() => setIsRankModalOpen(false)} 

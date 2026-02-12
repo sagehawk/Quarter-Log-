@@ -7,6 +7,7 @@ interface FeedbackOverlayProps {
   type: 'WIN' | 'LOSS';
   customTitle?: string;
   customSub?: string;
+  aiMessage?: string | null;
   isFrozen?: boolean;
   period?: string;
   onDismiss?: () => void;
@@ -18,6 +19,7 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
     type, 
     customTitle, 
     customSub,
+    aiMessage,
     isFrozen = false,
     period = 'D',
     onDismiss
@@ -26,7 +28,9 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
   const [touchStart, setTouchStart] = useState<number | null>(null);
   
   const { currentRank, nextRank, progress, winsToNext } = getRankProgress(totalWins, period);
-  const isPromotion = type === 'WIN' && progress < 5 && totalWins > 0; 
+  // Adjusted promotion logic assumption: If we just hit a rank, progress might be 0 or we check if we just crossed a threshold.
+  // Using existing logic for now.
+  const isPromotion = type === 'WIN' && progress === 0 && totalWins > 0; 
 
   useEffect(() => {
     if (isVisible && type === 'WIN') {
@@ -63,29 +67,32 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
         >
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" />
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-md animate-fade-in" />
             
-            <div className="relative z-10 w-full animate-slide-up">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-950/90 to-transparent border-y border-red-500/20 blur-sm" />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-950/90 to-transparent border-y border-red-500/20" />
+            <div className="relative z-10 w-full animate-slide-up px-6">
+                <div className="flex flex-col items-center py-12 space-y-8">
+                    {/* AI Feedback - Prominent */}
+                    {aiMessage && (
+                        <div className="text-center space-y-4 max-w-sm mx-auto">
+                            <div className="inline-block bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-1 text-[10px] font-mono text-red-500 uppercase tracking-widest">
+                                Tactical Feedback
+                            </div>
+                            <h2 className="text-2xl md:text-3xl font-bold text-white leading-tight font-mono">
+                                "{aiMessage}"
+                            </h2>
+                        </div>
+                    )}
 
-                <div className="relative flex flex-col items-center py-12">
-                    <div className="relative mb-6">
-                        <div className="absolute inset-0 bg-red-500/20 blur-3xl rounded-full animate-pulse" />
-                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 w-24 h-24 drop-shadow-[0_0_25px_rgba(220,38,38,0.5)]">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                            <line x1="12" y1="9" x2="12" y2="13"></line>
-                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                        </svg>
-                    </div>
-
-                    <div className="text-center space-y-2 px-8">
-                        <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter uppercase text-red-500 drop-shadow-sm leading-none">
-                            {customTitle || "MOMENTUM HALTED"}
-                        </h1>
-                        <p className="text-white/60 font-bold text-xs tracking-[0.3em] uppercase leading-relaxed">
-                            {customSub || "RECALIBRATE IMMEDIATE"}
-                        </p>
+                    {!aiMessage && (
+                        <div className="text-center space-y-2">
+                            <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter uppercase text-red-500 drop-shadow-sm leading-none">
+                                {customTitle || "MOMENTUM HALTED"}
+                            </h1>
+                        </div>
+                    )}
+                    
+                    <div className="text-white/40 font-bold text-xs tracking-[0.3em] uppercase">
+                        TAP TO DISMISS
                     </div>
                 </div>
             </div>
@@ -101,85 +108,69 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" />
+      <div className="absolute inset-0 bg-black/90 backdrop-blur-md animate-fade-in" />
       
       <div className="relative z-10 w-full animate-slide-up">
         {/* Banner Background */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/90 to-transparent border-y border-yellow-500/20 blur-sm" />
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/90 to-transparent border-y border-yellow-500/20" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/90 to-transparent border-y border-yellow-500/10" />
         
-        <div className="relative flex flex-col items-center py-10 px-4">
+        <div className="relative flex flex-col items-center py-10 px-6 gap-8">
             
-            {customTitle && (
-                <div className="absolute -top-12 animate-pulse-slow">
-                    <span className="text-yellow-500/60 font-black text-[10px] tracking-[0.5em] uppercase">
-                        {customTitle}
-                    </span>
+            {/* AI Message - The Hero */}
+            {aiMessage && (
+                <div className="text-center space-y-4 max-w-md mx-auto z-20">
+                     <div className="inline-flex items-center gap-2 text-yellow-500/60 font-mono text-[10px] uppercase tracking-widest">
+                        <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse" />
+                        Live Guidance
+                     </div>
+                     <h2 className="text-2xl md:text-3xl font-bold text-white leading-snug font-mono drop-shadow-md">
+                        "{aiMessage}"
+                     </h2>
                 </div>
             )}
 
-            {isPromotion && (
-                <div className="absolute -top-6 animate-bounce-slight z-20">
-                    <span className="bg-yellow-500 text-black font-black text-xs px-4 py-1 rounded-full tracking-[0.3em] uppercase shadow-[0_0_20px_rgba(234,179,8,0.6)]">
-                        Promotion Secured
-                    </span>
-                </div>
-            )}
-
-            <div className={`relative mb-6 ${isPromotion ? 'scale-125 transition-transform duration-500' : ''} ${isFrozen ? 'grayscale brightness-50' : ''}`}>
-                <div className={`absolute inset-0 bg-white/10 blur-3xl rounded-full ${currentRank.color.replace('text-', 'bg-')}/20`} />
-                <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="1.5" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                    className={`w-24 h-24 md:w-32 md:h-32 ${currentRank.color} drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] animate-pulse-slow`}
-                >
-                    <path d={currentRank.icon} />
-                </svg>
-                {isFrozen && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="opacity-80"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            {/* Rank Status - Subtle unless Promotion */}
+            <div className={`flex flex-col items-center transition-all duration-500 ${isPromotion ? 'scale-110 opacity-100 my-4' : 'scale-75 opacity-40 grayscale-[0.5]'}`}>
+                {isPromotion && (
+                    <div className="mb-4 animate-bounce-slight">
+                        <span className="bg-yellow-500 text-black font-black text-xs px-4 py-1 rounded-full tracking-[0.3em] uppercase shadow-[0_0_20px_rgba(234,179,8,0.6)]">
+                            Rank Up
+                        </span>
                     </div>
                 )}
-            </div>
-
-            <div className="text-center mb-6">
-                <div className="text-white/40 font-bold text-[9px] tracking-[0.4em] uppercase mb-1">
-                    {isFrozen ? "RANK FROZEN" : "Current Status"}
-                </div>
-                <h1 className={`text-4xl md:text-5xl font-black italic tracking-tighter uppercase ${isFrozen ? 'text-white/20' : currentRank.color} drop-shadow-sm`}>
-                    {currentRank.name}
-                </h1>
-                {customSub && (
-                    <p className="mt-2 text-yellow-500 font-black text-[10px] tracking-widest uppercase animate-pulse">
-                        {customSub}
-                    </p>
-                )}
-            </div>
-
-            <div className={`w-full max-w-xs space-y-2 ${isFrozen ? 'opacity-20' : ''}`}>
-                <div className="flex justify-between items-end px-1">
-                    <span className="text-white/60 font-black text-[10px] tracking-widest">{totalWins} WINS</span>
-                    {nextRank && (
-                        <span className="text-white/40 font-bold text-[8px] tracking-widest uppercase">
-                            {winsToNext} to {nextRank.name}
-                        </span>
-                    )}
+                
+                <div className="relative">
+                     <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="1.5" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                        className={`w-16 h-16 ${currentRank.color}`}
+                    >
+                        <path d={currentRank.icon} />
+                    </svg>
                 </div>
                 
-                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 relative">
-                    <div className="absolute inset-0 bg-white/5" />
-                    <div 
-                        className={`h-full ${isFrozen ? 'bg-white/20' : currentRank.color.replace('text-', 'bg-')} shadow-[0_0_15px_currentColor] transition-all duration-1000 ease-out relative`}
-                        style={{ width: `${animateProgress}%` }}
-                    >
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/50" />
+                <div className="text-center mt-2">
+                    <h3 className={`text-lg font-black italic tracking-tighter uppercase ${currentRank.color}`}>
+                        {currentRank.name}
+                    </h3>
+                    <div className="flex items-center gap-2 justify-center mt-1">
+                         <div className="h-1 w-16 bg-white/10 rounded-full overflow-hidden">
+                            <div 
+                                className={`h-full ${currentRank.color.replace('text-', 'bg-')}`} 
+                                style={{ width: `${(progress / 5) * 100}%` }} // Approximate progress visual
+                            />
+                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div className="text-white/20 font-bold text-[10px] tracking-widest uppercase animate-pulse">
+                Tap to Continue
             </div>
         </div>
 

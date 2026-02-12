@@ -167,3 +167,25 @@ export const sendReportNotification = async (title: string, body: string) => {
     console.error("Failed to send report notification", e);
   }
 };
+
+export const sendFeedbackNotification = async (message: string) => {
+  try {
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          title: "Tactical Update",
+          body: message,
+          id: 4, // Unique ID for Instant Feedback
+          schedule: { at: new Date(Date.now() + 100) },
+          sound: 'beep.wav',
+          smallIcon: 'ic_stat_status_bar_logo',
+          channelId: CHANNEL_ID,
+          actionTypeId: '', 
+          extra: { type: 'AI_FEEDBACK' } 
+        }
+      ]
+    });
+  } catch (e) {
+    console.error("Failed to send feedback notification", e);
+  }
+};

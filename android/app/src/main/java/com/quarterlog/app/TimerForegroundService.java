@@ -64,11 +64,22 @@ public class TimerForegroundService extends Service {
             }
     
                     if ("ACTION_WIN".equals(action) || "ACTION_LOSS".equals(action)) {
+                        String inputText = "";
+                        android.os.Bundle remoteInput = RemoteInput.getResultsFromIntent(intent);
+                        if (remoteInput != null) {
+                            CharSequence val = remoteInput.getCharSequence("log_input");
+                            if (val != null) inputText = val.toString();
+                        }
+
                         getSharedPreferences("NativeLog", MODE_PRIVATE).edit()
-                            .putString("pending_input", "")
+                            .putString("pending_input", inputText)
                             .putString("pending_type", "ACTION_WIN".equals(action) ? "WIN" : "LOSS")
                             .apply();
                             
+                        Intent broadcast = new Intent("com.quarterlog.app.UPDATE_LOG");
+                        broadcast.setPackage(getPackageName());
+                        sendBroadcast(broadcast);
+
                         NotificationManager mNotificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                         if (mNotificationManager != null) {
                             mNotificationManager.cancel(ALERT_NOTIFICATION_ID);
@@ -80,6 +91,13 @@ public class TimerForegroundService extends Service {
                         
                         if (cyclesLeft > 0) {
                             endTime = System.currentTimeMillis() + currentDuration;
+                            
+                            // Save new state for App sync
+                            getSharedPreferences("TimerState", MODE_PRIVATE).edit()
+                                .putLong("endTime", endTime)
+                                .putInt("cyclesLeft", cyclesLeft)
+                                .apply();
+
                             startForeground(NOTIFICATION_ID, createNotification(currentDuration));
                             startTimer();
                             return START_STICKY;
@@ -235,30 +253,37 @@ public class TimerForegroundService extends Service {
                 int current = Math.max(1, totalCycles - cyclesLeft + 1);
                 String contentText = "Declare your status for Cycle " + current + "/" + totalCycles;
                 
+                // Add RemoteInput for text entry
+                RemoteInput remoteInput = new RemoteInput.Builder("log_input")
+                        .setLabel("What did you do?")
+                        .build();
+
                 Intent winIntent = new Intent(this, TimerForegroundService.class);
                 winIntent.setAction("ACTION_WIN");
-                PendingIntent winPendingIntent = PendingIntent.getService(this, 10, winIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                PendingIntent winPendingIntent = PendingIntent.getService(this, 10, winIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
     
                 NotificationCompat.Action winAction = new NotificationCompat.Action.Builder(
-                        0, "WIN", winPendingIntent)
+                        0, "DONE", winPendingIntent)
+                        .addRemoteInput(remoteInput)
                         .build();
                 
                 Intent lossIntent = new Intent(this, TimerForegroundService.class);
                 lossIntent.setAction("ACTION_LOSS");
-                PendingIntent lossPendingIntent = PendingIntent.getService(this, 11, lossIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                PendingIntent lossPendingIntent = PendingIntent.getService(this, 11, lossIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
     
                 NotificationCompat.Action lossAction = new NotificationCompat.Action.Builder(
                         0, "MISS", lossPendingIntent)
+                        .addRemoteInput(remoteInput)
                         .build();
     
-                            Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                            Notification notification = new NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
                                     .setContentTitle("Cycle Complete")
                                     .setContentText(contentText)
                                     .setSmallIcon(iconResId)
                                     .setContentIntent(pendingIntent)
                                     .setAutoCancel(false) // Don't dismiss on click
                                     .setOngoing(true)     // Persistent
-                                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                                    .setPriority(NotificationCompat.PRIORITY_MAX)
                                     .setCategory(NotificationCompat.CATEGORY_ALARM)
                                     .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                                     .addAction(winAction)
