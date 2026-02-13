@@ -138,7 +138,7 @@ const AIFeedbackModal: React.FC<AIFeedbackModalProps> = ({
                     </div>
                 </div>
             ) : report ? (
-                <div className="animate-fade-in max-w-2xl mx-auto">
+                <div className="animate-fade-in max-w-2xl mx-auto select-text cursor-text">
                     {renderMarkdown(report)}
                 </div>
             ) : (
