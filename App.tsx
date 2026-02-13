@@ -603,7 +603,7 @@ const App: React.FC = () => {
     setIsSettingsModalOpen(false);
   };
 
-  const handleOnboardingComplete = (goals: UserGoal[], config: ScheduleConfig, priority?: string, startChallenge?: boolean) => {
+  const handleOnboardingComplete = (goals: UserGoal[], config: ScheduleConfig, priority?: string, startChallenge?: boolean, startWithWin?: boolean) => {
       const configWithEnabled = { ...config, enabled: true };
       localStorage.setItem(STORAGE_KEY_ONBOARDED, 'true');
       localStorage.setItem(STORAGE_KEY_GOAL, JSON.stringify(goals));
@@ -621,6 +621,14 @@ const App: React.FC = () => {
       }
       setSchedule(configWithEnabled);
       setHasOnboarded(true);
+
+      if (startWithWin) {
+          // Immediate "First Win"
+          setTimeout(() => {
+             handleLogSave("Protocol Initiated", 'WIN', true);
+          }, 500);
+      }
+
       setTimeout(() => {
          const now = new Date();
          const currentMinutes = now.getHours() * 60 + now.getMinutes();
