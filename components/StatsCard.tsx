@@ -28,7 +28,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
   canGoForward,
   onStreakClick
 }) => {
-  const [hoverData, setHoverData] = React.useState<{ date: string, wins: number, losses: number } | null>(null);
+  const [hoverData, setHoverData] = React.useState<{ date: string, wins: number, losses: number, draws?: number } | null>(null);
   const [hoverPos, setHoverPos] = React.useState<{ x: number, y: number } | null>(null);
 
   // --- 1. Data Processing ---
@@ -94,21 +94,21 @@ const StatsCard: React.FC<StatsCardProps> = ({
   const chartData = useMemo(() => {
       if (filter === 'Y') return null;
 
-      let buckets: { label: string, wins: number, losses: number, isFuture?: boolean }[] = [];
+      let buckets: { label: string, wins: number, losses: number, draws: number, isFuture?: boolean }[] = [];
       const current = new Date(viewDate);
 
       if (filter === 'D') {
           // 24 Hours
           for (let i = 0; i < 24; i++) {
-              // Convert to 12h format
               const h = i % 12 || 12;
-              buckets.push({ label: `${h}`, wins: 0, losses: 0 });
+              buckets.push({ label: `${h}`, wins: 0, losses: 0, draws: 0 });
           }
           logs.forEach(l => {
               const d = new Date(l.timestamp);
               if (d.toDateString() === current.toDateString()) {
                   const h = d.getHours();
                   if (l.type === 'WIN') buckets[h].wins++;
+                  else if (l.type === 'DRAW') buckets[h].draws++;
                   else buckets[h].losses++;
               }
           });
@@ -125,8 +125,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
               d.setDate(start.getDate() + i);
               const dayLogs = logs.filter(l => new Date(l.timestamp).toDateString() === d.toDateString());
               const wins = dayLogs.filter(l => l.type === 'WIN').length;
+              const draws = dayLogs.filter(l => l.type === 'DRAW').length;
               const losses = dayLogs.filter(l => l.type === 'LOSS').length;
-              buckets.push({ label: days[i], wins, losses });
+              buckets.push({ label: days[i], wins, losses, draws });
           }
       } else if (filter === 'M') {
           // Days in Month
@@ -138,8 +139,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
               const d = new Date(year, month, i);
               const dayLogs = logs.filter(l => new Date(l.timestamp).toDateString() === d.toDateString());
               const wins = dayLogs.filter(l => l.type === 'WIN').length;
+              const draws = dayLogs.filter(l => l.type === 'DRAW').length;
               const losses = dayLogs.filter(l => l.type === 'LOSS').length;
-              buckets.push({ label: `${i}`, wins, losses });
+              buckets.push({ label: `${i}`, wins, losses, draws });
           }
       } else if (filter === '3M') {
           // 13 Weeks
@@ -153,8 +155,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
               
               const weekLogs = logs.filter(l => l.timestamp >= wStart.getTime() && l.timestamp < wEnd.getTime());
               const wins = weekLogs.filter(l => l.type === 'WIN').length;
+              const draws = weekLogs.filter(l => l.type === 'DRAW').length;
               const losses = weekLogs.filter(l => l.type === 'LOSS').length;
-              buckets.push({ label: `W${i+1}`, wins, losses });
+              buckets.push({ label: `W${i+1}`, wins, losses, draws });
           }
       }
 
@@ -172,6 +175,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
       const sorted = [...logs].sort((a,b) => b.timestamp - a.timestamp);
       for(const log of sorted) {
           if (log.type === 'WIN') streak++;
+          else if (log.type === 'DRAW') continue;
           else break;
       }
 
@@ -314,13 +318,14 @@ const StatsCard: React.FC<StatsCardProps> = ({
 
   const renderChart = () => {
       if (!chartData) return null;
-      const maxVal = Math.max(...chartData.map(d => d.wins + d.losses), 1);
+      const maxVal = Math.max(...chartData.map(d => d.wins + d.losses + d.draws), 1);
 
       return (
           <div className="flex items-end gap-1 h-32 w-full pt-6">
               {chartData.map((d, i) => {
-                  const total = d.wins + d.losses;
+                  const total = d.wins + d.losses + d.draws;
                   const winH = (d.wins / maxVal) * 100;
+                  const drawH = (d.draws / maxVal) * 100;
                   const lossH = (d.losses / maxVal) * 100;
                   
                   // Label Logic: Show every 4th or 6th, or distinct logic
@@ -344,7 +349,8 @@ const StatsCard: React.FC<StatsCardProps> = ({
                             setHoverData({ 
                                 date: d.label, // Reuse date field for label
                                 wins: d.wins, 
-                                losses: d.losses 
+                                losses: d.losses,
+                                draws: d.draws
                             });
                             setHoverPos({ x: rect.left + rect.width / 2, y: rect.top });
                         }}
@@ -361,6 +367,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                           )}
 
                           <div style={{ height: `${lossH}%` }} className="w-full bg-red-500/50 rounded-[1px] transition-all duration-500" />
+                          <div style={{ height: `${drawH}%` }} className="w-full bg-yellow-500/50 rounded-[1px] transition-all duration-500" />
                           <div style={{ height: `${winH}%` }} className="w-full bg-green-500 rounded-[1px] shadow-[0_0_10px_rgba(34,197,94,0.3)] transition-all duration-500" />
                           {total === 0 && <div className="w-full h-[2px] bg-white/5 rounded-full" />}
                       </div>
@@ -374,7 +381,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
                       style={{ left: hoverPos.x, top: hoverPos.y - 8 }}
                   >
                       <span className="block text-[10px] font-black uppercase tracking-widest text-green-500 mb-0.5">{hoverData.date}</span>
-                      <span className="block text-[10px] font-mono text-white/60">{hoverData.wins} WINS / {hoverData.losses} LOSSES</span>
+                      <span className="block text-[10px] font-mono text-white/60">
+                          {hoverData.wins} W / {hoverData.draws || 0} D / {hoverData.losses} L
+                      </span>
                       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-zinc-900 border-r border-b border-white/10"></div>
                   </div>
               )}

@@ -304,22 +304,23 @@ export const analyzeEntry = async (
      - RECOVERY: Active Rest, Family, Leisure. (Recharging)
      - BURN: Wasted time, Scrolling, Drifting. (The Enemy)
   
-  2. JUDGE it: Is it a WIN (MAKER, R&D, FUEL, RECOVERY) or a LOSS (BURN, excessive MANAGER)?
+  2. JUDGE it: Is it a WIN (MAKER, R&D, strategic FUEL, RECOVERY), a LOSS (BURN, excessive MANAGER), or a DRAW (Routine FUEL like eating/hygiene, Commuting, Neutral)?
      - Align with Strategic Priority: "${strategicPriority}"
-     - Consider the Time: If it's work hours, Leisure might be a LOSS. If it's off-hours, Work might be a LOSS (burnout risk) or WIN (extra mile) depending on context.
-     - Consider the Scorecard: If BURN is high, be harsher. If Win Rate is high, be encouraging but demanding.
+     - Consider the Time: If it's work hours, Leisure might be a LOSS.
+     - SPECIFIC RULE: Routine meals (Lunch/Dinner) are a DRAW unless specified as "Networking" or "Strategic".
 
   3. FEEDBACK: One short, punchy sentence.
      - CRITICAL: Do NOT repeat advice given in the RECENT HISTORY. Be fresh.
+     - TRIGGER [MOOD: SAVAGE] if 'BURN' count > 2 in the DAILY SCORECARD.
 
   STRICT OUTPUT FORMAT (JSON ONLY):
   {
     "category": "CATEGORY_NAME",
-    "type": "WIN" or "LOSS",
+    "type": "WIN" or "LOSS" or "DRAW",
     "feedback": "[MOOD: TAG] Your feedback text."
   }
   
-  Mood Tags: [MOOD: WIN], [MOOD: LOSS], [MOOD: SAVAGE], [MOOD: STOIC].
+  Mood Tags: [MOOD: WIN], [MOOD: LOSS], [MOOD: DRAW], [MOOD: SAVAGE], [MOOD: STOIC].
   `;
 
   const prompt = `LOG: "${text}"`;

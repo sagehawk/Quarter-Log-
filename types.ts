@@ -5,7 +5,7 @@ export interface LogEntry {
   id: string;
   timestamp: number; // Date.now()
   text: string;
-  type?: 'WIN' | 'LOSS';
+  type?: 'WIN' | 'LOSS' | 'DRAW';
   category?: LogCategory;
   isFrozenWin?: boolean;
   duration?: number; // Duration in ms

@@ -99,7 +99,7 @@ const App: React.FC = () => {
       { targetId: 'stats-card', text: "This is your performance grid. Green is good. Gaps are opportunities.", mood: 'IDLE' },
       { 
           targetId: 'manual-entry-btn', 
-          text: "Don't wait for the timer. If you win, log it immediately. Tap the button now.", 
+          text: "Normally, you report when the timer hits zero. But you can also log anytime manually. Try it now.", 
           mood: 'ASKING', 
           waitForInteraction: true 
       },
@@ -185,7 +185,7 @@ const App: React.FC = () => {
 
     const [toast, setToast] = useState<{title: string, message: string, visible: boolean, onAction?: () => void}>({ title: '', message: '', visible: false });
 
-    const [feedbackState, setFeedbackState] = useState<{ visible: boolean, totalWins: number, type: 'WIN' | 'LOSS', customTitle?: string, customSub?: string, period?: string, aiMessage?: string | null }>({
+    const [feedbackState, setFeedbackState] = useState<{ visible: boolean, totalWins: number, type: 'WIN' | 'LOSS' | 'DRAW', customTitle?: string, customSub?: string, period?: string, aiMessage?: string | null }>({
         visible: false,
         totalWins: 0,
         type: 'WIN',
@@ -870,7 +870,7 @@ const App: React.FC = () => {
     setIsEntryModalOpen(true);
   };
 
-  const handleLogSave = useCallback(async (text: string, type?: 'WIN' | 'LOSS', timestampOrIsNotification?: number | boolean, duration?: number, explicitEndTime?: number) => {
+  const handleLogSave = useCallback(async (text: string, type?: 'WIN' | 'LOSS' | 'DRAW', timestampOrIsNotification?: number | boolean, duration?: number, explicitEndTime?: number) => {
     let timestamp = Date.now();
     let isFromNotification = false;
     let finalDuration = duration;
@@ -959,18 +959,22 @@ const App: React.FC = () => {
     if (!isFromNotification) {
         if (finalType === 'WIN') {
             try { await Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
+        } else if (finalType === 'DRAW') {
+            try { await Haptics.notification({ type: NotificationType.Warning }); } catch(e) {}
         } else {
             try { await Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
         }
 
         const newDailyWins = updatedLogs.filter(l => l.type === 'WIN' && l.timestamp >= new Date().setHours(0,0,0,0)).length;
 
+        const title = finalType === 'WIN' ? "MISSION ACCOMPLISHED" : finalType === 'DRAW' ? "HOLDING PATTERN" : "BREACH DETECTED";
+
         setFeedbackState({ 
             visible: true, 
             totalWins: newDailyWins, 
-            type: finalType as 'WIN' | 'LOSS', 
+            type: finalType as 'WIN' | 'LOSS' | 'DRAW', 
             period: 'D',
-            customTitle: finalType === 'WIN' ? "MISSION ACCOMPLISHED" : "BREACH DETECTED",
+            customTitle: title,
             customSub: (analysis.category || "LOGGED").toUpperCase(),
             aiMessage: analysis.feedback
         });

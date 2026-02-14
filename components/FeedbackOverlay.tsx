@@ -5,7 +5,7 @@ import TacticalCoachView, { CoachMood } from './TacticalCoachView';
 interface FeedbackOverlayProps {
   isVisible: boolean;
   totalWins: number;
-  type: 'WIN' | 'LOSS';
+  type: 'WIN' | 'LOSS' | 'DRAW';
   customTitle?: string;
   customSub?: string;
   aiMessage?: string | null;
@@ -70,7 +70,7 @@ const FeedbackOverlay: React.FC<FeedbackOverlayProps> = ({
     // Fallback if no tag
     return { 
         cleanMessage: aiMessage, 
-        mood: type === 'WIN' ? 'WIN' : 'LOSS' 
+        mood: type === 'WIN' ? 'WIN' : type === 'DRAW' ? 'DRAW' : 'LOSS' 
     };
   }, [aiMessage, type, isVisible]);
 

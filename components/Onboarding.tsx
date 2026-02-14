@@ -41,7 +41,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               break;
           case 2:
               setMood('PROCESSING');
-              setText("How? By tracking 15-minute blocks. Build your 'Streak' by logging wins. If you drift, the Streak resets. Momentum is your currency.");
+              setText("Good. We start with the Protocol: 15-minute combat blocks. Stacking wins builds your 'Streak'. If you drift, the Streak resets. Momentum is your currency.");
               break;
           case 3:
               setMood('IDLE');
@@ -56,7 +56,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               setText("I require authorization to interrupt your pattern. It is necessary to break the cycle.");
               break;
           case 6: // Contract
-              setMood('LOSS'); // Serious tone
+              setMood('IDLE'); // Serious tone
               setText("This is a binding agreement. You grade yourself honestly. Sign to confirm.");
               break;
       }
@@ -78,7 +78,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           case 1:
             return (
                 <button onClick={nextScene} className="w-full py-4 bg-white/10 border border-white/20 text-white font-black uppercase tracking-widest rounded-xl hover:bg-white/20 transition-all">
-                    Affirmative. I am drifting.
+                    I AM READY.
                 </button>
             );
           case 2:

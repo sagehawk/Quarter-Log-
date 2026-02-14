@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
-export type CoachMood = 'IDLE' | 'ASKING' | 'PROCESSING' | 'WIN' | 'LOSS' | 'SAVAGE' | 'STOIC';
+export type CoachMood = 'IDLE' | 'ASKING' | 'PROCESSING' | 'WIN' | 'LOSS' | 'DRAW' | 'SAVAGE' | 'STOIC';
 
 interface TacticalCoachViewProps {
   mood: CoachMood;
@@ -23,18 +23,19 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
-  // Placeholder mapping - You will replace these URLs with your local assets
   const moodImages: Record<CoachMood, string> = {
-    'IDLE': 'https://images.unsplash.com/photo-1555421689-491a97ff2040?q=80&w=1920&auto=format&fit=crop', // Matrix/Code vibe
-    'ASKING': 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=1920&auto=format&fit=crop', // Business/Expectant
-    'PROCESSING': 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=1920&auto=format&fit=crop', // Hacker/Data
-    'WIN': 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?q=80&w=1920&auto=format&fit=crop', // Success/Light
-    'LOSS': 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=1920&auto=format&fit=crop', // Dark/Stormy
-    'SAVAGE': 'https://images.unsplash.com/photo-1593642532400-2682810df593?q=80&w=1920&auto=format&fit=crop', // Intense
-    'STOIC': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1920&auto=format&fit=crop', // Landscape/Calm
+    'IDLE': '/character/coach-idle.jpg',
+    'ASKING': '/character/coach-asking.jpg',
+    'PROCESSING': '/character/coach-processing.jpg',
+    'WIN': '/character/coach-win.jpg',
+    'LOSS': '/character/coach-loss.jpg',
+    'DRAW': '/character/coach-draw.jpg',
+    'SAVAGE': '/character/coach-savage.jpg',
+    'STOIC': '/character/coach-idle.jpg',
   };
 
   const currentImage = bgImage === 'transparent' ? null : (bgImage || moodImages[mood]);
+  const isTransparent = bgImage === 'transparent';
 
   useEffect(() => {
     setDisplayedText('');
@@ -58,16 +59,16 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
   }, [message]);
 
   return (
-    <div className="fixed inset-0 z-[50] text-white overflow-hidden pointer-events-none">
+    <div className={`fixed inset-0 z-[50] text-white overflow-hidden pointer-events-none ${isTransparent ? '' : 'bg-black'}`}>
       
       {/* Background Image Layer */}
       {currentImage && (
         <div className="absolute inset-0 z-0 pointer-events-auto">
-            <div className="absolute inset-0 bg-black/60 z-10" /> {/* Dimmer */}
+            <div className="absolute inset-0 bg-black/20 z-10" /> {/* Dimmer */}
             <img 
                 src={currentImage} 
                 alt="Tactical Coach" 
-                className="w-full h-full object-cover transition-all duration-1000 ease-in-out opacity-60"
+                className="w-full h-full object-cover transition-all duration-1000 ease-in-out opacity-90"
             />
         </div>
       )}
