@@ -82,23 +82,23 @@ const PersonaSelector: React.FC<PersonaSelectorProps> = ({
                         onClick={() => handleSelect(p)}
                         className={`w-full relative group overflow-hidden rounded-2xl p-4 text-left transition-all border ${
                             isSelected 
-                            ? 'bg-yellow-500/10 border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.2)]' 
+                            ? 'bg-green-500/10 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.2)]' 
                             : isLocked
                                 ? 'bg-black/40 border-white/5 opacity-60 grayscale'
                                 : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'
                         }`}
                     >
                         <div className="flex items-start gap-4 relative z-10">
-                            <div className={`p-3 rounded-xl ${isSelected ? 'bg-yellow-500 text-black' : 'bg-white/10 text-white/40'}`}>
+                            <div className={`p-3 rounded-xl ${isSelected ? 'bg-green-500 text-black' : 'bg-white/10 text-white/40'}`}>
                                 {p.icon}
                             </div>
                             <div className="flex-1">
                                 <div className="flex justify-between items-center mb-1">
-                                    <h3 className={`font-black uppercase tracking-wide text-sm ${isSelected ? 'text-yellow-500' : 'text-white'}`}>
+                                    <h3 className={`font-black uppercase tracking-wide text-sm ${isSelected ? 'text-green-500' : 'text-white'}`}>
                                         {p.name}
                                     </h3>
                                     {isLocked && (
-                                        <div className="flex items-center gap-1 text-[10px] font-mono text-red-500 bg-red-500/10 px-2 py-1 rounded border border-red-500/20">
+                                        <div className="flex items-center gap-1 text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-1 rounded border border-zinc-800">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                                             REQ: {p.requiredStreak} DAY STREAK
                                         </div>
@@ -126,7 +126,7 @@ const PersonaSelector: React.FC<PersonaSelectorProps> = ({
                   onSelect(selected);
                   onClose();
               }}
-              className="flex-[2] py-4 rounded-xl font-black bg-white text-black hover:bg-yellow-400 transition-all uppercase tracking-[0.2em] text-xs shadow-xl"
+              className="flex-[2] py-4 rounded-xl font-black bg-white text-black hover:bg-green-400 transition-all uppercase tracking-[0.2em] text-xs shadow-xl"
             >
               Confirm
             </button>

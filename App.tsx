@@ -19,8 +19,9 @@ import { generateDemoData } from './utils/demoData';
 import StatusCard from './components/StatusCard';
 import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState, FilterType, AIPersona } from './types';
 import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification, sendReportNotification, sendFeedbackNotification } from './utils/notifications';
-import { generateAIReport, generateInstantFeedback, generateProtocolRecovery } from './utils/aiService';
+import { generateAIReport, analyzeEntry } from './utils/aiService';
 import TimerPlugin from './utils/nativeTimer';
+import TutorialOverlay, { TutorialStep } from './components/TutorialOverlay';
 
 const STORAGE_KEY_LOGS = 'ironlog_entries';
 const STORAGE_KEY_SCHEDULE = 'ironlog_schedule';
@@ -87,6 +88,45 @@ const App: React.FC = () => {
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
   
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+
+  const [isTutorialActive, setIsTutorialActive] = useState(false);
+  const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
+  const [tutorialPrefill, setTutorialPrefill] = useState<string | null>(null);
+
+  const tutorialSteps: TutorialStep[] = [
+      { text: "Welcome to the Command Center. Let's orient you.", mood: 'IDLE' },
+      { targetId: 'status-card', text: "This is the heartbeat. It counts down every 15 minutes. When it hits zero, you report.", mood: 'PROCESSING' },
+      { targetId: 'stats-card', text: "This is your performance grid. Green is good. Gaps are opportunities.", mood: 'IDLE' },
+      { 
+          targetId: 'manual-entry-btn', 
+          text: "Don't wait for the timer. If you win, log it immediately. Tap the button now.", 
+          mood: 'ASKING', 
+          waitForInteraction: true 
+      },
+      { 
+          targetId: 'stats-card',
+          text: "Entry confirmed. The grid updates instantly to reflect your status. One block secured.", 
+          mood: 'WIN' 
+      },
+      { 
+          targetId: 'pie-chart',
+          text: "Your Resource Allocation updates here. Green is Leverage (Maker). Red is Burn. Optimize accordingly.", 
+          mood: 'PROCESSING'
+      },
+      { 
+          text: "You are active. The clock is ticking. Stay on vector.", 
+          mood: 'IDLE' 
+      }
+  ];
+
+  const handleTutorialNext = () => {
+      if (tutorialStepIndex < tutorialSteps.length - 1) {
+          setTutorialStepIndex(prev => prev + 1);
+      } else {
+          setIsTutorialActive(false);
+          localStorage.setItem('ironlog_tutorial_complete', 'true');
+      }
+  };
 
   // ...
 
@@ -435,6 +475,18 @@ const App: React.FC = () => {
       return () => clearInterval(i);
   }, []);
 
+  const lastCheckedDateRef = useRef(new Date().toDateString());
+  useEffect(() => {
+      const today = new Date().toDateString();
+      if (today !== lastCheckedDateRef.current) {
+          // New day detected
+          if (filter === 'D' && viewDate.toDateString() === lastCheckedDateRef.current) {
+              setViewDate(new Date());
+          }
+          lastCheckedDateRef.current = today;
+      }
+  }, [minuteTick, viewDate, filter]);
+
   const getBlockStats = useCallback(() => {
     if (!schedule.enabled) return { total: 0, remaining: 0 };
     
@@ -623,10 +675,12 @@ const App: React.FC = () => {
       setHasOnboarded(true);
 
       if (startWithWin) {
-          // Immediate "First Win"
           setTimeout(() => {
              handleLogSave("Protocol Initiated", 'WIN', true);
+             setTimeout(() => setIsTutorialActive(true), 2000);
           }, 500);
+      } else {
+          setIsTutorialActive(true);
       }
 
       setTimeout(() => {
@@ -804,11 +858,19 @@ const App: React.FC = () => {
 
   const handleManualLogStart = () => {
     try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
+    
+    if (isTutorialActive && tutorialStepIndex === 3) {
+        setIsTutorialActive(false);
+        setTutorialPrefill("Initializing Protocol: Committing to the mission.");
+    } else {
+        setTutorialPrefill(null);
+    }
+
     setIsManualEntry(true);
     setIsEntryModalOpen(true);
   };
 
-  const handleLogSave = useCallback(async (text: string, type: 'WIN' | 'LOSS' = 'WIN', timestampOrIsNotification?: number | boolean, duration?: number, explicitEndTime?: number) => {
+  const handleLogSave = useCallback(async (text: string, type?: 'WIN' | 'LOSS', timestampOrIsNotification?: number | boolean, duration?: number, explicitEndTime?: number) => {
     let timestamp = Date.now();
     let isFromNotification = false;
     let finalDuration = duration;
@@ -819,16 +881,14 @@ const App: React.FC = () => {
         timestamp = timestampOrIsNotification;
     }
 
-    let finalText = text.trim();
-    if (!finalText) {
-        finalText = type === 'WIN' ? "Focused on priority" : "Distracted / Off-track";
-    }
+    const trimmedText = text.trim();
+    if (!trimmedText && !type) return;
 
     if (editingLog) {
         const updatedLogs = logs.map(l => l.id === editingLog.id ? { 
             ...l, 
-            text: finalText, 
-            type,
+            text: trimmedText || l.text, 
+            type: type || l.type || 'WIN', 
             timestamp: timestamp, 
             duration: finalDuration 
         } : l);
@@ -839,107 +899,107 @@ const App: React.FC = () => {
         return;
     }
 
+    setIsEntryModalOpen(false);
+    setToast(prev => ({ ...prev, visible: false }));
+    setTutorialPrefill(null);
+
+    if (!isFromNotification) {
+        setFeedbackState({ 
+            visible: true, 
+            totalWins: dailyWins, 
+            type: 'WIN', 
+            period: 'D',
+            customTitle: "ANALYZING...",
+            customSub: "PROCESSING INTEL",
+            aiMessage: "Analyzing data..."
+        });
+    }
+
+    const strategic = localStorage.getItem('ironlog_strategic_priority') || undefined;
+    let analysis = { category: 'OTHER', type: type || 'WIN', feedback: 'Log recorded.' };
+    
+    if (!type) {
+        try {
+            // Calculate Daily Stats for Context
+            const startOfDay = new Date().setHours(0,0,0,0);
+            const todaysLogs = logs.filter(l => l.timestamp >= startOfDay);
+            const wins = todaysLogs.filter(l => l.type === 'WIN').length;
+            const losses = todaysLogs.filter(l => l.type === 'LOSS').length;
+            const categoryBreakdown: Record<string, number> = {};
+            todaysLogs.forEach(l => {
+                const cat = l.category || 'OTHER';
+                categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + 1;
+            });
+            const dailyStats = { wins, losses, categoryBreakdown };
+
+            // @ts-ignore
+            analysis = await analyzeEntry(trimmedText, strategic, persona, schedule, timestamp, logs.slice(0, 5), dailyStats);
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
+    // @ts-ignore
+    const finalType = type || analysis.type;
+
     const newLog: LogEntry = {
       id: crypto.randomUUID(),
       timestamp: timestamp,
-      text: finalText,
-      type,
+      text: trimmedText || (finalType === 'WIN' ? "Focused Work" : "Distracted"),
+      type: finalType as 'WIN' | 'LOSS',
+      // @ts-ignore
+      category: analysis.category, 
       isFrozenWin: false,
       duration: finalDuration
     };
 
     const updatedLogs = [newLog, ...logs];
     setLogs(prev => [newLog, ...prev]);
-    setIsEntryModalOpen(false);
-    setToast(prev => ({ ...prev, visible: false }));
-    
-    try { 
-        const now = new Date();
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        const dailyWins = updatedLogs.filter(l => l.type === 'WIN' && l.timestamp >= startOfDay).length;
 
-        if (type === 'WIN' && !isFromNotification) {
-            setFlashWin(true);
-            setTimeout(() => setFlashWin(false), 200);
-            await Haptics.notification({ type: NotificationType.Success });
-            setFeedbackState({ 
-                visible: true, 
-                totalWins: dailyWins, 
-                type: 'WIN', 
-                period: 'D',
-                customTitle: "ANALYZING...",
-                customSub: "CALCULATING NEXT STEP",
-                aiMessage: "Analyzing data..."
-            });
-        } else if (!isFromNotification) {
-            await Haptics.impact({ style: ImpactStyle.Medium });
-            setFeedbackState({ 
-                visible: true, 
-                totalWins: dailyWins, 
-                type: 'LOSS', 
-                period: 'D',
-                customTitle: "ANALYZING...",
-                customSub: "RECALIBRATING...",
-                aiMessage: "Analyzing data..."
-            });
+    if (!isFromNotification) {
+        if (finalType === 'WIN') {
+            try { await Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
+        } else {
+            try { await Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
         }
 
-        // Trigger AI Logic
-        const runFeedback = async () => {
-             const strategic = localStorage.getItem('ironlog_strategic_priority') || undefined;
-             let feedback = "Processing...";
-             
-             if (type === 'LOSS') {
-                 feedback = await generateProtocolRecovery(newLog, updatedLogs.slice(1, 10), strategic, persona);
-             } else {
-                 feedback = await generateInstantFeedback(newLog, updatedLogs.slice(1, 10), strategic, persona);
-             }
-             
-             if (isFromNotification) {
-                 await sendFeedbackNotification(feedback);
-             } else {
-                 setFeedbackState(prev => ({ 
-                     ...prev, 
-                     aiMessage: feedback,
-                     customTitle: type === 'WIN' ? "COMPLETE" : "HALTED",
-                     customSub: type === 'WIN' ? "CYCLE SECURED" : "RECALIBRATE"
-                 }));
-                 // Overlay remains until dismissed by user
-             }
+        const newDailyWins = updatedLogs.filter(l => l.type === 'WIN' && l.timestamp >= new Date().setHours(0,0,0,0)).length;
 
-             // Update Daily Report silently by appending
-             const dateKey = `D_${now.toISOString().substring(0, 10)}`;
-             const existingReport = reports[dateKey];
-             
-             const timeStr = new Date(timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-             // Only append AI advice, not user log text
-             const newEntryBlock = `[${timeStr}] >> ${feedback}`;
-             
-             const finalContent = existingReport 
-                ? existingReport.content + "\n\n" + newEntryBlock 
-                : `TACTICAL LOG - ${now.toLocaleDateString()}\n================================\n\n${newEntryBlock}`;
-             
-             const newReport: AIReport = {
-                id: existingReport?.id || crypto.randomUUID(),
-                dateKey,
-                content: finalContent,
-                summary: existingReport?.summary || feedback,
-                timestamp: Date.now(),
-                period: 'D',
-                logCount: (existingReport?.logCount || 0) + 1,
-                read: true 
-             };
-             
-             setReports(prev => ({ ...prev, [dateKey]: newReport }));
-             
-             // Update live content if modal is open
-             if (isAIModalOpen && filter === 'D') {
-                 setAiReportContent(finalContent);
-             }
-        };
-        runFeedback();
+        setFeedbackState({ 
+            visible: true, 
+            totalWins: newDailyWins, 
+            type: finalType as 'WIN' | 'LOSS', 
+            period: 'D',
+            customTitle: finalType === 'WIN' ? "MISSION ACCOMPLISHED" : "BREACH DETECTED",
+            customSub: (analysis.category || "LOGGED").toUpperCase(),
+            aiMessage: analysis.feedback
+        });
+    } else {
+        await sendFeedbackNotification(analysis.feedback);
+    }
 
-    } catch(e) {}
+    // Update Daily Report silently
+    const now = new Date();
+    const dateKey = `D_${now.toISOString().substring(0, 10)}`;
+    const existingReport = reports[dateKey];
+    const timeStr = new Date(timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const newEntryBlock = `[${timeStr}] [${analysis.category}] ${trimmedText} >> ${analysis.feedback}`;
+    
+    const finalContent = existingReport 
+    ? existingReport.content + "\n\n" + newEntryBlock 
+    : `TACTICAL LOG - ${now.toLocaleDateString()}\n================================\n\n${newEntryBlock}`;
+    
+    const newReport: AIReport = {
+        id: existingReport?.id || crypto.randomUUID(),
+        dateKey,
+        content: finalContent,
+        summary: existingReport?.summary || analysis.feedback,
+        timestamp: Date.now(),
+        period: 'D',
+        logCount: (existingReport?.logCount || 0) + 1,
+        read: true 
+    };
+    setReports(prev => ({ ...prev, [dateKey]: newReport }));
 
     localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
     setTimeLeft(cycleDuration);
@@ -949,7 +1009,7 @@ const App: React.FC = () => {
        setIsPaused(false);
        scheduleNextStartNotification();
     }
-  }, [startTimer, isWithinSchedule, logs, scheduleNextStartNotification, cycleDuration, editingLog, isAIModalOpen, filter, schedule]);
+  }, [startTimer, isWithinSchedule, logs, scheduleNextStartNotification, cycleDuration, editingLog, dailyWins, persona, reports]);
 
   const handleLogClose = () => {
     setIsEntryModalOpen(false);
@@ -1045,12 +1105,8 @@ const App: React.FC = () => {
             return;
         }
 
-        if (notification.actionId === 'WIN_INPUT') {
-           handleLogSave(notification.inputValue || "Focused on priority", 'WIN', true);
-        } else if (notification.actionId === 'LOSS_INPUT') {
-           handleLogSave(notification.inputValue || "Distracted / Off-track", 'LOSS', true);
-        } else if (notification.actionId === 'log_input' && notification.inputValue) {
-           handleLogSave(notification.inputValue, 'WIN', true);
+        if (notification.actionId === 'log_input' && notification.inputValue) {
+           handleLogSave(notification.inputValue, undefined, true);
         } else {
            setIsEntryModalOpen(true);
            setIsManualEntry(false); 
@@ -1225,9 +1281,11 @@ const App: React.FC = () => {
       setIsAIModalOpen(true);
   };
 
-  const initialEntryProp = useMemo(() => 
-    editingLog ? { text: editingLog.text, type: editingLog.type || 'WIN', timestamp: editingLog.timestamp, duration: editingLog.duration } : null
-  , [editingLog]);
+  const initialEntryProp = useMemo(() => {
+    if (editingLog) return { text: editingLog.text, type: editingLog.type || 'WIN', timestamp: editingLog.timestamp, duration: editingLog.duration };
+    if (tutorialPrefill) return { text: tutorialPrefill, type: 'WIN' as const, timestamp: Date.now() };
+    return null;
+  }, [editingLog, tutorialPrefill]);
 
   const handleLoadDemoData = () => {
       if (confirm("Load Demo Data? This will replace current logs.")) {
@@ -1278,7 +1336,7 @@ const App: React.FC = () => {
                       setIsRankModalOpen(true);
                   }}
               />
-              <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setIsSettingsModalOpen(true); }} className="text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-zinc-800 p-2.5 rounded-xl transition-all border border-white/5 hover:border-white/10" title="Settings" >
+              <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setIsSettingsModalOpen(true); }} id="settings-btn" className="text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-zinc-800 p-2.5 rounded-xl transition-all border border-white/5 hover:border-white/10" title="Settings" >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
               </button>
           </div>
@@ -1292,7 +1350,13 @@ const App: React.FC = () => {
           aiMessage={feedbackState.aiMessage}
           period={feedbackState.period}
           isFrozen={freezeState.isFrozen}
-          onDismiss={() => setFeedbackState(prev => ({ ...prev, visible: false }))}
+          onDismiss={() => {
+              setFeedbackState(prev => ({ ...prev, visible: false }));
+              if (tutorialStepIndex === 3 && !localStorage.getItem('ironlog_tutorial_complete')) {
+                  setTutorialStepIndex(4);
+                  setIsTutorialActive(true);
+              }
+          }}
         />
         <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} onAction={toast.onAction} />
         <main className="max-w-xl mx-auto p-5 pt-44 flex flex-col min-h-[calc(100vh-80px)]">
@@ -1367,18 +1431,32 @@ const App: React.FC = () => {
               )}
           </section>
 
-          <section className="flex-none mb-8">
+          <section className="flex-none mb-8" id="status-card">
               <StatusCard isActive={status === AppStatus.RUNNING} timeLeft={timeLeft} schedule={schedule} blockStats={blockStats} onToggle={handleToggleTimer} />
           </section>
           <section className="flex-1 flex flex-col">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-2xl font-black text-white tracking-tight uppercase">Priority Log</h2>
-              <button onClick={handleManualLogStart} className="text-zinc-500 hover:text-green-500 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-green-500/20" >
+              <button onClick={handleManualLogStart} id="manual-entry-btn" className="text-zinc-500 hover:text-green-500 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-green-500/20" >
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 Manual Entry
               </button>
             </div>
-            <StatsCard logs={filteredLogs} filter={filter} schedule={schedule} durationMs={DEFAULT_INTERVAL_MS} viewDate={viewDate} onNavigate={handleNavigate} onReset={handleResetView} isCurrentView={isCurrentView} canGoBack={canGoBack} canGoForward={canGoForward} />
+            <div id="stats-card">
+                <StatsCard 
+                    logs={filteredLogs} 
+                    filter={filter} 
+                    schedule={schedule} 
+                    durationMs={DEFAULT_INTERVAL_MS} 
+                    viewDate={viewDate} 
+                    onNavigate={handleNavigate} 
+                    onReset={handleResetView} 
+                    isCurrentView={isCurrentView} 
+                    canGoBack={canGoBack} 
+                    canGoForward={canGoForward}
+                    onStreakClick={() => setIsPersonaModalOpen(true)}
+                />
+            </div>
             <div className="flex justify-center mb-6">
               <div className="bg-zinc-900 p-1.5 rounded-2xl flex items-center justify-between w-full border border-zinc-800">
                   {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
@@ -1418,13 +1496,16 @@ const App: React.FC = () => {
         </main>
       </div>
 
+      <TutorialOverlay 
+        isActive={isTutorialActive} 
+        step={tutorialSteps[tutorialStepIndex]} 
+        onNext={handleTutorialNext} 
+      />
       <EntryModal 
         isOpen={isEntryModalOpen} 
         onSave={handleLogSave} 
         onClose={handleLogClose} 
-        isManual={isManualEntry} 
         initialEntry={initialEntryProp} 
-        defaultDuration={cycleDuration}
       />
       <SettingsModal 
         isOpen={isSettingsModalOpen} 

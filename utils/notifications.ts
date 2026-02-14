@@ -71,13 +71,15 @@ export const registerNotificationActions = async () => {
           id: 'LOG_ACTIVITY',
           actions: [
             {
-              id: 'WIN_INPUT',
-              title: 'DONE',
-              foreground: true
+              id: 'log_input',
+              title: 'Log Status',
+              input: true,
+              inputPlaceholder: 'Brief status report...',
+              inputButtonTitle: 'Send'
             },
             {
-              id: 'LOSS_INPUT',
-              title: 'MISS',
+              id: 'OPEN_APP',
+              title: 'Open App',
               foreground: true
             }
           ]

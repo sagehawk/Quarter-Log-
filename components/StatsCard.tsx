@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { LogEntry, ScheduleConfig, FilterType } from '../types';
 import { getRankForPeriod } from '../utils/rankSystem';
+import CategoryPieChart from './CategoryPieChart';
 
 interface StatsCardProps {
   logs: LogEntry[];
@@ -13,6 +14,7 @@ interface StatsCardProps {
   isCurrentView: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
+  onStreakClick?: () => void;
 }
 
 const StatsCard: React.FC<StatsCardProps> = ({ 
@@ -23,7 +25,8 @@ const StatsCard: React.FC<StatsCardProps> = ({
   onReset,
   isCurrentView,
   canGoBack,
-  canGoForward 
+  canGoForward,
+  onStreakClick
 }) => {
   const [hoverData, setHoverData] = React.useState<{ date: string, wins: number, losses: number } | null>(null);
   const [hoverPos, setHoverPos] = React.useState<{ x: number, y: number } | null>(null);
@@ -469,9 +472,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
                           <span className="text-xs font-bold text-white/40 tracking-normal">WIN RATE</span>
                       </div>
                   </div>
-                  <div className="text-right">
-                      <div className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 mb-1">Active Streak</div>
-                      <div className="text-2xl font-black text-green-500 drop-shadow-[0_0_10px_rgba(34,197,94,0.5)]">
+                  <div className="text-right group cursor-pointer" onClick={onStreakClick}>
+                      <div className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 mb-1 group-hover:text-green-500 transition-colors">Active Streak</div>
+                      <div className="text-2xl font-black text-green-500 drop-shadow-[0_0_10px_rgba(34,197,94,0.5)] transition-transform group-active:scale-95">
                           {stats.streak} <span className="text-xs text-green-500/50">CYCLES</span>
                       </div>
                   </div>
@@ -509,6 +512,12 @@ const StatsCard: React.FC<StatsCardProps> = ({
               <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Successful Executions</span>
               <span className="text-3xl font-black text-green-500 tracking-tighter drop-shadow-[0_0_10px_rgba(34,197,94,0.3)]">{stats.wins}</span>
           </div>
+      </div>
+
+      {/* RESOURCE ALLOCATION (PIE CHART) */}
+      <div id="pie-chart" className="bg-zinc-900/50 border border-white/5 rounded-2xl p-4 mt-3">
+          <div className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 mb-4">Resource Allocation</div>
+          <CategoryPieChart logs={logs} />
       </div>
 
     </div>

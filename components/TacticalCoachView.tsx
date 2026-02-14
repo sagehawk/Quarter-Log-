@@ -34,7 +34,7 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
     'STOIC': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=1920&auto=format&fit=crop', // Landscape/Calm
   };
 
-  const currentImage = bgImage || moodImages[mood];
+  const currentImage = bgImage === 'transparent' ? null : (bgImage || moodImages[mood]);
 
   useEffect(() => {
     setDisplayedText('');
@@ -43,7 +43,7 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
     
     const timer = setInterval(() => {
       if (i < message.length) {
-        setDisplayedText(prev => prev + message.charAt(i));
+        setDisplayedText(message.slice(0, i + 1));
         i++;
         // Optional: Very subtle haptic tick for typing feel
         // if (i % 3 === 0) Haptics.impact({ style: ImpactStyle.Light });
@@ -58,23 +58,27 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
   }, [message]);
 
   return (
-    <div className="fixed inset-0 z-[50] bg-black text-white overflow-hidden">
+    <div className="fixed inset-0 z-[50] text-white overflow-hidden pointer-events-none">
       
       {/* Background Image Layer */}
-      <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0 bg-black/60 z-10" /> {/* Dimmer */}
-          <img 
-            src={currentImage} 
-            alt="Tactical Coach" 
-            className="w-full h-full object-cover transition-all duration-1000 ease-in-out opacity-60"
-          />
-      </div>
+      {currentImage && (
+        <div className="absolute inset-0 z-0 pointer-events-auto">
+            <div className="absolute inset-0 bg-black/60 z-10" /> {/* Dimmer */}
+            <img 
+                src={currentImage} 
+                alt="Tactical Coach" 
+                className="w-full h-full object-cover transition-all duration-1000 ease-in-out opacity-60"
+            />
+        </div>
+      )}
 
       {/* CRT / Scanline Effect Overlay (Optional Style) */}
-      <div className="absolute inset-0 z-10 pointer-events-none bg-[url('https://media.giphy.com/media/oEI9uBYSzLpBK/giphy.gif')] opacity-[0.03] mix-blend-screen" />
+      {currentImage && (
+         <div className="absolute inset-0 z-10 pointer-events-none bg-[url('https://media.giphy.com/media/oEI9uBYSzLpBK/giphy.gif')] opacity-[0.03] mix-blend-screen" />
+      )}
 
       {/* Dialogue Box */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 p-6 pb-12 bg-gradient-to-t from-black via-black/90 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 z-20 p-6 pb-12 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-auto">
          
          <div className="max-w-xl mx-auto space-y-6">
              {/* Character Name Tag */}

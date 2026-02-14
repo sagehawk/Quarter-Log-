@@ -102,7 +102,7 @@ export const generateAIReport = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash-lite',
       contents: prompt,
       config: {
         systemInstruction: systemInstruction,
@@ -150,8 +150,9 @@ export const generateInstantFeedback = async (
   STRICT OUTPUT RULES:
   - Write ONE simple, natural sentence.
   - No jargon. Speak like a normal person.
-  - Example: "You finished that report early, which shows focus, so start the next task now."
-  - Max 40 words.
+  - START with a mood tag: [MOOD: WIN], [MOOD: LOSS], [MOOD: SAVAGE], or [MOOD: STOIC].
+  - Example: "[MOOD: WIN] You finished that report early, which shows focus, so start the next task now."
+  - Max 40 words (excluding tag).
   ${priorityContext}
   `;
 
@@ -167,7 +168,7 @@ export const generateInstantFeedback = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash-lite',
       contents: prompt,
       config: {
         systemInstruction: systemInstruction,
@@ -208,7 +209,7 @@ export const generateProtocolRecovery = async (
   3. Remind them: "New moment, new start."
 
   STRICT OUTPUT RULES:
-  - Format: "Problem: [Reason]. Fix: [Tiny Action]."
+  - Format: "[MOOD: LOSS] Problem: [Reason]. Fix: [Tiny Action]."
   - Keep it super simple.
   - Max 15 words.
   ${priorityContext}
@@ -220,7 +221,7 @@ export const generateProtocolRecovery = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash-lite',
       contents: prompt,
       config: {
         systemInstruction: systemInstruction,
@@ -232,5 +233,116 @@ export const generateProtocolRecovery = async (
   } catch (error) {
     console.error("Recovery Generation Error:", error);
     return "Protocol Reset: Stand up and deep breathe.";
+  }
+};
+
+export const analyzeEntry = async (
+  text: string,
+  strategicPriority: string = "General Productivity",
+  persona: AIPersona = 'LOGIC',
+  schedule?: ScheduleConfig,
+  currentTime: number = Date.now(),
+  recentLogs: LogEntry[] = [],
+  dailyStats?: { wins: number; losses: number; categoryBreakdown: Record<string, number> }
+): Promise<{ category: string, type: 'WIN' | 'LOSS', feedback: string }> => {
+  const apiKey = process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) return { category: 'OTHER', type: 'WIN', feedback: "Log recorded." };
+
+  const ai = new GoogleGenAI({ apiKey });
+  const personaStyle = getPersonaInstruction(persona);
+
+  // Time Context
+  const date = new Date(currentTime);
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  let scheduleContext = "";
+  
+  if (schedule && schedule.enabled) {
+      const day = date.getDay(); // 0-6
+      const isWorkDay = schedule.daysOfWeek.includes(day);
+      scheduleContext = `
+      CURRENT TIME: ${timeStr}
+      SCHEDULE: ${schedule.startTime} to ${schedule.endTime}
+      IS WORK DAY: ${isWorkDay}
+      `;
+  }
+
+  // Recent History Context
+  const historyContext = recentLogs.length > 0 
+    ? "RECENT HISTORY:\n" + recentLogs.slice(0, 5).map(l => `- [${l.category}] ${l.text}`).join('\n')
+    : "NO RECENT LOGS";
+
+  // Daily Scorecard Context
+  let dailyScorecardContext = "DAILY SCORECARD: No Data";
+  if (dailyStats) {
+      const total = dailyStats.wins + dailyStats.losses;
+      const winRate = total > 0 ? Math.round((dailyStats.wins / total) * 100) : 0;
+      const breakdown = Object.entries(dailyStats.categoryBreakdown)
+          .map(([cat, count]) => `${cat}: ${count}`)
+          .join(', ');
+      
+      dailyScorecardContext = `
+      DAILY SCORECARD:
+      - Wins: ${dailyStats.wins} | Losses: ${dailyStats.losses} | Win Rate: ${winRate}%
+      - Breakdown: ${breakdown}
+      `;
+  }
+
+  const systemInstruction = `
+  You are a Tactical Analyst.
+  ${personaStyle}
+  
+  Your Task: Analyze the user's log entry.
+  ${scheduleContext}
+  ${dailyScorecardContext}
+  ${historyContext}
+  
+  1. CATEGORIZE it into one of the High-Performance Buckets:
+     - MAKER: High Leverage, Revenue Generating, Deep Work. (The Goal)
+     - MANAGER: Low Leverage, Admin, Calls, Maintenance. (Necessary Evil)
+     - R&D: Learning, Skill Acquisition, Research. (Investing)
+     - FUEL: Health, Sleep, Gym, Bio-Support. (Foundation)
+     - RECOVERY: Active Rest, Family, Leisure. (Recharging)
+     - BURN: Wasted time, Scrolling, Drifting. (The Enemy)
+  
+  2. JUDGE it: Is it a WIN (MAKER, R&D, FUEL, RECOVERY) or a LOSS (BURN, excessive MANAGER)?
+     - Align with Strategic Priority: "${strategicPriority}"
+     - Consider the Time: If it's work hours, Leisure might be a LOSS. If it's off-hours, Work might be a LOSS (burnout risk) or WIN (extra mile) depending on context.
+     - Consider the Scorecard: If BURN is high, be harsher. If Win Rate is high, be encouraging but demanding.
+
+  3. FEEDBACK: One short, punchy sentence.
+     - CRITICAL: Do NOT repeat advice given in the RECENT HISTORY. Be fresh.
+
+  STRICT OUTPUT FORMAT (JSON ONLY):
+  {
+    "category": "CATEGORY_NAME",
+    "type": "WIN" or "LOSS",
+    "feedback": "[MOOD: TAG] Your feedback text."
+  }
+  
+  Mood Tags: [MOOD: WIN], [MOOD: LOSS], [MOOD: SAVAGE], [MOOD: STOIC].
+  `;
+
+  const prompt = `LOG: "${text}"`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-lite',
+      contents: prompt,
+      config: {
+        systemInstruction: systemInstruction,
+        responseMimeType: 'application/json',
+        temperature: 0.5,
+      }
+    });
+    
+    const result = JSON.parse(response.text || "{}");
+    return {
+        category: result.category || 'OTHER',
+        type: result.type || 'WIN',
+        feedback: result.feedback || "[MOOD: IDLE] Entry logged."
+    };
+  } catch (error) {
+    console.error("Analysis Error:", error);
+    return { category: 'OTHER', type: 'WIN', feedback: "[MOOD: IDLE] Log recorded (Offline)." };
   }
 };

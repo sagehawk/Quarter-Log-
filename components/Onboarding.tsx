@@ -37,11 +37,11 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               break;
           case 1:
               setMood('ASKING');
-              setText("You are here because you sense the drift. You know you are capable of more. Correct?");
+              setText("This tool has one purpose: To force you to achieve your goals. Business. Fitness. Skills. Whatever the target.");
               break;
           case 2:
               setMood('PROCESSING');
-              setText("The Protocol is simple: 15-minute combat blocks. Win or Loss. Radical accountability. No excuses.");
+              setText("How? By tracking 15-minute blocks. Build your 'Streak' by logging wins. If you drift, the Streak resets. Momentum is your currency.");
               break;
           case 3:
               setMood('IDLE');
@@ -59,17 +59,12 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
               setMood('LOSS'); // Serious tone
               setText("This is a binding agreement. You grade yourself honestly. Sign to confirm.");
               break;
-          case 7: // Win
-              setMood('WIN'); // Celebration
-              setText("Protocol Initiated. First victory logged. Welcome to the unit.");
-              // Trigger final complete after delay
-              break;
       }
   }, [scene]);
 
   const handleFinish = () => {
       try { Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
-      onComplete(['BUSINESS'], schedule, priority || "WIN THE DAY", true, true);
+      onComplete(['BUSINESS'], schedule, priority || "WIN THE DAY", true, false);
   };
 
   const renderContent = () => {
@@ -149,16 +144,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                         onChange={(e) => setInitials(e.target.value.toUpperCase().slice(0,3))}
                         className="w-full bg-black/50 text-white font-serif italic text-4xl p-4 border-b border-green-500 outline-none text-center"
                      />
-                     <button onClick={nextScene} disabled={!initials} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-green-500 transition-all disabled:opacity-50">
+                     <button onClick={handleFinish} disabled={!initials} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-green-500 transition-all disabled:opacity-50">
                          Seal Contract
                      </button>
                  </div>
-             );
-          case 7:
-             return (
-                 <button onClick={handleFinish} className="w-full py-6 bg-green-500 text-black font-black uppercase tracking-[0.2em] rounded-xl hover:bg-white transition-all shadow-[0_0_30px_rgba(34,197,94,0.5)] animate-pulse">
-                     Enter The Arena
-                 </button>
              );
           default: return null;
       }

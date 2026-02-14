@@ -1,9 +1,12 @@
 
+export type LogCategory = 'MAKER' | 'MANAGER' | 'R&D' | 'FUEL' | 'RECOVERY' | 'BURN' | 'OTHER';
+
 export interface LogEntry {
   id: string;
   timestamp: number; // Date.now()
   text: string;
   type?: 'WIN' | 'LOSS';
+  category?: LogCategory;
   isFrozenWin?: boolean;
   duration?: number; // Duration in ms
 }
