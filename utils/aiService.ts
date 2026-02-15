@@ -2,43 +2,43 @@ import { GoogleGenAI } from "@google/genai";
 import { LogEntry, UserGoal, ScheduleConfig, AIPersona } from "../types";
 
 const getPersonaInstruction = (persona: AIPersona = 'LOGIC'): string => {
-    switch (persona) {
-        case 'AGGRESSIVE':
-            return `
+  switch (persona) {
+    case 'AGGRESSIVE':
+      return `
             IDENTITY: The Savage (Hormozi "Gym Launch" Mode).
             - PRINCIPLES: Feelings don't matter. Only action counts. Hard work beats luck.
             - TONE: Direct, punchy, commanding.
             - KEY PHRASES: "Do the work.", "Stop stalling.", "You're better than this."
             `;
-        case 'STOIC':
-            return `
+    case 'STOIC':
+      return `
             IDENTITY: The Grandfather (Hormozi "Old Man" Perspective).
             - PRINCIPLES: Think long term. This moment is small. Stay calm.
             - TONE: Calm, wise, steady.
             - KEY PHRASES: "In 10 years, this won't matter.", "Keep going.", "Patience pays off."
             `;
-        case 'LOGIC':
-        default:
-            return `
+    case 'LOGIC':
+    default:
+      return `
             IDENTITY: The Operator (Hormozi "Acquisition.com" Mode).
             - PRINCIPLES: Look at the facts. Find the problem. Fix it.
             - TONE: Simple, clear, practical.
             - KEY PHRASES: "What does the data say?", "Make it easier.", "Focus on what works."
             `;
-    }
+  }
 };
 
 export const generateAIReport = async (
   targetLogs: LogEntry[],
   period: string, // 'Day', 'Week', 'Month'
   goals: UserGoal[],
-  persona: AIPersona, 
+  persona: AIPersona,
   schedule: ScheduleConfig,
   type: 'FULL' | 'BRIEF' = 'FULL',
   strategicPriority?: string,
   allLogs: LogEntry[] = []
 ): Promise<string> => {
-  
+
   const apiKey = process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
 
   if (!apiKey) {
@@ -58,8 +58,8 @@ export const generateAIReport = async (
     const minutes = date.getMinutes();
     const ampm = hours >= 12 ? 'PM' : 'AM';
     hours = hours % 12;
-    hours = hours ? hours : 12; 
-    const strMinutes = minutes < 10 ? '0'+minutes : minutes;
+    hours = hours ? hours : 12;
+    const strMinutes = minutes < 10 ? '0' + minutes : minutes;
     return `${hours}:${strMinutes} ${ampm}`;
   };
 
@@ -119,7 +119,7 @@ export const generateAIReport = async (
 
 export const generateInstantFeedback = async (
   latestLog: LogEntry,
-  recentLogs: LogEntry[], 
+  recentLogs: LogEntry[],
   strategicPriority?: string,
   persona: AIPersona = 'LOGIC'
 ): Promise<string> => {
@@ -130,7 +130,7 @@ export const generateInstantFeedback = async (
 
   const contextLogs = recentLogs
     .slice(0, 5) // Last 5 logs for immediate context
-    .map(l => `[${new Date(l.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}] ${l.type}: ${l.text}`)
+    .map(l => `[${new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}] ${l.type}: ${l.text}`)
     .join('\n');
 
   const priorityContext = strategicPriority ? `Target Objective: ${strategicPriority}` : "";
@@ -150,7 +150,7 @@ export const generateInstantFeedback = async (
   STRICT OUTPUT RULES:
   - Write ONE simple, natural sentence.
   - No jargon. Speak like a normal person.
-  - START with a mood tag: [MOOD: WIN], [MOOD: LOSS], [MOOD: SAVAGE], or [MOOD: STOIC].
+  - START with a mood tag: [MOOD: WIN], [MOOD: LOSS], [MOOD: SAVAGE], [MOOD: STOIC], or [MOOD: IDLE].
   - Example: "[MOOD: WIN] You finished that report early, which shows focus, so start the next task now."
   - Max 40 words (excluding tag).
   ${priorityContext}
@@ -185,7 +185,7 @@ export const generateInstantFeedback = async (
 
 export const generateProtocolRecovery = async (
   latestLog: LogEntry,
-  recentLogs: LogEntry[], 
+  recentLogs: LogEntry[],
   strategicPriority?: string,
   persona: AIPersona = 'LOGIC'
 ): Promise<string> => {
@@ -244,7 +244,7 @@ export const analyzeEntry = async (
   currentTime: number = Date.now(),
   recentLogs: LogEntry[] = [],
   dailyStats?: { wins: number; losses: number; categoryBreakdown: Record<string, number> }
-): Promise<{ category: string, type: 'WIN' | 'LOSS', feedback: string }> => {
+): Promise<{ category: string, type: 'WIN' | 'LOSS' | 'DRAW', feedback: string }> => {
   const apiKey = process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) return { category: 'OTHER', type: 'WIN', feedback: "Log recorded." };
 
@@ -255,11 +255,11 @@ export const analyzeEntry = async (
   const date = new Date(currentTime);
   const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   let scheduleContext = "";
-  
+
   if (schedule && schedule.enabled) {
-      const day = date.getDay(); // 0-6
-      const isWorkDay = schedule.daysOfWeek.includes(day);
-      scheduleContext = `
+    const day = date.getDay(); // 0-6
+    const isWorkDay = schedule.daysOfWeek.includes(day);
+    scheduleContext = `
       CURRENT TIME: ${timeStr}
       SCHEDULE: ${schedule.startTime} to ${schedule.endTime}
       IS WORK DAY: ${isWorkDay}
@@ -267,20 +267,20 @@ export const analyzeEntry = async (
   }
 
   // Recent History Context
-  const historyContext = recentLogs.length > 0 
+  const historyContext = recentLogs.length > 0
     ? "RECENT HISTORY:\n" + recentLogs.slice(0, 5).map(l => `- [${l.category}] ${l.text}`).join('\n')
     : "NO RECENT LOGS";
 
   // Daily Scorecard Context
   let dailyScorecardContext = "DAILY SCORECARD: No Data";
   if (dailyStats) {
-      const total = dailyStats.wins + dailyStats.losses;
-      const winRate = total > 0 ? Math.round((dailyStats.wins / total) * 100) : 0;
-      const breakdown = Object.entries(dailyStats.categoryBreakdown)
-          .map(([cat, count]) => `${cat}: ${count}`)
-          .join(', ');
-      
-      dailyScorecardContext = `
+    const total = dailyStats.wins + dailyStats.losses;
+    const winRate = total > 0 ? Math.round((dailyStats.wins / total) * 100) : 0;
+    const breakdown = Object.entries(dailyStats.categoryBreakdown)
+      .map(([cat, count]) => `${cat}: ${count}`)
+      .join(', ');
+
+    dailyScorecardContext = `
       DAILY SCORECARD:
       - Wins: ${dailyStats.wins} | Losses: ${dailyStats.losses} | Win Rate: ${winRate}%
       - Breakdown: ${breakdown}
@@ -304,14 +304,25 @@ export const analyzeEntry = async (
      - RECOVERY: Active Rest, Family, Leisure. (Recharging)
      - BURN: Wasted time, Scrolling, Drifting. (The Enemy)
   
-  2. JUDGE it: Is it a WIN (MAKER, R&D, strategic FUEL, RECOVERY), a LOSS (BURN, excessive MANAGER), or a DRAW (Routine FUEL like eating/hygiene, Commuting, Neutral)?
-     - Align with Strategic Priority: "${strategicPriority}"
-     - Consider the Time: If it's work hours, Leisure might be a LOSS.
-     - SPECIFIC RULE: Routine meals (Lunch/Dinner) are a DRAW unless specified as "Networking" or "Strategic".
+  2. JUDGE it: 
+     - WIN: Moving forward (MAKER, R&D, Strategic FUEL, Planned RECOVERY).
+     - LOSS: Moving backward (BURN, Procrastination, Avoidance).
+     - DRAW: Neutral / Maintenance / Holding Pattern (Routine FUEL, Commuting, Chores, Necessary but non-strategic Admin).
+     
+     * SPECIAL RULE: Routine meals (Lunch/Dinner) are a DRAW unless combined with "Networking".
 
   3. FEEDBACK: One short, punchy sentence.
      - CRITICAL: Do NOT repeat advice given in the RECENT HISTORY. Be fresh.
      - TRIGGER [MOOD: SAVAGE] if 'BURN' count > 2 in the DAILY SCORECARD.
+
+  4. TIME AWARENESS RULES (CRITICAL):
+     - If CURRENT TIME is past SCHEDULE END TIME (by > 1 hour) on a WORK DAY:
+       - DO NOT encourage "grinding" or "pushing harder".
+       - DO suggest sleep, rest, or winding down.
+       - If the log is "Coding" or "Work" late at night, mark it as a 'WIN' but warn about burnout in the feedback.
+     - If CURRENT TIME is very late (e.g., 1 AM - 4 AM):
+       - Be concerned. Suggest sleep immediately.
+       - Use [MOOD: STOIC] or [MOOD: DRAW] to signal concern.
 
   STRICT OUTPUT FORMAT (JSON ONLY):
   {
@@ -320,7 +331,13 @@ export const analyzeEntry = async (
     "feedback": "[MOOD: TAG] Your feedback text."
   }
   
-  Mood Tags: [MOOD: WIN], [MOOD: LOSS], [MOOD: DRAW], [MOOD: SAVAGE], [MOOD: STOIC].
+  Mood Tags: 
+  - [MOOD: WIN]: Progress.
+  - [MOOD: LOSS]: Setback.
+  - [MOOD: DRAW]: Holding pattern / Maintenance.
+  - [MOOD: SAVAGE]: Call out laziness.
+  - [MOOD: STOIC]: Serious, philosophical advice.
+  - [MOOD: IDLE]: Low-key acknowledgement, no strong judgment.
   `;
 
   const prompt = `LOG: "${text}"`;
@@ -335,12 +352,12 @@ export const analyzeEntry = async (
         temperature: 0.5,
       }
     });
-    
+
     const result = JSON.parse(response.text || "{}");
     return {
-        category: result.category || 'OTHER',
-        type: result.type || 'WIN',
-        feedback: result.feedback || "[MOOD: IDLE] Entry logged."
+      category: result.category || 'OTHER',
+      type: result.type || 'WIN',
+      feedback: result.feedback || "[MOOD: IDLE] Entry logged."
     };
   } catch (error) {
     console.error("Analysis Error:", error);

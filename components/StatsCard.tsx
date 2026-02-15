@@ -369,14 +369,24 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 {/* Unified Tooltip (Reused) */}
                 {hoverData && hoverPos && filter !== 'Y' && (
                     <div
-                        className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2 bg-zinc-900 border border-white/10 px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md"
+                        className={`fixed z-50 pointer-events-none transform -translate-y-full mb-2 bg-zinc-900 border border-white/10 px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md ${hoverPos.x > window.innerWidth * 0.7
+                                ? '-translate-x-[90%]'
+                                : hoverPos.x < window.innerWidth * 0.3
+                                    ? '-translate-x-[10%]'
+                                    : '-translate-x-1/2'
+                            }`}
                         style={{ left: hoverPos.x, top: hoverPos.y - 8 }}
                     >
                         <span className="block text-[10px] font-black uppercase tracking-widest text-green-500 mb-0.5">{hoverData.date}</span>
                         <span className="block text-[10px] font-mono text-white/60">
                             {hoverData.wins} W / {hoverData.draws || 0} D / {hoverData.losses} L
                         </span>
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-zinc-900 border-r border-b border-white/10"></div>
+                        <div className={`absolute bottom-0 w-2 h-2 bg-zinc-900 border-r border-b border-white/10 translate-y-1/2 rotate-45 ${hoverPos.x > window.innerWidth * 0.7
+                                ? 'right-2'
+                                : hoverPos.x < window.innerWidth * 0.3
+                                    ? 'left-2'
+                                    : 'left-1/2 -translate-x-1/2'
+                            }`}></div>
                     </div>
                 )}
             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { UserGoal, ScheduleConfig } from '../types';
 import { requestNotificationPermission } from '../utils/notifications';
@@ -10,8 +10,6 @@ interface OnboardingProps {
 
 const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     const [scene, setScene] = useState(0);
-    const [mood, setMood] = useState<CoachMood>('IDLE');
-    const [text, setText] = useState('');
 
     // Data State
     const [schedule, setSchedule] = useState<ScheduleConfig>({
@@ -23,44 +21,22 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     const [priority, setPriority] = useState("");
     const [initials, setInitials] = useState("");
 
+    const scenes: { mood: CoachMood; text: string }[] = [
+        { mood: 'IDLE', text: "Welcome. I'm your Handler. My job is to keep you locked in and winning." },
+        { mood: 'ASKING', text: "Every 15 minutes, you log what you did. I grade it. Wins stack. Losses get flagged. You see exactly where your time goes." },
+        { mood: 'PROCESSING', text: "Over time, you'll see your patterns. What makes you productive. What drains you. No guesswork." },
+        { mood: 'IDLE', text: "When do you operate? Set your active hours and I'll only check in during that window." },
+        { mood: 'ASKING', text: "What are you working toward right now? I'll hold you accountable to this." },
+        { mood: 'STOIC', text: "Turn on notifications so I can check in when each block ends." },
+        { mood: 'IDLE', text: "One rule: log honestly. I'll handle the rest. Sign your initials to begin." },
+    ];
+
+    const { mood, text } = scenes[scene] || scenes[0];
+
     const nextScene = () => {
         try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
         setScene(prev => prev + 1);
     };
-
-    useEffect(() => {
-        // Scene Director
-        switch (scene) {
-            case 0:
-                setMood('IDLE');
-                setText("Welcome to Winner Effect. This app tracks your productivity in 15-minute blocks.");
-                break;
-            case 1:
-                setMood('ASKING');
-                setText("Every 15 minutes, you check in and log what you worked on. The AI reads your entry and grades it: Win (productive), Loss (drifted), or Draw (mixed). Your wins stack into streaks.");
-                break;
-            case 2:
-                setMood('PROCESSING');
-                setText("Your stats build a visual picture over time. Bar charts show wins (green), draws (yellow), and losses (red) by hour, day, or week. The yearly heatmap shows your consistency at a glance.");
-                break;
-            case 3:
-                setMood('IDLE');
-                setText("Set your active hours. The timer only runs during this window, so it fits your schedule.");
-                break;
-            case 4:
-                setMood('ASKING');
-                setText("What's your main goal right now? This stays pinned at the top of your dashboard as your North Star.");
-                break;
-            case 5:
-                setMood('STOIC');
-                setText("Allow notifications so we can remind you when each 15-minute block ends. Otherwise you'll need to check manually.");
-                break;
-            case 6:
-                setMood('IDLE');
-                setText("You're all set. The key rule: log honestly. The AI will handle the rest. Sign your initials to begin.");
-                break;
-        }
-    }, [scene]);
 
     const handleFinish = () => {
         try { Haptics.notification({ type: NotificationType.Success }); } catch (e) { }

@@ -22,6 +22,8 @@ import { requestNotificationPermission, checkNotificationPermission, scheduleNot
 import { generateAIReport, analyzeEntry } from './utils/aiService';
 import TimerPlugin from './utils/nativeTimer';
 import TutorialOverlay, { TutorialStep } from './components/TutorialOverlay';
+import FocusScore from './components/FocusScore';
+import WeeklyDebrief from './components/WeeklyDebrief';
 
 const STORAGE_KEY_LOGS = 'ironlog_entries';
 const STORAGE_KEY_SCHEDULE = 'ironlog_schedule';
@@ -88,34 +90,24 @@ const App: React.FC = () => {
     const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
 
     const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+    const [isWeeklyDebriefOpen, setIsWeeklyDebriefOpen] = useState(false);
 
     const [isTutorialActive, setIsTutorialActive] = useState(false);
     const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
     const [tutorialPrefill, setTutorialPrefill] = useState<string | null>(null);
 
     const tutorialSteps: TutorialStep[] = [
-        { text: "Let's take a quick tour of your dashboard.", mood: 'IDLE' },
-        { targetId: 'status-card', text: "This is your timer. It counts down 15 minutes. When it reaches zero, you'll log what you worked on and the AI will grade it.", mood: 'PROCESSING' },
-        { targetId: 'stats-card', text: "This is your stats dashboard. The big number is your Win Rate. The bar chart below shows green bars (wins), yellow (draws), and red (losses) over time.", mood: 'IDLE' },
+        { text: "Here's your dashboard. Let me show you around.", mood: 'IDLE' },
+        { targetId: 'status-card', text: "This is your timer. Every 15 minutes, you log in and I grade it.", mood: 'PROCESSING' },
         {
             targetId: 'manual-entry-btn',
-            text: "You can also log entries manually anytime using this button. Try it now.",
+            text: "You can also log anytime. Tap this now.",
             mood: 'ASKING',
             waitForInteraction: true
         },
         {
-            targetId: 'stats-card',
-            text: "Nice! Your stats update instantly. The Win Rate and chart reflect every entry you make.",
+            text: "Good. Your stats will build from here. Stay honest and I'll keep you sharp.",
             mood: 'WIN'
-        },
-        {
-            targetId: 'pie-chart',
-            text: "This donut chart shows how you're spending your time by category — Deep Work, Admin, Learning, etc. It helps you see if you're focused on the right things.",
-            mood: 'PROCESSING'
-        },
-        {
-            text: "That's it! Your timer is running. Stay focused and log honestly — the AI handles the grading. You've got this.",
-            mood: 'IDLE'
         }
     ];
 
@@ -859,9 +851,9 @@ const App: React.FC = () => {
     const handleManualLogStart = () => {
         try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
 
-        if (isTutorialActive && tutorialStepIndex === 3) {
+        if (isTutorialActive && tutorialStepIndex === 2) {
             setIsTutorialActive(false);
-            setTutorialPrefill("Initializing Protocol: Committing to the mission.");
+            setTutorialPrefill("Started my first session");
         } else {
             setTutorialPrefill(null);
         }
@@ -1357,79 +1349,15 @@ const App: React.FC = () => {
                     isFrozen={freezeState.isFrozen}
                     onDismiss={() => {
                         setFeedbackState(prev => ({ ...prev, visible: false }));
-                        if (tutorialStepIndex === 3 && !localStorage.getItem('ironlog_tutorial_complete')) {
-                            setTutorialStepIndex(4);
+                        if (tutorialStepIndex === 2 && !localStorage.getItem('ironlog_tutorial_complete')) {
+                            setTutorialStepIndex(3);
                             setIsTutorialActive(true);
                         }
                     }}
                 />
                 <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} onAction={toast.onAction} />
                 <main className="max-w-xl mx-auto p-5 pt-44 flex flex-col min-h-[calc(100vh-80px)]">
-                    {/* Challenge Banner */}
-                    {currentChallengeDay > 0 && currentChallengeDay <= 7 && (
-                        <button
-                            onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { } setIsPersonaModalOpen(true); }}
-                            className="mb-6 w-full text-left rounded-2xl bg-gradient-to-r from-zinc-900 via-zinc-900/95 to-zinc-900/90 border border-white/10 hover:border-orange-500/30 transition-all active:scale-[0.98] relative overflow-hidden group"
-                        >
-                            {/* Background glow */}
-                            <div className="absolute top-0 left-0 w-40 h-full bg-gradient-to-r from-orange-500/10 to-transparent pointer-events-none" />
-                            <div className="absolute top-0 right-0 w-20 h-full bg-gradient-to-l from-green-500/5 to-transparent pointer-events-none" />
 
-                            <div className="flex items-center justify-between px-4 py-3.5 relative z-10">
-                                <div className="flex items-center gap-3">
-                                    {/* Day indicator */}
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm transition-all ${currentChallengeProgress.wins >= 4 ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'bg-white/5 border border-white/10 text-white/60'}`}>
-                                        D{currentChallengeDay}
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-black uppercase tracking-[0.15em] text-white">
-                                                {currentChallengeProgress.wins >= 4 ? 'DAY COMPLETE' : '7-DAY CHALLENGE'}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-2 mt-0.5">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`${currentStreak > 0 ? 'text-orange-500' : 'text-white/20'}`}>
-                                                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
-                                            </svg>
-                                            <span className={`text-[10px] font-bold tracking-wider ${currentStreak > 0 ? 'text-orange-500/70' : 'text-white/25'}`}>
-                                                {currentStreak}d streak
-                                            </span>
-                                            <span className="text-[10px] text-white/15">·</span>
-                                            <span className="text-[10px] text-white/30 font-mono">
-                                                {currentChallengeProgress.wins}/{currentChallengeProgress.target} wins
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                                {/* Right side: progress + arrow */}
-                                <div className="flex items-center gap-3">
-                                    <div className="h-1.5 w-16 bg-white/5 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full transition-all duration-700 ease-out rounded-full ${currentChallengeProgress.wins >= 4 ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gradient-to-r from-orange-500 to-amber-400'}`}
-                                            style={{ width: `${currentChallengeProgress.percent}%` }}
-                                        />
-                                    </div>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/20 group-hover:text-orange-500 transition-colors">
-                                        <polyline points="9 18 15 12 9 6"></polyline>
-                                    </svg>
-                                </div>
-                            </div>
-                            {/* Bottom streak bar */}
-                            {(() => {
-                                const nextThreshold = currentStreak < 7 ? 7 : currentStreak < 14 ? 14 : 0;
-                                const prevThreshold = currentStreak < 7 ? 0 : currentStreak < 14 ? 7 : 14;
-                                const progress = nextThreshold > 0 ? ((currentStreak - prevThreshold) / (nextThreshold - prevThreshold)) * 100 : 100;
-                                return (
-                                    <div className="h-[2px] w-full bg-white/5">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-700"
-                                            style={{ width: `${Math.min(progress, 100)}%` }}
-                                        />
-                                    </div>
-                                );
-                            })()}
-                        </button>
-                    )}
 
                     {/* Strategic Priority / North Star */}
                     <section className="mb-6 group">
@@ -1480,6 +1408,16 @@ const App: React.FC = () => {
                     <section className="flex-none mb-8" id="status-card">
                         <StatusCard isActive={status === AppStatus.RUNNING} timeLeft={timeLeft} schedule={schedule} blockStats={blockStats} onToggle={handleToggleTimer} />
                     </section>
+
+                    {/* Focus Score Section */}
+                    <div className="mb-8">
+                        <FocusScore
+                            logs={filteredLogs}
+                            allLogs={logs}
+                            streak={currentStreak}
+                        />
+                    </div>
+
                     <section className="flex-1 flex flex-col">
                         <div className="flex items-center justify-between mb-5">
                             <h2 className="text-2xl font-black text-white tracking-tight uppercase">Activity Log</h2>
@@ -1528,6 +1466,14 @@ const App: React.FC = () => {
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                                     </button>
                                 )}
+                                {/* Weekly Debrief Trigger */}
+                                <button
+                                    onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } setIsWeeklyDebriefOpen(true); }}
+                                    className="flex-0 p-4 rounded-2xl transition-all border bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800"
+                                    title="Weekly Review"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                </button>
                                 <button onClick={handleCopyClick} className={`flex items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 transition-all active:scale-95 shadow-inner ${savedReportForView ? 'w-14 h-14' : 'flex-1 py-4 px-6'}`} title="Export Logs" >
                                     <div className="flex items-center gap-2">
                                         {copyFeedback ? (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg>) : (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>)}
@@ -1551,6 +1497,7 @@ const App: React.FC = () => {
                 onSave={handleLogSave}
                 onClose={handleLogClose}
                 initialEntry={initialEntryProp}
+                isTutorial={!!tutorialPrefill}
             />
             <SettingsModal
                 isOpen={isSettingsModalOpen}
@@ -1584,6 +1531,13 @@ const App: React.FC = () => {
                 onClose={() => setIsRankModalOpen(false)}
                 currentWins={dailyWins}
                 period="Daily"
+            />
+            <WeeklyDebrief
+                isOpen={isWeeklyDebriefOpen}
+                logs={logs}
+                streak={currentStreak}
+                schedule={schedule}
+                onClose={() => setIsWeeklyDebriefOpen(false)}
             />
             <div className="h-[env(safe-area-inset-bottom)]" />
         </div>

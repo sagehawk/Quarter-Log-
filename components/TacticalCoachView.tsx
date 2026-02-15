@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 export type CoachMood = 'IDLE' | 'ASKING' | 'PROCESSING' | 'WIN' | 'LOSS' | 'DRAW' | 'SAVAGE' | 'STOIC';
@@ -21,7 +21,13 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
   bgImage
 }) => {
   const [displayedText, setDisplayedText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [isTyping, setIsTyping] = useState(true);
+  const bufferedChildrenRef = useRef<React.ReactNode>(children);
+
+  // Only update buffered children when typing is complete
+  if (displayedText === message) {
+    bufferedChildrenRef.current = children;
+  }
 
   const moodImages: Record<CoachMood, string> = {
     'IDLE': '/character/coach-idle.jpg',
@@ -31,7 +37,7 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
     'LOSS': '/character/coach-loss.jpg',
     'DRAW': '/character/coach-draw.jpg',
     'SAVAGE': '/character/coach-savage.jpg',
-    'STOIC': '/character/coach-idle.jpg',
+    'STOIC': '/character/coach-stoic.jpg',
   };
 
   const currentImage = bgImage === 'transparent' ? null : (bgImage || moodImages[mood]);
@@ -68,7 +74,7 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
           <img
             src={currentImage}
             alt="Tactical Coach"
-            className="max-h-full w-auto md:w-full md:max-h-screen object-contain md:object-cover transition-all duration-1000 ease-in-out opacity-90"
+            className="w-full h-full object-cover object-bottom md:object-[center_25%] transition-all duration-1000 ease-in-out opacity-90"
           />
         </div>
       )}
@@ -91,16 +97,21 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
           </div>
 
           {/* Text Area */}
-          <div className="min-h-[100px] border-l-2 border-green-500/50 pl-4 bg-black/40 backdrop-blur-sm p-4 rounded-r-xl">
-            <p className="font-mono text-lg md:text-xl leading-relaxed text-white/90 shadow-black drop-shadow-md">
+          <div className="min-h-[100px] border-l-2 border-green-500/50 pl-4 bg-black/40 backdrop-blur-sm p-4 rounded-r-xl relative">
+            {/* Invisible full message to pre-set height */}
+            <p className="font-mono text-lg md:text-xl leading-relaxed text-transparent select-none" aria-hidden="true">
+              {message}
+            </p>
+            {/* Visible typed text overlaid on top */}
+            <p className="font-mono text-lg md:text-xl leading-relaxed text-white/90 shadow-black drop-shadow-md absolute top-4 left-4 right-4 pl-4">
               {displayedText}
-              {isTyping && <span className="inline-block w-2 h-5 bg-green-500 ml-1 animate-blink" />}
+              {displayedText !== message && <span className="inline-block w-2 h-5 bg-green-500 ml-1 animate-blink" />}
             </p>
           </div>
 
           {/* Interaction Area (Buttons/Inputs) */}
-          <div className={`transition-all duration-500 ${isTyping ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
-            {children}
+          <div className={`transition-all ${displayedText !== message ? 'duration-300 opacity-0 translate-y-4' : 'duration-500 opacity-100 translate-y-0'}`}>
+            {bufferedChildrenRef.current}
           </div>
         </div>
       </div>
