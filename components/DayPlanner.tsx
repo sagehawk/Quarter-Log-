@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { LogEntry, ScheduleConfig, LogCategory, PlannedBlock, DayPlan } from '../types';
+import { LogEntry, ScheduleConfig, LogCategory, PlannedBlock, DayPlan, AppTheme } from '../types';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 interface DayPlannerProps {
@@ -7,6 +7,7 @@ interface DayPlannerProps {
     logs: LogEntry[];
     plan: DayPlan | null;
     onPlanUpdate: (plan: DayPlan) => void;
+    theme?: AppTheme;
 }
 
 const PRESETS: { label: string; category: LogCategory; icon: string }[] = [
@@ -38,28 +39,12 @@ const CATEGORY_DOT: Record<LogCategory, string> = {
     'OTHER': 'bg-zinc-500',
 };
 
-const CATEGORY_LABELS: Record<LogCategory, string> = {
-    'MAKER': 'Deep Work',
-    'MANAGER': 'Meetings',
-    'R&D': 'Research',
-    'FUEL': 'Break',
-    'RECOVERY': 'Recovery',
-    'BURN': 'Burnout',
-    'OTHER': 'Other',
-};
-
 const getTodayKey = () => new Date().toISOString().split('T')[0];
 
 const formatTime = (t: string) => {
     const [h, m] = t.split(':').map(Number);
     const suffix = h >= 12 ? 'PM' : 'AM';
     return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${suffix}`;
-};
-
-const addMinutes = (time: string, mins: number): string => {
-    const [h, m] = time.split(':').map(Number);
-    const total = h * 60 + m + mins;
-    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 };
 
 const generateSlots = (schedule: ScheduleConfig): string[] => {
@@ -82,16 +67,38 @@ const getCurrentSlot = (): string => {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
-const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpdate }) => {
+const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpdate, theme = 'dark' }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [editingSlot, setEditingSlot] = useState<string | null>(null);
     const [customLabel, setCustomLabel] = useState('');
     const currentSlotRef = useRef<HTMLDivElement>(null);
     const longPressTimer = useRef<NodeJS.Timeout | null>(null);
     const isLongPress = useRef(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const isDark = theme === 'dark';
+
+    // Collapse on scroll away
+    useEffect(() => {
+        if (!isExpanded) return;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (!entry.isIntersecting) {
+                    setIsExpanded(false);
+                    setEditingSlot(null);
+                }
+            },
+            { threshold: 0 }
+        );
+
+        if (containerRef.current) {
+            observer.observe(containerRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, [isExpanded]);
 
     const todayKey = getTodayKey();
-    const isToday = plan?.dateKey === todayKey;
     const slots = useMemo(() => generateSlots(schedule), [schedule]);
     const currentSlot = getCurrentSlot();
 
@@ -135,6 +142,8 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
 
         let matched = 0;
         pastBlocks.forEach(b => {
+            // Check if there was a WIN during this block
+            // Logic simplified: if log exists and is WIN
             const log = logMatchMap[b.startTime];
             if (log && log.type === 'WIN') matched++;
         });
@@ -226,53 +235,27 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
     if (slots.length === 0) return null;
 
     return (
-        <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl overflow-hidden">
-            {/* Header */}
-            <button
-                onClick={() => {
-                    try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
-                    setIsExpanded(!isExpanded);
-                }}
-                className="w-full flex items-center justify-between p-4 text-left"
+        <div
+            ref={containerRef}
+            className={`transition-all duration-300 overflow-hidden relative ${isDark ? 'bg-zinc-900 border border-white/5' : 'bg-zinc-50 border border-zinc-200 shadow-sm'} rounded-3xl ${isExpanded ? 'max-h-[800px]' : 'max-h-[88px]'}`}
+        >
+            <div
+                className={`p-6 flex items-center justify-between cursor-pointer sticky top-0 z-20 ${isDark ? 'bg-zinc-900' : 'bg-zinc-50'}`}
+                onClick={() => setIsExpanded(!isExpanded)}
             >
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-sm">
-                        📋
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Day Plan</h3>
-                            {!isExpanded && currentBlock && (
-                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${CATEGORY_COLORS[currentBlock.category]}`}>
-                                    {currentBlock.label}
-                                </span>
-                            )}
+                <div>
+                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 block ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Tactical Plan</span>
+                    <div className="flex items-center gap-2">
+                        <span className={`text-2xl font-black italic tracking-tighter ${isDark ? 'text-white' : 'text-zinc-900'}`}>{adherence ?? 0}% Adherence</span>
+                        <div className={`text-[10px] px-2 py-0.5 rounded font-black uppercase ${!adherence ? 'bg-zinc-700 text-white' : adherence >= 80 ? 'bg-green-500 text-black' : adherence >= 50 ? 'bg-amber-500 text-black' : 'bg-red-500 text-white'}`}>
+                            {adherence === null ? 'PENDING' : adherence >= 80 ? 'ELITE' : adherence >= 50 ? 'SOLID' : 'DRIFT'}
                         </div>
-                        <p className="text-xs text-zinc-500 mt-0.5 truncate">
-                            {plannedCount === 0
-                                ? 'No plan set — tap to create'
-                                : !isExpanded && currentBlock
-                                    ? `Now: ${currentBlock.label}`
-                                    : `${filledSlots}/${slots.length} blocks planned`
-                            }
-                            {adherence !== null && ` · ${adherence}% adherence`}
-                        </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    {adherence !== null && (
-                        <span className={`text-xs font-black ${adherence >= 70 ? 'text-green-500' : adherence >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
-                            {adherence}%
-                        </span>
-                    )}
-                    <svg
-                        className={`w-4 h-4 text-zinc-500 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                    >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </div>
-            </button>
+                <button className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isExpanded ? 'bg-green-500 text-black rotate-180' : isDark ? 'bg-white/5 text-zinc-500 hover:text-white' : 'bg-zinc-100 text-zinc-400 hover:text-zinc-900'}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+            </div>
 
             {/* Expanded Timeline */}
             {isExpanded && (
@@ -299,7 +282,7 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
                                 <div
                                     key={slot}
                                     ref={isCurrent ? currentSlotRef : undefined}
-                                    className={`flex items-stretch gap-3 relative transition-all cursor-pointer ${isCurrent ? 'bg-white/5 rounded-lg -mx-1 px-1' : ''
+                                    className={`flex items-stretch gap-3 relative transition-all cursor-pointer ${isCurrent ? (isDark ? 'bg-white/5 rounded-lg -mx-1 px-1' : 'bg-zinc-100 rounded-lg -mx-1 px-1') : ''
                                         }`}
                                     onClick={() => {
                                         if (isLongPress.current) {
@@ -311,7 +294,7 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
                                     }}
                                 >
                                     {/* Time label */}
-                                    <div className={`w-12 flex-shrink-0 text-right py-2 ${showHourLabel ? 'text-[10px] font-black text-zinc-400' : 'text-[9px] text-zinc-600'
+                                    <div className={`w-12 flex-shrink-0 text-right py-2 ${showHourLabel ? (isDark ? 'text-[10px] font-black text-zinc-400' : 'text-[10px] font-black text-zinc-500') : (isDark ? 'text-[9px] text-zinc-600' : 'text-[9px] text-zinc-400')
                                         }`}>
                                         {showHourLabel ? formatTime(slot) : formatTime(slot).replace(/ [AP]M/, '')}
                                     </div>
@@ -323,7 +306,7 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
                                                 status === 'loss' ? 'bg-red-500' :
                                                     status === 'missed' ? 'bg-amber-500' :
                                                         block ? CATEGORY_DOT[block.category] :
-                                                            'bg-zinc-700'
+                                                            isDark ? 'bg-zinc-700' : 'bg-zinc-300'
                                             }`} />
                                     </div>
 
@@ -349,7 +332,7 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
                                                     value={customLabel}
                                                     onChange={e => setCustomLabel(e.target.value)}
                                                     onKeyDown={e => e.key === 'Enter' && handleCustomSave()}
-                                                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-zinc-600 outline-none focus:border-zinc-500"
+                                                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-zinc-500 ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-600' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`}
                                                 />
                                             </div>
                                         ) : block ? (
@@ -373,7 +356,7 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
                                             </div>
                                         ) : (
                                             // Empty slot
-                                            <div className="text-zinc-700 text-[10px] font-mono">
+                                            <div className={`${isDark ? 'text-zinc-700' : 'text-zinc-200'} text-[10px] font-mono`}>
                                                 —
                                             </div>
                                         )}

@@ -17,7 +17,7 @@ import Onboarding from './components/Onboarding';
 import ExportModal from './components/ExportModal';
 import { generateDemoData } from './utils/demoData';
 import StatusCard from './components/StatusCard';
-import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState, FilterType, AIPersona, DayPlan } from './types';
+import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState, FilterType, AIPersona, DayPlan, AppTheme } from './types';
 import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification, sendReportNotification, sendFeedbackNotification } from './utils/notifications';
 import { generateAIReport, analyzeEntry } from './utils/aiService';
 import TimerPlugin from './utils/nativeTimer';
@@ -27,7 +27,10 @@ import WeeklyDebrief from './components/WeeklyDebrief';
 import InsightsCard from './components/InsightsCard';
 import DayPlanner from './components/DayPlanner';
 
+import StreakRepairModal from './components/StreakRepairModal';
+
 const STORAGE_KEY_LOGS = 'ironlog_entries';
+const STORAGE_KEY_INSURANCE = 'ironlog_streak_insurance';
 const STORAGE_KEY_SCHEDULE = 'ironlog_schedule';
 const STORAGE_KEY_ONBOARDED = 'ironlog_onboarded';
 const STORAGE_KEY_GOAL = 'ironlog_goal';
@@ -66,7 +69,30 @@ const App: React.FC = () => {
     const [cycleDuration, setCycleDuration] = useState(DEFAULT_INTERVAL_MS);
     const [breakUntil, setBreakUntil] = useState<number | null>(null);
     const [challengeStartDate, setChallengeStartDate] = useState<number | null>(null);
-    const [persona, setPersona] = useState<AIPersona>('LOGIC');
+    const [persona, setPersona] = useState<AIPersona>(() => {
+        return (localStorage.getItem(STORAGE_KEY_PERSONA) as AIPersona) || 'LOGIC';
+    });
+
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_PERSONA, persona);
+    }, [persona]);
+
+    const [theme, setTheme] = useState<AppTheme>(() => {
+        return (localStorage.getItem('ironlog_theme') as AppTheme) || 'dark';
+    });
+
+    const [streakInsurance, setStreakInsurance] = useState<number>(() => {
+        const stored = localStorage.getItem(STORAGE_KEY_INSURANCE);
+        return stored ? parseInt(stored, 10) : 2; // Default 2 shields
+    });
+
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_INSURANCE, streakInsurance.toString());
+    }, [streakInsurance]);
+
+    useEffect(() => {
+        localStorage.setItem('ironlog_theme', theme);
+    }, [theme]);
 
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [reports, setReports] = useState<Record<string, AIReport>>({});
@@ -94,6 +120,7 @@ const App: React.FC = () => {
 
     const [isAIModalOpen, setIsAIModalOpen] = useState(false);
     const [isWeeklyDebriefOpen, setIsWeeklyDebriefOpen] = useState(false);
+    const [isRepairModalOpen, setIsRepairModalOpen] = useState(false);
 
     const [dayPlan, setDayPlan] = useState<DayPlan | null>(() => {
         try {
@@ -188,6 +215,70 @@ const App: React.FC = () => {
         }
         return streak;
     }, [logs]);
+
+    // Check for broken streak on mount/logs change
+    useEffect(() => {
+        if (currentStreak === 0 && logs.length > 0 && streakInsurance > 0) {
+            // Check if YESTERDAY was missed, but DAY BEFORE was valid.
+            // 1. Get logs for yesterday
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toDateString();
+
+            const yesterdayWins = logs.filter(l =>
+                l.type === 'WIN' && new Date(l.timestamp).toDateString() === yesterdayStr
+            ).length;
+
+            if (yesterdayWins < 4) {
+                // 2. Check Day Before Yesterday
+                const dayBefore = new Date();
+                dayBefore.setDate(dayBefore.getDate() - 2);
+                const dayBeforeStr = dayBefore.toDateString();
+
+                const dayBeforeWins = logs.filter(l =>
+                    l.type === 'WIN' && new Date(l.timestamp).toDateString() === dayBeforeStr
+                ).length;
+
+                // Simple check: if we HAD a streak going (>=4 wins day before), offer repair
+                // Or recursively check streak logic? 
+                // Let's rely on the fact that if we had a streak, dayBeforeWins would likely be >= 4 (or covered by insurance)
+                // Actually, currentStreak===0 means we lost it.
+
+                if (dayBeforeWins >= 4) {
+                    // Check if we already asked today? (avoid spam) - ignoring for now
+                    // Only open if NOT already open
+                    if (!isRepairModalOpen) setIsRepairModalOpen(true);
+                }
+            }
+        }
+    }, [currentStreak, logs.length, streakInsurance]);
+
+    const handleRepairStreak = () => {
+        if (streakInsurance > 0) {
+            setStreakInsurance(prev => prev - 1);
+
+            // Add a "WIN" log for yesterday at 23:59:59
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            yesterday.setHours(23, 59, 59, 999);
+
+            const newLog: LogEntry = {
+                id: crypto.randomUUID(),
+                timestamp: yesterday.getTime(),
+                text: "Streak Insurance Auto-Save",
+                type: 'WIN',
+                category: 'OTHER',
+                isInsuranceWin: true
+            };
+
+            setLogs(prev => [...prev, newLog]);
+            setIsRepairModalOpen(false);
+            try { Haptics.notification({ type: NotificationType.Success }); } catch (e) { }
+            setToast({ title: 'Streak Saved!', message: 'Shield used to repair history.', visible: true });
+        }
+    };
+
+
 
     const [isRankModalOpen, setIsRankModalOpen] = useState(false);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -409,6 +500,7 @@ const App: React.FC = () => {
         const setupBackListener = async () => {
             const handler = await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
                 if (isEntryModalOpen) { setIsEntryModalOpen(false); return; }
+                if (isPersonaModalOpen) { setIsPersonaModalOpen(false); return; } // Added for PersonaSelector
                 if (isSettingsModalOpen) { setIsSettingsModalOpen(false); return; }
                 if (isAIModalOpen) { setIsAIModalOpen(false); setOverrideReport(null); return; }
                 if (isRankModalOpen) { setIsRankModalOpen(false); return; }
@@ -858,15 +950,15 @@ const App: React.FC = () => {
         return { canGoBack: viewStart > minTimestamp, canGoForward: viewEnd < maxTimestamp };
     }, [viewDate, filter, logs]);
 
-    const totalLifetimeWins = useMemo(() => logs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [logs]);
+    const totalLifetimeWins = useMemo(() => logs.filter(l => l.type === 'WIN' && !l.isInsuranceWin).length, [logs]);
 
     const dailyWins = useMemo(() => {
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        return logs.filter(l => l.type === 'WIN' && !l.isFrozenWin && l.timestamp >= startOfDay).length;
+        return logs.filter(l => l.type === 'WIN' && !l.isInsuranceWin && l.timestamp >= startOfDay).length;
     }, [logs]);
 
-    const currentPeriodWins = useMemo(() => filteredLogs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [filteredLogs]);
+    const currentPeriodWins = useMemo(() => filteredLogs.filter(l => l.type === 'WIN' && !l.isInsuranceWin).length, [filteredLogs]);
 
     const handleManualLogStart = () => {
         try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
@@ -1326,20 +1418,23 @@ const App: React.FC = () => {
 
     if (!hasOnboarded) return <Onboarding onComplete={handleOnboardingComplete} />;
 
+    const isDark = theme === 'dark';
+
     return (
-        <div className="min-h-screen font-sans pb-[env(safe-area-inset-bottom)] text-white relative">
-            <div className="fixed inset-0 -z-50 bg-black" />
+        <div className={`min-h-screen transition-colors duration-500 selection:bg-green-500/30 ${isDark ? 'bg-black text-white' : 'bg-[#F4F5F7] text-zinc-900'}`}>
+
+            <div className={`fixed inset-0 -z-50 transition-colors duration-300 ${isDark ? 'bg-black' : 'bg-zinc-50'}`} />
             <div className={`fixed inset-0 pointer-events-none z-50 bg-green-500/20 transition-opacity duration-150 ease-out ${flashWin ? 'opacity-100' : 'opacity-0'}`} />
 
             <div className="relative z-10">
-                <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center border-b ${isScrolled ? 'bg-[#050505]/80 backdrop-blur-md border-white/5' : 'border-transparent'}`} >
+                <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center border-b ${isScrolled ? (isDark ? 'bg-[#050505]/80 border-white/5' : 'bg-white/80 border-zinc-200/50') + ' backdrop-blur-md' : 'border-transparent'}`} >
                     <div className="relative flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl overflow-hidden transition-all duration-500">
                             <img src="/icon.png" alt="App Icon" className="w-full h-full object-cover" />
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-xl font-bold tracking-[0.1em] uppercase text-white leading-none">Winner</span>
-                            <span className="text-xl font-light tracking-[0.1em] uppercase text-white leading-none">Effect</span>
+                            <span className={`text-xl font-bold tracking-[0.1em] uppercase leading-none ${isDark ? 'text-white' : 'text-zinc-900'}`}>Winner</span>
+                            <span className={`text-xl font-light tracking-[0.1em] uppercase leading-none ${isDark ? 'text-white' : 'text-zinc-900'}`}>Effect</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -1348,12 +1443,14 @@ const App: React.FC = () => {
                             period="D"
                             isFrozen={freezeState.isFrozen}
                             dayStreak={currentStreak}
+                            insurance={streakInsurance}
+                            theme={theme}
                             onClick={() => {
                                 try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
                                 setIsRankModalOpen(true);
                             }}
                         />
-                        <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { } setIsSettingsModalOpen(true); }} id="settings-btn" className="text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-zinc-800 p-2.5 rounded-xl transition-all border border-white/5 hover:border-white/10" title="Settings" >
+                        <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { } setIsSettingsModalOpen(true); }} id="settings-btn" className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${isDark ? 'bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 hover:text-white border-white/5 hover:border-white/10' : 'bg-white hover:bg-zinc-100 text-zinc-400 hover:text-zinc-900 border-zinc-200 hover:border-zinc-300'}`} title="Settings" >
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                         </button>
                     </div>
@@ -1375,7 +1472,15 @@ const App: React.FC = () => {
                         }
                     }}
                 />
-                <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} onAction={toast.onAction} />
+                <StreakRepairModal
+                    isOpen={isRepairModalOpen}
+                    onRepair={handleRepairStreak}
+                    onDismiss={() => setIsRepairModalOpen(false)}
+                    insuranceBalance={streakInsurance}
+                    theme={theme}
+                />
+
+                <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} onAction={toast.onAction} theme={theme} />
                 <main className="max-w-xl mx-auto p-5 pt-44 flex flex-col min-h-[calc(100vh-80px)]">
 
 
@@ -1404,7 +1509,10 @@ const App: React.FC = () => {
                                     try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
                                     setIsEditingPriority(true);
                                 }}
-                                className="w-full text-left bg-gradient-to-br from-white/10 to-black border border-green-500/20 rounded-3xl p-6 transition-all active:scale-[0.98] shadow-2xl relative overflow-hidden group"
+                                className={`w-full text-left border rounded-3xl p-6 transition-all active:scale-[0.98] shadow-2xl relative overflow-hidden group ${isDark
+                                    ? 'bg-gradient-to-br from-white/10 to-black border-green-500/20'
+                                    : 'bg-zinc-50 border-zinc-200'
+                                    }`}
                             >
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 blur-[50px] rounded-full pointer-events-none group-hover:bg-green-500/20 transition-all" />
 
@@ -1414,23 +1522,23 @@ const App: React.FC = () => {
                                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-green-500"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                             North Star
                                         </span>
-                                        <span className="text-[9px] font-mono text-white/30 tracking-widest uppercase mt-0.5">Your main goal</span>
+                                        <span className={`text-[9px] font-mono tracking-widest uppercase mt-0.5 ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>Your main goal</span>
                                     </div>
 
                                 </div>
-                                <div className={`text-2xl font-black italic tracking-tighter leading-none relative z-10 ${strategicPriority ? 'text-white drop-shadow-lg' : 'text-white/20'}`}>
+                                <div className={`text-2xl font-black italic tracking-tighter leading-none relative z-10 ${strategicPriority ? (isDark ? 'text-white drop-shadow-lg' : 'text-zinc-900') : (isDark ? 'text-white/20' : 'text-zinc-300')}`}>
                                     {strategicPriority || "Tap to set your main goal"}
                                 </div>
                             </button>
                         )}
                     </section>
 
-                    <section className="flex-none mb-4">
-                        <DayPlanner schedule={schedule} logs={logs} plan={dayPlan} onPlanUpdate={handlePlanUpdate} />
+                    <section className="flex-none mb-6">
+                        <DayPlanner schedule={schedule} logs={logs} plan={dayPlan} onPlanUpdate={handlePlanUpdate} theme={theme} />
                     </section>
 
                     <section className="flex-none mb-8" id="status-card">
-                        <StatusCard isActive={status === AppStatus.RUNNING} timeLeft={timeLeft} schedule={schedule} blockStats={blockStats} onToggle={handleToggleTimer} />
+                        <StatusCard isActive={status === AppStatus.RUNNING} timeLeft={timeLeft} schedule={schedule} blockStats={blockStats} onToggle={handleToggleTimer} theme={theme} />
                     </section>
 
                     {/* Focus Score Section */}
@@ -1439,18 +1547,19 @@ const App: React.FC = () => {
                             logs={filteredLogs}
                             allLogs={logs}
                             streak={currentStreak}
+                            theme={theme}
                         />
                     </div>
 
                     {/* Pattern Intelligence */}
                     <div className="mb-8">
-                        <InsightsCard logs={logs} />
+                        <InsightsCard logs={logs} theme={theme} />
                     </div>
 
                     <section className="flex-1 flex flex-col">
                         <div className="flex items-center justify-between mb-5">
-                            <h2 className="text-2xl font-black text-white tracking-tight uppercase">Activity Log</h2>
-                            <button onClick={handleManualLogStart} id="manual-entry-btn" className="text-zinc-500 hover:text-green-500 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-green-500/20" >
+                            <h2 className={`text-2xl font-black tracking-tight uppercase ${isDark ? 'text-white' : 'text-zinc-800'}`}>Activity Log</h2>
+                            <button onClick={handleManualLogStart} id="manual-entry-btn" className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-green-500 hover:border-green-500/20' : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:border-zinc-300 shadow-sm'}`} >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                 Manual Entry
                             </button>
@@ -1467,12 +1576,13 @@ const App: React.FC = () => {
                                 isCurrentView={isCurrentView}
                                 canGoBack={canGoBack}
                                 canGoForward={canGoForward}
+                                theme={theme}
                             />
                         </div>
                         <div className="flex justify-center mb-6">
-                            <div className="bg-zinc-900 p-1.5 rounded-2xl flex items-center justify-between w-full border border-zinc-800">
+                            <div className={`p-1.5 rounded-2xl flex items-center justify-between w-full border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-200 shadow-sm'}`}>
                                 {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
-                                    <button key={f} onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { } setFilter(f); setViewDate(new Date()); }} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-[0.2em] transition-all duration-300 ${filter === f ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'text-zinc-500 hover:text-white hover:bg-zinc-800'}`} >
+                                    <button key={f} onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { } setFilter(f); setViewDate(new Date()); }} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-[0.2em] transition-all duration-300 ${filter === f ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : isDark ? 'text-zinc-500 hover:text-white hover:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50'}`} >
                                         {f}
                                     </button>
                                 ))}
@@ -1481,8 +1591,8 @@ const App: React.FC = () => {
                         {filteredLogs.length > 0 && (
                             <div className="flex items-center justify-between mb-6 px-1 gap-4">
                                 {savedReportForView ? (
-                                    <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } handleOpenAIModal(); }} className="flex-1 flex items-center gap-3 py-4 px-6 rounded-2xl transition-all border bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20" >
-                                        <div className="p-2 rounded-lg transition-colors bg-green-500/20">
+                                    <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } handleOpenAIModal(); }} className={`flex-1 flex items-center gap-3 py-4 px-6 rounded-2xl transition-all border ${isDark ? 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20' : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 shadow-sm'}`} >
+                                        <div className={`p-2 rounded-lg transition-colors ${isDark ? 'bg-green-500/20' : 'bg-white'}`}>
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                                         </div>
                                         <div className="flex flex-col items-start">
@@ -1491,19 +1601,19 @@ const App: React.FC = () => {
                                         </div>
                                     </button>
                                 ) : (
-                                    <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } handleGenerateAIReport(); }} className="flex-0 p-4 rounded-2xl transition-all border bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800" title="Generate Insight">
+                                    <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } handleGenerateAIReport(); }} className={`flex-0 p-4 rounded-2xl transition-all border ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800' : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50 shadow-sm'}`} title="Generate Insight">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                                     </button>
                                 )}
                                 {/* Weekly Debrief Trigger */}
                                 <button
                                     onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } setIsWeeklyDebriefOpen(true); }}
-                                    className="flex-0 p-4 rounded-2xl transition-all border bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800"
+                                    className={`flex-0 p-4 rounded-2xl transition-all border ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800' : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50 shadow-sm'}`}
                                     title="Weekly Review"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                                 </button>
-                                <button onClick={handleCopyClick} className={`flex items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 transition-all active:scale-95 shadow-inner ${savedReportForView ? 'w-14 h-14' : 'flex-1 py-4 px-6'}`} title="Export Logs" >
+                                <button onClick={handleCopyClick} className={`flex items-center justify-center rounded-2xl border transition-all active:scale-95 shadow-inner ${savedReportForView ? 'w-14 h-14' : 'flex-1 py-4 px-6'} ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700' : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:border-zinc-300 shadow-sm'}`} title="Export Logs" >
                                     <div className="flex items-center gap-2">
                                         {copyFeedback ? (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg>) : (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>)}
                                         {!savedReportForView && <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">EXPORT</span>}
@@ -1511,7 +1621,7 @@ const App: React.FC = () => {
                                 </button>
                             </div>
                         )}
-                        <div className="flex-1"><LogList logs={filteredLogs} onDelete={deleteLog} onEdit={handleLogEdit} /></div>
+                        <div className="flex-1"><LogList logs={filteredLogs} onDelete={deleteLog} onEdit={handleLogEdit} theme={theme} /></div>
                     </section>
                 </main>
             </div>
@@ -1523,43 +1633,52 @@ const App: React.FC = () => {
             />
             <EntryModal
                 isOpen={isEntryModalOpen}
+                initialEntry={editingLog}
                 onSave={handleLogSave}
-                onClose={handleLogClose}
-                initialEntry={initialEntryProp}
-                isTutorial={!!tutorialPrefill}
+                onClose={() => { setIsEntryModalOpen(false); setIsManualEntry(false); setEditingLog(null); }}
+                isTutorial={isTutorialActive && tutorialStepIndex === 2}
+                theme={theme}
             />
             <SettingsModal
                 isOpen={isSettingsModalOpen}
                 currentDurationMs={cycleDuration}
+                currentTheme={theme}
                 logs={logs}
                 schedule={schedule}
                 breakUntil={breakUntil}
                 onSave={handleDurationSave}
                 onSaveSchedule={handleScheduleSave}
+                onSaveTheme={setTheme}
                 onTakeBreak={handleTakeBreak}
                 onLoadDemoData={handleLoadDemoData}
                 onOpenPersona={() => setIsPersonaModalOpen(true)}
                 onClose={() => setIsSettingsModalOpen(false)}
             />
-            <PersonaSelector
-                isOpen={isPersonaModalOpen}
-                currentPersona={persona}
-                currentStreak={currentStreak}
-                onSelect={handlePersonaSave}
-                onClose={() => setIsPersonaModalOpen(false)}
-            />
+            {isPersonaModalOpen && (
+                <PersonaSelector
+                    currentPersona={persona}
+                    onSelect={(p) => {
+                        setPersona(p);
+                        setIsPersonaModalOpen(false);
+                    }}
+                    onClose={() => setIsPersonaModalOpen(false)}
+                    theme={theme}
+                />
+            )}
             <ExportModal
                 isOpen={isExportModalOpen}
                 onClose={() => setIsExportModalOpen(false)}
                 logs={filteredLogs}
                 onSuccess={(msg) => setToast({ title: "Export Success", message: msg, visible: true })}
+                theme={theme}
             />
-            <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={'Daily'} onClose={() => { setIsAIModalOpen(false); setOverrideReport(null); }} onGenerate={handleGenerateAIReport} />
+            <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={'Daily'} onClose={() => { setIsAIModalOpen(false); setOverrideReport(null); }} onGenerate={handleGenerateAIReport} theme={theme} />
             <RankHierarchyModal
                 isOpen={isRankModalOpen}
                 onClose={() => setIsRankModalOpen(false)}
                 currentWins={dailyWins}
                 period="Daily"
+                theme={theme}
             />
             <WeeklyDebrief
                 isOpen={isWeeklyDebriefOpen}
@@ -1567,6 +1686,7 @@ const App: React.FC = () => {
                 streak={currentStreak}
                 schedule={schedule}
                 onClose={() => setIsWeeklyDebriefOpen(false)}
+                theme={theme}
             />
             <div className="h-[env(safe-area-inset-bottom)]" />
         </div>

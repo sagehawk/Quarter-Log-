@@ -36,12 +36,12 @@ export const generateDemoData = (): LogEntry[] => {
   const now = new Date();
   const currentYear = now.getFullYear();
   const startDate = new Date(currentYear, 0, 1); // Jan 1st
-  
+
   // Helper to add log
   const addLog = (date: Date, type: 'WIN' | 'LOSS') => {
     const phrases = type === 'WIN' ? WIN_PHRASES : LOSS_PHRASES;
     const text = phrases[Math.floor(Math.random() * phrases.length)];
-    
+
     // Randomize time within working hours (9 AM - 6 PM)
     const hour = 9 + Math.floor(Math.random() * 9);
     const minute = Math.floor(Math.random() * 60);
@@ -53,7 +53,7 @@ export const generateDemoData = (): LogEntry[] => {
       timestamp: logDate.getTime(),
       text,
       type,
-      isFrozenWin: false,
+      isInsuranceWin: false,
       duration: 15 * 60 * 1000 // 15 mins default
     });
   };
@@ -63,32 +63,32 @@ export const generateDemoData = (): LogEntry[] => {
   while (currentDate <= now) {
     const dayOfWeek = currentDate.getDay(); // 0 = Sun, 6 = Sat
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    
+
     let numLogs = 0;
     let winRate = 0;
 
     // Simulation Logic
     if (isWeekend) {
-        // 40% chance of working on weekends
-        if (Math.random() > 0.6) {
-            numLogs = Math.floor(Math.random() * 4) + 1; // 1-4 logs
-            winRate = 0.9; // Mostly wins if working on weekend
-        }
+      // 40% chance of working on weekends
+      if (Math.random() > 0.6) {
+        numLogs = Math.floor(Math.random() * 4) + 1; // 1-4 logs
+        winRate = 0.9; // Mostly wins if working on weekend
+      }
     } else {
-        // Weekdays: High consistency
-        // 90% chance of a "Good Day", 10% "Bad Day"
-        if (Math.random() > 0.1) {
-            numLogs = Math.floor(Math.random() * 6) + 4; // 4-10 logs
-            winRate = 0.85; // High win rate
-        } else {
-            numLogs = Math.floor(Math.random() * 5) + 2; // 2-7 logs
-            winRate = 0.4; // Mixed/Bad day
-        }
+      // Weekdays: High consistency
+      // 90% chance of a "Good Day", 10% "Bad Day"
+      if (Math.random() > 0.1) {
+        numLogs = Math.floor(Math.random() * 6) + 4; // 4-10 logs
+        winRate = 0.85; // High win rate
+      } else {
+        numLogs = Math.floor(Math.random() * 5) + 2; // 2-7 logs
+        winRate = 0.4; // Mixed/Bad day
+      }
     }
 
     for (let i = 0; i < numLogs; i++) {
-        const isWin = Math.random() < winRate;
-        addLog(currentDate, isWin ? 'WIN' : 'LOSS');
+      const isWin = Math.random() < winRate;
+      addLog(currentDate, isWin ? 'WIN' : 'LOSS');
     }
 
     currentDate.setDate(currentDate.getDate() + 1);
@@ -96,10 +96,10 @@ export const generateDemoData = (): LogEntry[] => {
 
   // Ensure today has some impressive data
   const todayStart = new Date();
-  todayStart.setHours(9,0,0,0);
-  for(let i=0; i<6; i++) {
-      addLog(todayStart, 'WIN');
-      todayStart.setMinutes(todayStart.getMinutes() + 45); 
+  todayStart.setHours(9, 0, 0, 0);
+  for (let i = 0; i < 6; i++) {
+    addLog(todayStart, 'WIN');
+    todayStart.setMinutes(todayStart.getMinutes() + 45);
   }
 
   return logs.sort((a, b) => b.timestamp - a.timestamp);

@@ -7,7 +7,7 @@ export interface LogEntry {
   text: string;
   type?: 'WIN' | 'LOSS' | 'DRAW';
   category?: LogCategory;
-  isFrozenWin?: boolean;
+  isInsuranceWin?: boolean;
   duration?: number; // Duration in ms
 }
 
@@ -32,7 +32,9 @@ export interface ScheduleConfig {
 
 export type UserGoal = 'FOCUS' | 'BUSINESS' | 'LIFE';
 
-export type AIPersona = 'LOGIC' | 'AGGRESSIVE' | 'STOIC';
+export type AIPersona = 'LOGIC' | 'AGGRESSIVE' | 'STOIC' | 'HYPE' | 'STRATEGIST';
+
+export type AppTheme = 'light' | 'dark';
 
 export type FilterType = 'D' | 'W' | 'M' | '3M' | 'Y';
 

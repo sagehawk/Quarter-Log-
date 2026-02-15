@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { LogEntry, ScheduleConfig, FilterType } from '../types';
+import { LogEntry, ScheduleConfig, FilterType, AppTheme } from '../types';
 import { getRankForPeriod } from '../utils/rankSystem';
 import CategoryPieChart from './CategoryPieChart';
 
@@ -14,6 +14,7 @@ interface StatsCardProps {
     isCurrentView: boolean;
     canGoBack: boolean;
     canGoForward: boolean;
+    theme?: AppTheme;
 }
 
 const StatsCard: React.FC<StatsCardProps> = ({
@@ -24,8 +25,10 @@ const StatsCard: React.FC<StatsCardProps> = ({
     onReset,
     isCurrentView,
     canGoBack,
-    canGoForward
+    canGoForward,
+    theme = 'dark'
 }) => {
+    const isDark = theme === 'dark';
     const [hoverData, setHoverData] = React.useState<{ date: string, wins: number, losses: number, draws?: number } | null>(null);
     const [hoverPos, setHoverPos] = React.useState<{ x: number, y: number } | null>(null);
 
@@ -218,7 +221,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
         return (
             <div className="flex gap-2 w-full items-end">
                 {/* Left Labels (Mon, Wed, Fri) - Fixed */}
-                <div className="flex flex-col gap-[2px] h-full justify-end text-[6px] font-black uppercase text-white/40 w-5 shrink-0 text-right">
+                <div className={`flex flex-col gap-[2px] h-full justify-end text-[6px] font-black uppercase ${isDark ? 'text-white/40' : 'text-zinc-400'} w-5 shrink-0 text-right`}>
                     <div className="h-1.5 flex items-center justify-end">Mon</div>
                     <div className="h-1.5"></div>
                     <div className="h-1.5 flex items-center justify-end">Wed</div>
@@ -232,7 +235,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                         {/* Month Labels */}
                         <div className="relative w-full h-3 mb-1">
                             {monthLabels.map((m, i) => (
-                                <span key={i} className="absolute text-[7px] font-black uppercase tracking-widest text-white/30 transform -translate-x-1/2" style={{ left: `${m.left}%` }}>{m.label}</span>
+                                <span key={i} className={`absolute text-[7px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-zinc-400'} transform -translate-x-1/2`} style={{ left: `${m.left}%` }}>{m.label}</span>
                             ))}
                         </div>
 
@@ -262,7 +265,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                                             isVisible = false;
                                         }
 
-                                        let bgClass = "bg-white/5";
+                                        let bgClass = isDark ? "bg-white/5" : "bg-zinc-200";
                                         if (!isVisible) bgClass = "invisible";
                                         else if (day) {
                                             if (day.intensity === -1) bgClass = "bg-red-900/50 shadow-[0_0_5px_rgba(220,38,38,0.2)]";
@@ -301,13 +304,13 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 {/* Unified Tooltip (Fixed position) */}
                 {hoverData && hoverPos && (
                     <div
-                        className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2 bg-zinc-900 border border-white/10 px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md"
+                        className={`fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-2 border px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md ${isDark ? 'bg-zinc-900 border-white/10' : 'bg-white border-zinc-200'}`}
                         style={{ left: hoverPos.x, top: hoverPos.y - 8 }}
                     >
                         <span className="block text-[10px] font-black uppercase tracking-widest text-green-500 mb-0.5">{hoverData.date}</span>
-                        <span className="block text-[10px] font-mono text-white/60">{hoverData.wins} WINS / {hoverData.losses} LOSSES</span>
+                        <span className={`block text-[10px] font-mono ${isDark ? 'text-white/60' : 'text-zinc-600'}`}>{hoverData.wins} WINS / {hoverData.losses} LOSSES</span>
                         {/* Triangle Pointer */}
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-zinc-900 border-r border-b border-white/10"></div>
+                        <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 border-r border-b ${isDark ? 'bg-zinc-900 border-white/10' : 'bg-white border-zinc-200'}`}></div>
                     </div>
                 )}
             </div>
@@ -353,7 +356,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                         >
                             {/* Label */}
                             {showLabel && (
-                                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 text-[8px] font-black text-white/30 tracking-widest whitespace-nowrap">
+                                <div className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 text-[8px] font-black tracking-widest whitespace-nowrap ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>
                                     {d.label}
                                 </div>
                             )}
@@ -361,7 +364,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                             <div style={{ height: `${lossH}%` }} className="w-full bg-red-500/50 rounded-[1px] transition-all duration-500" />
                             <div style={{ height: `${drawH}%` }} className="w-full bg-yellow-500/50 rounded-[1px] transition-all duration-500" />
                             <div style={{ height: `${winH}%` }} className="w-full bg-green-500 rounded-[1px] shadow-[0_0_10px_rgba(34,197,94,0.3)] transition-all duration-500" />
-                            {total === 0 && <div className="w-full h-[2px] bg-white/5 rounded-full" />}
+                            {total === 0 && <div className={`w-full h-[2px] rounded-full ${isDark ? 'bg-white/5' : 'bg-zinc-200'}`} />}
                         </div>
                     );
                 })}
@@ -369,7 +372,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 {/* Unified Tooltip (Reused) */}
                 {hoverData && hoverPos && filter !== 'Y' && (
                     <div
-                        className={`fixed z-50 pointer-events-none transform -translate-y-full mb-2 bg-zinc-900 border border-white/10 px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md ${hoverPos.x > window.innerWidth * 0.7
+                        className={`fixed z-50 pointer-events-none transform -translate-y-full mb-2 border px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md ${isDark ? 'bg-zinc-900 border-white/10' : 'bg-white border-zinc-200'} ${hoverPos.x > window.innerWidth * 0.7
                             ? '-translate-x-[90%]'
                             : hoverPos.x < window.innerWidth * 0.3
                                 ? '-translate-x-[10%]'
@@ -378,10 +381,10 @@ const StatsCard: React.FC<StatsCardProps> = ({
                         style={{ left: hoverPos.x, top: hoverPos.y - 8 }}
                     >
                         <span className="block text-[10px] font-black uppercase tracking-widest text-green-500 mb-0.5">{hoverData.date}</span>
-                        <span className="block text-[10px] font-mono text-white/60">
+                        <span className={`block text-[10px] font-mono ${isDark ? 'text-white/60' : 'text-zinc-600'}`}>
                             {hoverData.wins} W / {hoverData.draws || 0} D / {hoverData.losses} L
                         </span>
-                        <div className={`absolute bottom-0 w-2 h-2 bg-zinc-900 border-r border-b border-white/10 translate-y-1/2 rotate-45 ${hoverPos.x > window.innerWidth * 0.7
+                        <div className={`absolute bottom-0 w-2 h-2 border-r border-b translate-y-1/2 rotate-45 ${isDark ? 'bg-zinc-900 border-white/10' : 'bg-white border-zinc-200'} ${hoverPos.x > window.innerWidth * 0.7
                             ? 'right-2'
                             : hoverPos.x < window.innerWidth * 0.3
                                 ? 'left-2'
@@ -448,20 +451,20 @@ const StatsCard: React.FC<StatsCardProps> = ({
             {/* HEADER: Navigation & Rank */}
             <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => onNavigate(-1)} disabled={!canGoBack} className="p-2 rounded-full hover:bg-white/5 disabled:opacity-20 transition-colors">
-                        <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    <button onClick={() => onNavigate(-1)} disabled={!canGoBack} className={`p-2 rounded-full hover:bg-white/5 disabled:opacity-20 transition-colors ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="15 18 9 12 15 6"></polyline></svg>
                     </button>
                     <div className="flex flex-col items-center cursor-pointer active:scale-95 transition-transform" onClick={onReset}>
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">{headerInfo.label}</span>
-                        <span className="text-sm font-black uppercase tracking-widest text-white">{headerInfo.date}</span>
+                        <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>{headerInfo.label}</span>
+                        <span className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-white' : 'text-zinc-900'}`}>{headerInfo.date}</span>
                     </div>
-                    <button onClick={() => onNavigate(1)} disabled={!canGoForward} className="p-2 rounded-full hover:bg-white/5 disabled:opacity-20 transition-colors">
-                        <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    <button onClick={() => onNavigate(1)} disabled={!canGoForward} className={`p-2 rounded-full hover:bg-white/5 disabled:opacity-20 transition-colors ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"></polyline></svg>
                     </button>
                 </div>
 
                 {filter === 'D' && (
-                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${stats.rank.color.replace('text-', 'border-').replace('500', '500/30')} bg-black/40`}>
+                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${stats.rank.color.replace('text-', 'border-').replace('500', '500/30')} ${isDark ? 'bg-black/40' : 'bg-white'}`}>
                         <svg className={`w-3 h-3 ${stats.rank.color}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0"><path fill="currentColor" d={stats.rank.icon} /></svg>
                         <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${stats.rank.color}`}>{stats.rank.name}</span>
                     </div>
@@ -469,29 +472,29 @@ const StatsCard: React.FC<StatsCardProps> = ({
             </div>
 
             {/* PRIMARY VISUAL: THE SOVEREIGN GRID */}
-            <div className="relative w-full bg-black/40 border border-white/5 rounded-3xl p-5 overflow-visible group">
+            <div className={`relative w-full border rounded-3xl p-5 overflow-visible group transition-colors duration-300 ${isDark ? 'bg-black/40 border-white/5' : 'bg-white border-zinc-200 shadow-sm'}`}>
                 {/* Decorative Grid Lines */}
-                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
+                <div className={`absolute inset-0 bg-[size:20px_20px] pointer-events-none ${isDark ? 'bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)]' : 'bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)]'}`} />
                 <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 blur-[60px] rounded-full" />
 
                 <div className="relative z-10 flex flex-col gap-4">
                     <div className="flex justify-between items-end">
                         <div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 mb-1">Win Rate</div>
-                            <div className="text-5xl font-black tracking-tighter text-white drop-shadow-xl flex items-baseline gap-2">
+                            <div className={`text-[10px] font-black uppercase tracking-[0.3em] mb-1 ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>Win Rate</div>
+                            <div className={`text-5xl font-black tracking-tighter drop-shadow-xl flex items-baseline gap-2 ${isDark ? 'text-white' : 'text-zinc-900'}`}>
                                 {stats.rate}%
-                                <span className="text-xs font-bold text-white/40 tracking-normal">OF ENTRIES</span>
+                                <span className={`text-xs font-bold tracking-normal ${isDark ? 'text-white/40' : 'text-zinc-400'}`}>OF ENTRIES</span>
                             </div>
                         </div>
                     </div>
 
                     {/* The Heatmap / Chart */}
-                    <div className="mt-2 pt-4 border-t border-white/5">
+                    <div className={`mt-2 pt-4 border-t ${isDark ? 'border-white/5' : 'border-zinc-100'}`}>
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-white/20">
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-white/20' : 'text-zinc-300'}`}>
                                 {filter === 'Y' ? 'Year Overview' : 'Activity'}
                             </span>
-                            <span className="text-[9px] font-black uppercase tracking-widest text-white/20">
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-white/20' : 'text-zinc-300'}`}>
                                 {filter === 'Y' ? 'L-365' : filter}
                             </span>
                         </div>
@@ -499,9 +502,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
 
                         {/* Color Legend */}
                         {filter === 'Y' ? (
-                            <div className="flex items-center justify-end gap-1.5 mt-3 text-[8px] font-black uppercase tracking-widest text-white/30">
+                            <div className={`flex items-center justify-end gap-1.5 mt-3 text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>
                                 <span>Less</span>
-                                <div className="w-2 h-2 rounded-[1px] bg-white/5" />
+                                <div className={`w-2 h-2 rounded-[1px] ${isDark ? 'bg-white/5' : 'bg-zinc-200'}`} />
                                 <div className="w-2 h-2 rounded-[1px] bg-green-900/40" />
                                 <div className="w-2 h-2 rounded-[1px] bg-green-700/60" />
                                 <div className="w-2 h-2 rounded-[1px] bg-green-500/80" />
@@ -512,7 +515,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                                 <span>Loss</span>
                             </div>
                         ) : (
-                            <div className="flex items-center justify-end gap-3 mt-8 text-[8px] font-black uppercase tracking-widest text-white/30">
+                            <div className={`flex items-center justify-end gap-3 mt-8 text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>
                                 <div className="flex items-center gap-1">
                                     <div className="w-2 h-2 rounded-full bg-green-500" />
                                     <span>Wins</span>
@@ -533,27 +536,27 @@ const StatsCard: React.FC<StatsCardProps> = ({
 
             {/* TELEMETRY DECK */}
             <div className="grid grid-cols-2 gap-3">
-                <div className="bg-zinc-900/50 border border-white/5 p-4 rounded-2xl flex flex-col justify-between h-24 relative overflow-hidden">
+                <div className={`border p-4 rounded-2xl flex flex-col justify-between h-24 relative overflow-hidden transition-colors duration-300 ${isDark ? 'bg-zinc-900/50 border-white/5' : 'bg-white border-zinc-200 shadow-sm'}`}>
                     <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-2 translate-y-2">
-                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-white"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={isDark ? "text-white" : "text-zinc-900"}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
                     </div>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Total Entries</span>
-                    <span className="text-3xl font-black text-white tracking-tighter">{stats.total}</span>
+                    <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-white/40' : 'text-zinc-400'}`}>Total Entries</span>
+                    <span className={`text-3xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-zinc-900'}`}>{stats.total}</span>
                 </div>
 
-                <div className="bg-zinc-900/50 border border-white/5 p-4 rounded-2xl flex flex-col justify-between h-24 relative overflow-hidden">
+                <div className={`border p-4 rounded-2xl flex flex-col justify-between h-24 relative overflow-hidden transition-colors duration-300 ${isDark ? 'bg-zinc-900/50 border-white/5' : 'bg-white border-zinc-200 shadow-sm'}`}>
                     <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-2 translate-y-2">
                         <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-green-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
                     </div>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Wins</span>
+                    <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-white/40' : 'text-zinc-400'}`}>Wins</span>
                     <span className="text-3xl font-black text-green-500 tracking-tighter drop-shadow-[0_0_10px_rgba(34,197,94,0.3)]">{stats.wins}</span>
                 </div>
             </div>
 
             {/* RESOURCE ALLOCATION (PIE CHART) */}
-            <div id="pie-chart" className="bg-zinc-900/50 border border-white/5 rounded-2xl p-4 mt-3">
-                <div className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 mb-4">Time Breakdown</div>
-                <CategoryPieChart logs={logs} />
+            <div id="pie-chart" className={`border rounded-2xl p-4 mt-3 transition-colors duration-300 ${isDark ? 'bg-zinc-900/50 border-white/5' : 'bg-zinc-100 border-zinc-200 shadow-sm'}`}>
+                <div className={`text-[9px] font-black uppercase tracking-[0.2em] mb-4 ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>Time Breakdown</div>
+                <CategoryPieChart logs={logs} theme={theme} />
             </div>
 
         </div>

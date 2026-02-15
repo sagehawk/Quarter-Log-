@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScheduleConfig } from '../types';
+import { ScheduleConfig, AppTheme } from '../types';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 interface StatusCardProps {
@@ -8,9 +8,12 @@ interface StatusCardProps {
     schedule: ScheduleConfig;
     blockStats: { total: number; remaining: number };
     onToggle: () => void;
+    theme?: AppTheme;
 }
 
-const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, blockStats, onToggle }) => {
+const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, blockStats, onToggle, theme = 'dark' }) => {
+    const isDark = theme === 'dark';
+
     // Format time left
     const totalSeconds = Math.ceil(timeLeft / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -27,7 +30,7 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
     };
 
     return (
-        <div className="w-full bg-black/40 border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden backdrop-blur-xl group">
+        <div className={`w-full border rounded-3xl p-6 shadow-2xl relative overflow-hidden backdrop-blur-xl group transition-colors duration-300 ${isDark ? 'bg-black/40 border-white/10' : 'bg-zinc-50/80 border-gray-200'}`}>
             {/* Active State Ambient Glow */}
             <div className={`absolute top-0 right-0 w-64 h-64 bg-green-500/5 blur-[80px] rounded-full pointer-events-none transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
 
@@ -42,16 +45,16 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
                             <div className={`absolute w-full h-full rounded-full ${isActive ? 'bg-green-500 animate-ping opacity-75' : 'bg-red-500/50'}`} />
                             <div className={`relative w-1.5 h-1.5 rounded-full ${isActive ? 'bg-green-400' : 'bg-red-500'}`} />
                         </div>
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-white/40">
+                        <span className={`text-[10px] font-mono font-bold uppercase tracking-[0.2em] ${isDark ? 'text-white/40' : 'text-zinc-400'}`}>
                             {isActive ? 'TIMER RUNNING' : 'TIMER PAUSED'}
                         </span>
                     </div>
 
-                    <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-white/30">CYCLE</span>
-                        <span className="text-xs font-mono font-bold text-white">
+                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${isDark ? 'bg-white/5 border-white/5' : 'bg-zinc-100 border-zinc-200'}`}>
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>CYCLE</span>
+                        <span className={`text-xs font-mono font-bold ${isDark ? 'text-white' : 'text-zinc-800'}`}>
                             <span className="text-green-500">{currentCycle}</span>
-                            <span className="text-white/20 mx-0.5">/</span>
+                            <span className={`${isDark ? 'text-white/20' : 'text-zinc-300'} mx-0.5`}>/</span>
                             {blockStats.total}
                         </span>
                     </div>
@@ -60,7 +63,7 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
                 {/* Timer Row */}
                 <div className="flex justify-between items-end">
                     <div>
-                        <div className={`text-7xl font-mono font-bold tracking-tighter leading-none transition-colors duration-300 ${isActive ? 'text-white drop-shadow-[0_0_15px_rgba(34,197,94,0.15)]' : 'text-white/10'}`}>
+                        <div className={`text-7xl font-mono font-bold tracking-tighter leading-none transition-colors duration-300 ${isActive ? 'text-green-500 drop-shadow-[0_0_15px_rgba(34,197,94,0.15)]' : isDark ? 'text-white/10' : 'text-zinc-200'}`}>
                             {minutes}:{String(seconds).padStart(2, '0')}
                         </div>
                         <div className="flex items-center gap-2 mt-2">
@@ -73,7 +76,10 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
 
                     <button
                         onClick={handleToggle}
-                        className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-xl active:scale-95 border group/btn relative overflow-hidden ${isActive ? 'bg-zinc-900 border-zinc-700 text-zinc-500 hover:text-red-500 hover:border-red-500/30' : 'bg-white text-black border-white hover:bg-green-400 hover:border-green-400 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]'}`}
+                        className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-xl active:scale-95 border group/btn relative overflow-hidden ${isActive
+                            ? (isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-500 hover:text-red-500 hover:border-red-500/30' : 'bg-white border-zinc-200 text-zinc-400 hover:text-red-500 hover:border-red-500/30')
+                            : 'bg-green-500 text-black border-green-400 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]'
+                            }`}
                     >
                         {isActive ? (
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="relative z-10"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>
@@ -84,7 +90,7 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
                 </div>
 
                 {/* Progress Bar */}
-                <div className="relative w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div className={`relative w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/5' : 'bg-zinc-100'}`}>
                     <div
                         className={`absolute inset-y-0 left-0 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)] transition-all duration-1000 ease-linear ${!isActive ? 'opacity-0' : 'opacity-100'}`}
                         style={{ width: `${progress}%` }}

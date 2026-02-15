@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
-import { LogEntry, LogCategory } from '../types';
+import { LogEntry, LogCategory, AppTheme } from '../types';
 
 interface CategoryPieChartProps {
     logs: LogEntry[];
+    theme?: AppTheme;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -25,7 +26,9 @@ const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
     'OTHER': 'Other'
 };
 
-const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ logs }) => {
+const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ logs, theme = 'dark' }) => {
+    const isDark = theme === 'dark';
+
     const data = useMemo(() => {
         const counts: Record<string, number> = {};
         let total = 0;
@@ -54,7 +57,7 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ logs }) => {
 
     if (data.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center h-48 text-white/20">
+            <div className={`flex flex-col items-center justify-center h-48 ${isDark ? 'text-white/20' : 'text-zinc-300'}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
                 <span className="text-xs font-black uppercase tracking-widest mt-2">NO DATA</span>
             </div>
@@ -84,27 +87,27 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ logs }) => {
                         const [endX, endY] = getCoordinatesForPercent(endPercent);
                         const largeArcFlag = slice.percent > 50 ? 1 : 0;
 
-                        // Donut hole
+                        // Proper Wedge: Move to center, Line to start of arc, Arc to end, Close
                         const pathData = slice.percent === 100
-                            ? `M 1 0 A 1 1 0 1 1 -1 0 A 1 1 0 1 1 1 0` // Full circle
-                            : `M ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} L 0 0`;
+                            ? `M 0 -1 A 1 1 0 1 1 0 1 A 1 1 0 1 1 0 -1 Z` // Double arc for full circle
+                            : `M 0 0 L ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
 
                         return (
                             <path
                                 key={slice.key}
                                 d={pathData}
                                 fill={slice.color}
-                                stroke="#000"
-                                strokeWidth="0.05"
+                                stroke={isDark ? "#18181b" : "#fafafa"}
+                                strokeWidth="0.01"
                             />
                         );
                     })}
                     {/* Center Hole for Donut Effect */}
-                    <circle cx="0" cy="0" r="0.6" fill="#000" />
+                    <circle cx="0" cy="0" r="0.6" fill={isDark ? "#18181b" : "#fafafa"} />
                 </svg>
                 {/* Total Center Text */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="text-xs font-black text-white">{logs.length}</span>
+                    <span className={`text-xs font-black ${isDark ? 'text-white' : 'text-zinc-900'}`}>{logs.length}</span>
                 </div>
             </div>
 
@@ -114,9 +117,9 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ logs }) => {
                     <div key={slice.key} className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: slice.color }} />
-                            <span className="text-white/60 font-mono uppercase truncate max-w-[80px]">{slice.displayName}</span>
+                            <span className={`font-mono uppercase truncate max-w-[80px] ${isDark ? 'text-white/60' : 'text-zinc-500'}`}>{slice.displayName}</span>
                         </div>
-                        <span className="font-bold text-white">{Math.round(slice.percent)}%</span>
+                        <span className={`font-bold ${isDark ? 'text-white' : 'text-zinc-800'}`}>{slice.percent < 1 && slice.percent > 0 ? slice.percent.toFixed(1) : Math.round(slice.percent)}%</span>
                     </div>
                 ))}
             </div>

@@ -1,17 +1,19 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LogEntry } from '../types';
+import { LogEntry, AppTheme } from '../types';
 import { calculateFocusScore, calculateHistoricalScores } from '../utils/focusScoreEngine';
 
 interface FocusScoreProps {
     logs: LogEntry[];
     allLogs: LogEntry[];
     streak?: number;
+    theme?: AppTheme;
 }
 
-const FocusScore: React.FC<FocusScoreProps> = ({ logs, allLogs, streak = 0 }) => {
+const FocusScore: React.FC<FocusScoreProps> = ({ logs, allLogs, streak = 0, theme = 'dark' }) => {
     const [expanded, setExpanded] = useState(false);
     const [displayScore, setDisplayScore] = useState(0);
     const animFrameRef = useRef<number>(0);
+    const isDark = theme === 'dark';
 
     const { score, breakdown } = useMemo(() => {
         return calculateFocusScore(logs, streak);
@@ -83,17 +85,17 @@ const FocusScore: React.FC<FocusScoreProps> = ({ logs, allLogs, streak = 0 }) =>
     }, [history]);
 
     return (
-        <div className="bg-zinc-900 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm shadow-sm relative group">
+        <div className={`border rounded-3xl overflow-hidden backdrop-blur-sm shadow-sm relative group transition-all ${isDark ? 'bg-zinc-900 border-white/5' : 'bg-white border-zinc-200'}`}>
             {/* Background Grid Effect (Optional) */}
-            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
+            <div className={`absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none ${isDark ? 'opacity-[0.03]' : 'opacity-[0.05] invert'}`} />
 
             <div
-                className="p-5 relative z-10 cursor-pointer active:bg-white/5 transition-colors"
+                className={`p-5 relative z-10 cursor-pointer transition-colors ${isDark ? 'active:bg-white/5' : 'active:bg-zinc-50'}`}
                 onClick={() => setExpanded(!expanded)}
             >
                 <div className="flex items-end justify-between mb-4">
                     <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-1 flex items-center gap-2">
+                        <span className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
                             <div className={`w-1.5 h-1.5 rounded-sm ${barColorClass} animate-pulse`} />
                             Focus Integrity
                         </span>
@@ -101,7 +103,7 @@ const FocusScore: React.FC<FocusScoreProps> = ({ logs, allLogs, streak = 0 }) =>
                             <span className={`text-5xl font-black tracking-tighter ${colorClass} leading-none`}>
                                 {displayScore}
                             </span>
-                            <span className="text-xs font-bold uppercase tracking-widest text-zinc-600">
+                            <span className={`text-xs font-bold uppercase tracking-widest ${isDark ? 'text-zinc-600' : 'text-zinc-400'}`}>
                                 / 100
                             </span>
                         </div>
@@ -109,10 +111,10 @@ const FocusScore: React.FC<FocusScoreProps> = ({ logs, allLogs, streak = 0 }) =>
 
                     {/* Right side: Trend & Status */}
                     <div className="flex flex-col items-end">
-                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/5 mb-2`}>
+                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border mb-2 ${isDark ? 'bg-white/5 border-white/5' : 'bg-zinc-100 border-zinc-200'}`}>
                             {trend === 'up' && <span className="text-[10px] text-green-500">▲ ASCENDING</span>}
                             {trend === 'down' && <span className="text-[10px] text-red-500">▼ DESCENDING</span>}
-                            {trend === 'flat' && <span className="text-[10px] text-zinc-500">▬ STABLE</span>}
+                            {trend === 'flat' && <span className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>▬ STABLE</span>}
                         </div>
                         <span className={`text-xs font-black uppercase tracking-widest ${colorClass}`}>
                             {score >= 90 ? 'OPTIMAL' : score >= 70 ? 'EFFECTIVE' : score >= 50 ? 'STABLE' : 'CRITICAL'}

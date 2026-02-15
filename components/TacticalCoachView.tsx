@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { AppTheme } from '../types';
 
 export type CoachMood = 'IDLE' | 'ASKING' | 'PROCESSING' | 'WIN' | 'LOSS' | 'DRAW' | 'SAVAGE' | 'STOIC';
 
@@ -9,6 +10,7 @@ interface TacticalCoachViewProps {
   onFinishedTyping?: () => void;
   children?: React.ReactNode; // Buttons/Inputs overlay
   bgImage?: string; // Optional override
+  theme?: AppTheme;
 }
 
 const TYPE_SPEED = 30; // ms per char
@@ -18,7 +20,8 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
   message,
   onFinishedTyping,
   children,
-  bgImage
+  bgImage,
+  theme = 'dark'
 }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
@@ -42,6 +45,7 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
 
   const currentImage = bgImage === 'transparent' ? null : (bgImage || moodImages[mood]);
   const isTransparent = bgImage === 'transparent';
+  const isDark = theme === 'dark';
 
   useEffect(() => {
     setDisplayedText('');
@@ -65,12 +69,12 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
   }, [message]);
 
   return (
-    <div className={`fixed left-0 right-0 top-0 z-[50] text-white overflow-hidden pointer-events-none ${isTransparent ? '' : 'bg-black'}`} style={{ height: '100dvh' }}>
+    <div className={`fixed left-0 right-0 top-0 z-[50] overflow-hidden pointer-events-none ${isTransparent ? '' : isDark ? 'bg-black text-white' : 'bg-[#F4F5F7] text-zinc-900'}`} style={{ height: '100dvh' }}>
 
       {/* Background Image Layer */}
       {currentImage && (
         <div className="absolute inset-0 z-0 pointer-events-auto flex items-end justify-center">
-          <div className="absolute inset-0 bg-black/20 z-10" /> {/* Dimmer */}
+          <div className={`absolute inset-0 z-10 ${isDark ? 'bg-black/20' : 'bg-white/20'}`} /> {/* Dimmer */}
           <img
             src={currentImage}
             alt="Tactical Coach"
@@ -80,12 +84,12 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
       )}
 
       {/* CRT / Scanline Effect Overlay (Optional Style) */}
-      {currentImage && (
+      {currentImage && isDark && (
         <div className="absolute inset-0 z-10 pointer-events-none bg-[url('https://media.giphy.com/media/oEI9uBYSzLpBK/giphy.gif')] opacity-[0.03] mix-blend-screen" />
       )}
 
       {/* Dialogue Box */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 p-6 pb-12 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-auto">
+      <div className={`absolute bottom-0 left-0 right-0 z-20 p-6 pb-12 pointer-events-auto bg-gradient-to-t ${isDark ? 'from-black via-black/90' : 'from-[#F4F5F7] via-[#F4F5F7]/95'} to-transparent`}>
 
         <div className="max-w-xl mx-auto space-y-6">
           {/* Character Name Tag */}
@@ -97,13 +101,13 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
           </div>
 
           {/* Text Area */}
-          <div className="min-h-[100px] border-l-2 border-green-500/50 pl-4 bg-black/40 backdrop-blur-sm p-4 rounded-r-xl relative">
+          <div className={`min-h-[100px] border-l-2 border-green-500/50 pl-4 p-4 rounded-r-xl relative backdrop-blur-sm ${isDark ? 'bg-black/40' : 'bg-white/60 shadow-sm'}`}>
             {/* Invisible full message to pre-set height */}
             <p className="font-mono text-lg md:text-xl leading-relaxed text-transparent select-none" aria-hidden="true">
               {message}
             </p>
             {/* Visible typed text overlaid on top */}
-            <p className="font-mono text-lg md:text-xl leading-relaxed text-white/90 shadow-black drop-shadow-md absolute top-4 left-4 right-4 pl-4">
+            <p className={`font-mono text-lg md:text-xl leading-relaxed shadow-black drop-shadow-sm absolute top-4 left-4 right-4 pl-4 ${isDark ? 'text-white/90' : 'text-zinc-900'}`}>
               {displayedText}
               {displayedText !== message && <span className="inline-block w-2 h-5 bg-green-500 ml-1 animate-blink" />}
             </p>
