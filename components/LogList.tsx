@@ -13,16 +13,16 @@ const LogList: React.FC<LogListProps> = ({ logs, onDelete, onEdit }) => {
     return (
       <div className="flex flex-col items-center justify-center pt-24 pb-32 text-center opacity-50">
         <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-white/20 border border-white/5">
-           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
         </div>
-        <p className="text-white/40 font-mono text-xs uppercase tracking-[0.2em]">Data Stream Offline</p>
+        <p className="text-white/40 font-mono text-xs uppercase tracking-[0.2em]">No entries yet</p>
       </div>
     );
   }
 
   // Group by date
   const groupedLogs: Record<string, LogEntry[]> = {};
-  
+
   logs.forEach(log => {
     const date = new Date(log.timestamp).toLocaleDateString(undefined, {
       weekday: 'short',
@@ -41,22 +41,22 @@ const LogList: React.FC<LogListProps> = ({ logs, onDelete, onEdit }) => {
         <div key={date} className="relative">
           {/* Date Header */}
           <div className="sticky top-[160px] z-20 mb-8 pl-8 flex items-center gap-4">
-             <div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.8)]"></div>
-             <span className="text-[10px] font-mono font-bold uppercase tracking-[0.3em] text-green-500/80">
+            <div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.8)]"></div>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-[0.3em] text-green-500/80">
               {date}
-             </span>
-             <div className="h-px bg-gradient-to-r from-green-500/20 to-transparent flex-1"></div>
+            </span>
+            <div className="h-px bg-gradient-to-r from-green-500/20 to-transparent flex-1"></div>
           </div>
-          
+
           <div className="space-y-0 relative border-l border-white/5 ml-3">
             {groupedLogs[date].map((log, index) => {
               const isWin = log.type === 'WIN';
               return (
-                <div 
-                  key={log.id} 
+                <div
+                  key={log.id}
                   onClick={() => {
-                     try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
-                     onEdit(log);
+                    try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+                    onEdit(log);
                   }}
                   className="group relative pl-8 py-6 transition-all duration-300 cursor-pointer hover:bg-white/5"
                 >
@@ -65,20 +65,20 @@ const LogList: React.FC<LogListProps> = ({ logs, onDelete, onEdit }) => {
 
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-3">
-                       <span className="text-[10px] font-mono text-white/30 tracking-widest">
+                      <span className="text-[10px] font-mono text-white/30 tracking-widest">
                         {new Date(log.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                       </span>
-                       <span className={`text-[9px] font-black tracking-[0.2em] uppercase px-2 py-0.5 rounded-sm ${isWin ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                         {isWin ? 'SECURED' : 'MISSED'}
-                       </span>
+                      </span>
+                      <span className={`text-[9px] font-black tracking-[0.2em] uppercase px-2 py-0.5 rounded-sm ${isWin ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                        {isWin ? 'WIN' : 'LOSS'}
+                      </span>
                     </div>
-                    
+
                     <div className="flex items-start justify-between gap-4">
                       <p className={`text-lg font-bold font-mono tracking-tight leading-snug uppercase ${isWin ? 'text-white' : 'text-white/40 line-through decoration-red-500/50'}`}>
                         {log.text}
                       </p>
-                      
-                      <button 
+
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onDelete(log.id);

@@ -13,12 +13,12 @@ interface TacticalCoachViewProps {
 
 const TYPE_SPEED = 30; // ms per char
 
-const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({ 
-  mood, 
-  message, 
-  onFinishedTyping, 
+const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
+  mood,
+  message,
+  onFinishedTyping,
   children,
-  bgImage 
+  bgImage
 }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -41,7 +41,7 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
     setDisplayedText('');
     setIsTyping(true);
     let i = 0;
-    
+
     const timer = setInterval(() => {
       if (i < message.length) {
         setDisplayedText(message.slice(0, i + 1));
@@ -59,50 +59,50 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
   }, [message]);
 
   return (
-    <div className={`fixed inset-0 z-[50] text-white overflow-hidden pointer-events-none ${isTransparent ? '' : 'bg-black'}`}>
-      
+    <div className={`fixed left-0 right-0 top-0 z-[50] text-white overflow-hidden pointer-events-none ${isTransparent ? '' : 'bg-black'}`} style={{ height: '100dvh' }}>
+
       {/* Background Image Layer */}
       {currentImage && (
-        <div className="absolute inset-0 z-0 pointer-events-auto">
-            <div className="absolute inset-0 bg-black/20 z-10" /> {/* Dimmer */}
-            <img 
-                src={currentImage} 
-                alt="Tactical Coach" 
-                className="w-full h-full object-cover transition-all duration-1000 ease-in-out opacity-90"
-            />
+        <div className="absolute inset-0 z-0 pointer-events-auto flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/20 z-10" /> {/* Dimmer */}
+          <img
+            src={currentImage}
+            alt="Tactical Coach"
+            className="max-h-full w-auto md:w-full md:max-h-screen object-contain md:object-cover transition-all duration-1000 ease-in-out opacity-90"
+          />
         </div>
       )}
 
       {/* CRT / Scanline Effect Overlay (Optional Style) */}
       {currentImage && (
-         <div className="absolute inset-0 z-10 pointer-events-none bg-[url('https://media.giphy.com/media/oEI9uBYSzLpBK/giphy.gif')] opacity-[0.03] mix-blend-screen" />
+        <div className="absolute inset-0 z-10 pointer-events-none bg-[url('https://media.giphy.com/media/oEI9uBYSzLpBK/giphy.gif')] opacity-[0.03] mix-blend-screen" />
       )}
 
       {/* Dialogue Box */}
       <div className="absolute bottom-0 left-0 right-0 z-20 p-6 pb-12 bg-gradient-to-t from-black via-black/90 to-transparent pointer-events-auto">
-         
-         <div className="max-w-xl mx-auto space-y-6">
-             {/* Character Name Tag */}
-             <div className="flex items-center gap-2 mb-2">
-                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                 <span className="text-green-500 font-mono text-xs uppercase tracking-[0.2em]">
-                     handler_v1.0
-                 </span>
-             </div>
 
-             {/* Text Area */}
-             <div className="min-h-[100px] border-l-2 border-green-500/50 pl-4 bg-black/40 backdrop-blur-sm p-4 rounded-r-xl">
-                 <p className="font-mono text-lg md:text-xl leading-relaxed text-white/90 shadow-black drop-shadow-md">
-                     {displayedText}
-                     {isTyping && <span className="inline-block w-2 h-5 bg-green-500 ml-1 animate-blink"/>}
-                 </p>
-             </div>
+        <div className="max-w-xl mx-auto space-y-6">
+          {/* Character Name Tag */}
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            <span className="text-green-500 font-mono text-xs uppercase tracking-[0.2em]">
+              handler_v1.0
+            </span>
+          </div>
 
-             {/* Interaction Area (Buttons/Inputs) */}
-             <div className={`transition-all duration-500 ${isTyping ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
-                 {children}
-             </div>
-         </div>
+          {/* Text Area */}
+          <div className="min-h-[100px] border-l-2 border-green-500/50 pl-4 bg-black/40 backdrop-blur-sm p-4 rounded-r-xl">
+            <p className="font-mono text-lg md:text-xl leading-relaxed text-white/90 shadow-black drop-shadow-md">
+              {displayedText}
+              {isTyping && <span className="inline-block w-2 h-5 bg-green-500 ml-1 animate-blink" />}
+            </p>
+          </div>
+
+          {/* Interaction Area (Buttons/Inputs) */}
+          <div className={`transition-all duration-500 ${isTyping ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'}`}>
+            {children}
+          </div>
+        </div>
       </div>
 
     </div>

@@ -26,7 +26,7 @@ import TutorialOverlay, { TutorialStep } from './components/TutorialOverlay';
 const STORAGE_KEY_LOGS = 'ironlog_entries';
 const STORAGE_KEY_SCHEDULE = 'ironlog_schedule';
 const STORAGE_KEY_ONBOARDED = 'ironlog_onboarded';
-const STORAGE_KEY_GOAL = 'ironlog_goal'; 
+const STORAGE_KEY_GOAL = 'ironlog_goal';
 const STORAGE_KEY_PERSONA = 'ironlog_persona';
 const STORAGE_KEY_TIMER_TARGET = 'ironlog_timer_target';
 const STORAGE_KEY_REPORTS = 'ironlog_ai_reports';
@@ -55,135 +55,135 @@ self.onmessage = function(e) {
 `;
 
 const App: React.FC = () => {
-  const [hasOnboarded, setHasOnboarded] = useState<boolean>(true); 
-  const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
-  const [timeLeft, setTimeLeft] = useState(DEFAULT_INTERVAL_MS);
-  const [cycleDuration, setCycleDuration] = useState(DEFAULT_INTERVAL_MS);
-  const [breakUntil, setBreakUntil] = useState<number | null>(null);
-  const [challengeStartDate, setChallengeStartDate] = useState<number | null>(null);
-  const [persona, setPersona] = useState<AIPersona>('LOGIC');
-  
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [reports, setReports] = useState<Record<string, AIReport>>({});
-  const [schedule, setSchedule] = useState<ScheduleConfig>({
-    enabled: true, 
-    startTime: '09:00',
-    endTime: '17:00',
-    daysOfWeek: [1, 2, 3, 4, 5] 
-  });
-  
-  const [freezeState, setFreezeState] = useState<FreezeState>({
-      isFrozen: false,
-      recoveryWins: 0,
-      lastLossTimestamp: null
-  });
+    const [hasOnboarded, setHasOnboarded] = useState<boolean>(true);
+    const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
+    const [timeLeft, setTimeLeft] = useState(DEFAULT_INTERVAL_MS);
+    const [cycleDuration, setCycleDuration] = useState(DEFAULT_INTERVAL_MS);
+    const [breakUntil, setBreakUntil] = useState<number | null>(null);
+    const [challengeStartDate, setChallengeStartDate] = useState<number | null>(null);
+    const [persona, setPersona] = useState<AIPersona>('LOGIC');
 
-  const [hasSeenFreezeWarning, setHasSeenFreezeWarning] = useState(false);
+    const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [reports, setReports] = useState<Record<string, AIReport>>({});
+    const [schedule, setSchedule] = useState<ScheduleConfig>({
+        enabled: true,
+        startTime: '09:00',
+        endTime: '17:00',
+        daysOfWeek: [1, 2, 3, 4, 5]
+    });
 
-  const [isPaused, setIsPaused] = useState(false);
-  const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
-  const [isManualEntry, setIsManualEntry] = useState(false);
-  const [editingLog, setEditingLog] = useState<LogEntry | null>(null);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
-  
-  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+    const [freezeState, setFreezeState] = useState<FreezeState>({
+        isFrozen: false,
+        recoveryWins: 0,
+        lastLossTimestamp: null
+    });
 
-  const [isTutorialActive, setIsTutorialActive] = useState(false);
-  const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
-  const [tutorialPrefill, setTutorialPrefill] = useState<string | null>(null);
+    const [hasSeenFreezeWarning, setHasSeenFreezeWarning] = useState(false);
 
-  const tutorialSteps: TutorialStep[] = [
-      { text: "Welcome to the Command Center. Let's orient you.", mood: 'IDLE' },
-      { targetId: 'status-card', text: "This is the heartbeat. It counts down every 15 minutes. When it hits zero, you report.", mood: 'PROCESSING' },
-      { targetId: 'stats-card', text: "This is your performance grid. Green is good. Gaps are opportunities.", mood: 'IDLE' },
-      { 
-          targetId: 'manual-entry-btn', 
-          text: "Normally, you report when the timer hits zero. But you can also log anytime manually. Try it now.", 
-          mood: 'ASKING', 
-          waitForInteraction: true 
-      },
-      { 
-          targetId: 'stats-card',
-          text: "Entry confirmed. The grid updates instantly to reflect your status. One block secured.", 
-          mood: 'WIN' 
-      },
-      { 
-          targetId: 'pie-chart',
-          text: "Your Resource Allocation updates here. Green is Leverage (Maker). Red is Burn. Optimize accordingly.", 
-          mood: 'PROCESSING'
-      },
-      { 
-          text: "You are active. The clock is ticking. Stay on vector.", 
-          mood: 'IDLE' 
-      }
-  ];
+    const [isPaused, setIsPaused] = useState(false);
+    const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+    const [isManualEntry, setIsManualEntry] = useState(false);
+    const [editingLog, setEditingLog] = useState<LogEntry | null>(null);
+    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+    const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
 
-  const handleTutorialNext = () => {
-      if (tutorialStepIndex < tutorialSteps.length - 1) {
-          setTutorialStepIndex(prev => prev + 1);
-      } else {
-          setIsTutorialActive(false);
-          localStorage.setItem('ironlog_tutorial_complete', 'true');
-      }
-  };
+    const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
-  // ...
+    const [isTutorialActive, setIsTutorialActive] = useState(false);
+    const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
+    const [tutorialPrefill, setTutorialPrefill] = useState<string | null>(null);
 
-  const currentStreak = useMemo(() => {
-      const winsByDate = new Map<string, number>();
-      
-      // 1. Group wins by date
-      logs.forEach(l => {
-          if (l.type === 'WIN') {
-              const dateStr = new Date(l.timestamp).toDateString();
-              winsByDate.set(dateStr, (winsByDate.get(dateStr) || 0) + 1);
-          }
-      });
+    const tutorialSteps: TutorialStep[] = [
+        { text: "Let's take a quick tour of your dashboard.", mood: 'IDLE' },
+        { targetId: 'status-card', text: "This is your timer. It counts down 15 minutes. When it reaches zero, you'll log what you worked on and the AI will grade it.", mood: 'PROCESSING' },
+        { targetId: 'stats-card', text: "This is your stats dashboard. The big number is your Win Rate. The bar chart below shows green bars (wins), yellow (draws), and red (losses) over time.", mood: 'IDLE' },
+        {
+            targetId: 'manual-entry-btn',
+            text: "You can also log entries manually anytime using this button. Try it now.",
+            mood: 'ASKING',
+            waitForInteraction: true
+        },
+        {
+            targetId: 'stats-card',
+            text: "Nice! Your stats update instantly. The Win Rate and chart reflect every entry you make.",
+            mood: 'WIN'
+        },
+        {
+            targetId: 'pie-chart',
+            text: "This donut chart shows how you're spending your time by category — Deep Work, Admin, Learning, etc. It helps you see if you're focused on the right things.",
+            mood: 'PROCESSING'
+        },
+        {
+            text: "That's it! Your timer is running. Stay focused and log honestly — the AI handles the grading. You've got this.",
+            mood: 'IDLE'
+        }
+    ];
 
-      // 2. Identify "Valid Streak Days" (>= 4 wins)
-      const validStreakDates = new Set<string>();
-      winsByDate.forEach((count, dateStr) => {
-          if (count >= 4) {
-              validStreakDates.add(dateStr);
-          }
-      });
+    const handleTutorialNext = () => {
+        if (tutorialStepIndex < tutorialSteps.length - 1) {
+            setTutorialStepIndex(prev => prev + 1);
+        } else {
+            setIsTutorialActive(false);
+            localStorage.setItem('ironlog_tutorial_complete', 'true');
+        }
+    };
 
-      let streak = 0;
-      const today = new Date();
-      const todayStr = today.toDateString();
-      
-      // If we have met the quota today, count it.
-      if (validStreakDates.has(todayStr)) streak++;
-      
-      let checkDate = new Date();
-      // If quota not met today, check if streak is alive from yesterday
-      if (streak === 0) {
-           checkDate.setDate(today.getDate() - 1);
-           if (!validStreakDates.has(checkDate.toDateString())) return 0;
-           streak++; // Yesterday met quota, streak is active
-      }
+    // ...
 
-      // Count backwards
-      for (let i = 1; i < 365; i++) {
-          const d = new Date(checkDate);
-          d.setDate(checkDate.getDate() - i);
-          if (validStreakDates.has(d.toDateString())) {
-              streak++;
-          } else {
-              break;
-          }
-      }
-      return streak;
-  }, [logs]);
+    const currentStreak = useMemo(() => {
+        const winsByDate = new Map<string, number>();
 
-  const [isRankModalOpen, setIsRankModalOpen] = useState(false);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [aiReportLoading, setAiReportLoading] = useState(false);
-  const [aiReportContent, setAiReportContent] = useState<string | null>(null);
-  const [overrideReport, setOverrideReport] = useState<AIReport | null>(null);
+        // 1. Group wins by date
+        logs.forEach(l => {
+            if (l.type === 'WIN') {
+                const dateStr = new Date(l.timestamp).toDateString();
+                winsByDate.set(dateStr, (winsByDate.get(dateStr) || 0) + 1);
+            }
+        });
 
-    const [toast, setToast] = useState<{title: string, message: string, visible: boolean, onAction?: () => void}>({ title: '', message: '', visible: false });
+        // 2. Identify "Valid Streak Days" (>= 4 wins)
+        const validStreakDates = new Set<string>();
+        winsByDate.forEach((count, dateStr) => {
+            if (count >= 4) {
+                validStreakDates.add(dateStr);
+            }
+        });
+
+        let streak = 0;
+        const today = new Date();
+        const todayStr = today.toDateString();
+
+        // If we have met the quota today, count it.
+        if (validStreakDates.has(todayStr)) streak++;
+
+        let checkDate = new Date();
+        // If quota not met today, check if streak is alive from yesterday
+        if (streak === 0) {
+            checkDate.setDate(today.getDate() - 1);
+            if (!validStreakDates.has(checkDate.toDateString())) return 0;
+            streak++; // Yesterday met quota, streak is active
+        }
+
+        // Count backwards
+        for (let i = 1; i < 365; i++) {
+            const d = new Date(checkDate);
+            d.setDate(checkDate.getDate() - i);
+            if (validStreakDates.has(d.toDateString())) {
+                streak++;
+            } else {
+                break;
+            }
+        }
+        return streak;
+    }, [logs]);
+
+    const [isRankModalOpen, setIsRankModalOpen] = useState(false);
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [aiReportLoading, setAiReportLoading] = useState(false);
+    const [aiReportContent, setAiReportContent] = useState<string | null>(null);
+    const [overrideReport, setOverrideReport] = useState<AIReport | null>(null);
+
+    const [toast, setToast] = useState<{ title: string, message: string, visible: boolean, onAction?: () => void }>({ title: '', message: '', visible: false });
 
     const [feedbackState, setFeedbackState] = useState<{ visible: boolean, totalWins: number, type: 'WIN' | 'LOSS' | 'DRAW', customTitle?: string, customSub?: string, period?: string, aiMessage?: string | null }>({
         visible: false,
@@ -192,1361 +192,1402 @@ const App: React.FC = () => {
         period: 'D',
         aiMessage: null
     });
-  const [copyFeedback, setCopyFeedback] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [flashWin, setFlashWin] = useState(false);
-  
-  const [filter, setFilter] = useState<FilterType>('D');
-  const [viewDate, setViewDate] = useState<Date>(new Date());
-  const [strategicPriority, setStrategicPriority] = useState<string>("");
-  const [isEditingPriority, setIsEditingPriority] = useState(false);
-  const [priorityInput, setPriorityInput] = useState("");
+    const [copyFeedback, setCopyFeedback] = useState(false);
+    const [isScrolled, setIsScrolled] = useState(false);
+    const [flashWin, setFlashWin] = useState(false);
 
-  const endTimeRef = useRef<number | null>(null);
-  const workerRef = useRef<Worker | null>(null);
-  const statusRef = useRef(status);
-  const lastNativeInputTime = useRef(0);
-  const blockStatsRef = useRef({ total: 0, remaining: 0 });
+    const [filter, setFilter] = useState<FilterType>('D');
+    const [viewDate, setViewDate] = useState<Date>(new Date());
+    const [strategicPriority, setStrategicPriority] = useState<string>("");
+    const [isEditingPriority, setIsEditingPriority] = useState(false);
+    const [priorityInput, setPriorityInput] = useState("");
 
-  useEffect(() => { statusRef.current = status; }, [status]);
+    const endTimeRef = useRef<number | null>(null);
+    const workerRef = useRef<Worker | null>(null);
+    const statusRef = useRef(status);
+    const lastNativeInputTime = useRef(0);
+    const blockStatsRef = useRef({ total: 0, remaining: 0 });
 
-  useEffect(() => {
-    const setupListener = async () => {
-      try {
-          const pending = await TimerPlugin.checkPendingLog();
-          if (pending && pending.input) {
-              lastNativeInputTime.current = Date.now();
-              setIsEntryModalOpen(false);
-              handleLogSave(pending.input, pending.type, true, undefined, pending.activeEndTime);
-              LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
-              LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
-          }
-      } catch (e) {}
+    useEffect(() => { statusRef.current = status; }, [status]);
 
-      const handler = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
-        if (!isActive) {
-           if (statusRef.current === AppStatus.RUNNING && endTimeRef.current) {
-               const remaining = endTimeRef.current - Date.now();
-               if (remaining > 0) {
-                   TimerPlugin.start({ 
-                       duration: remaining,
-                       totalCycles: blockStatsRef.current.total,
-                       cyclesLeft: blockStatsRef.current.remaining
-                   });
-               }
-           }
-        } else {
-           TimerPlugin.stop();
-           if (Date.now() - lastNativeInputTime.current < 2000) return;
+    useEffect(() => {
+        const setupListener = async () => {
+            try {
+                const pending = await TimerPlugin.checkPendingLog();
+                if (pending && pending.input) {
+                    lastNativeInputTime.current = Date.now();
+                    setIsEntryModalOpen(false);
+                    handleLogSave(pending.input, pending.type, true, undefined, pending.activeEndTime);
+                    LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => { });
+                    LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => { });
+                }
+            } catch (e) { }
+
+            const handler = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+                if (!isActive) {
+                    if (statusRef.current === AppStatus.RUNNING && endTimeRef.current) {
+                        const remaining = endTimeRef.current - Date.now();
+                        if (remaining > 0) {
+                            TimerPlugin.start({
+                                duration: remaining,
+                                totalCycles: blockStatsRef.current.total,
+                                cyclesLeft: blockStatsRef.current.remaining
+                            });
+                        }
+                    }
+                } else {
+                    TimerPlugin.stop();
+                    if (Date.now() - lastNativeInputTime.current < 2000) return;
+                }
+            });
+        };
+        setupListener();
+    }, []);
+
+    const getStoredGoals = (): UserGoal[] => {
+        const stored = localStorage.getItem(STORAGE_KEY_GOAL);
+        if (!stored) return ['FOCUS'];
+        try {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) return parsed;
+            return [stored as UserGoal];
+        } catch (e) {
+            return [stored as UserGoal];
         }
-      });
     };
-    setupListener();
-  }, []);
 
-  const getStoredGoals = (): UserGoal[] => {
-      const stored = localStorage.getItem(STORAGE_KEY_GOAL);
-      if (!stored) return ['FOCUS'];
-      try {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) return parsed;
-          return [stored as UserGoal]; 
-      } catch (e) {
-          return [stored as UserGoal];
-      }
-  };
+    useEffect(() => {
+        const onboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED);
+        if (!onboarded) setHasOnboarded(false);
 
-  useEffect(() => {
-    const onboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED);
-    if (!onboarded) setHasOnboarded(false);
+        const storedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
+        if (storedLogs) {
+            try { setLogs(JSON.parse(storedLogs)); } catch (e) { console.error(e); }
+        }
 
-    const storedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
-    if (storedLogs) {
-      try { setLogs(JSON.parse(storedLogs)); } catch (e) { console.error(e); }
-    }
+        const storedReports = localStorage.getItem(STORAGE_KEY_REPORTS);
+        if (storedReports) {
+            try { setReports(JSON.parse(storedReports)); } catch (e) { console.error(e); }
+        }
 
-    const storedReports = localStorage.getItem(STORAGE_KEY_REPORTS);
-    if (storedReports) {
-      try { setReports(JSON.parse(storedReports)); } catch (e) { console.error(e); }
-    }
+        const seenWarning = localStorage.getItem(STORAGE_KEY_SEEN_FREEZE_WARNING);
+        if (seenWarning) setHasSeenFreezeWarning(true);
 
-    const seenWarning = localStorage.getItem(STORAGE_KEY_SEEN_FREEZE_WARNING);
-    if (seenWarning) setHasSeenFreezeWarning(true);
-
-    const storedFreeze = localStorage.getItem(STORAGE_KEY_FREEZE);
-    if (storedFreeze) {
-        try { 
-            const parsed = JSON.parse(storedFreeze);
-            const lastLoss = parsed.lastLossTimestamp;
-            if (lastLoss) {
-                const lastDate = new Date(lastLoss).toDateString();
-                const today = new Date().toDateString();
-                if (lastDate !== today) {
-                    setFreezeState({ isFrozen: false, recoveryWins: 0, lastLossTimestamp: null });
+        const storedFreeze = localStorage.getItem(STORAGE_KEY_FREEZE);
+        if (storedFreeze) {
+            try {
+                const parsed = JSON.parse(storedFreeze);
+                const lastLoss = parsed.lastLossTimestamp;
+                if (lastLoss) {
+                    const lastDate = new Date(lastLoss).toDateString();
+                    const today = new Date().toDateString();
+                    if (lastDate !== today) {
+                        setFreezeState({ isFrozen: false, recoveryWins: 0, lastLossTimestamp: null });
+                    } else {
+                        setFreezeState(parsed);
+                    }
                 } else {
                     setFreezeState(parsed);
                 }
-            } else {
-                setFreezeState(parsed);
-            }
-        } catch (e) { console.error(e); }
-    }
-
-    const storedPersona = localStorage.getItem(STORAGE_KEY_PERSONA);
-    if (storedPersona) setPersona(storedPersona as AIPersona);
-
-    const storedSchedule = localStorage.getItem(STORAGE_KEY_SCHEDULE);
-    if (storedSchedule) {
-      try { 
-          const parsed = JSON.parse(storedSchedule);
-          setSchedule({ ...parsed, enabled: true }); 
-      } catch (e) { console.error(e); }
-    }
-
-    const storedPriority = localStorage.getItem('ironlog_strategic_priority');
-    if (storedPriority) {
-        setStrategicPriority(storedPriority);
-        setPriorityInput(storedPriority);
-    }
-
-    const storedDuration = localStorage.getItem(STORAGE_KEY_CYCLE_DURATION);
-    if (storedDuration) setCycleDuration(parseInt(storedDuration, 10));
-
-    const storedBreak = localStorage.getItem(STORAGE_KEY_BREAK_UNTIL);
-    if (storedBreak) {
-        const ts = parseInt(storedBreak, 10);
-        if (ts > Date.now()) setBreakUntil(ts);
-        else localStorage.removeItem(STORAGE_KEY_BREAK_UNTIL);
-    }
-
-    const storedChallenge = localStorage.getItem(STORAGE_KEY_CHALLENGE_START);
-    if (storedChallenge) setChallengeStartDate(parseInt(storedChallenge, 10));
-    
-    const initNotifications = async () => {
-        await configureNotificationChannel();
-        await registerNotificationActions();
-    };
-    initNotifications();
-
-    try {
-      const blob = new Blob([WORKER_CODE], { type: 'application/javascript' });
-      const workerUrl = URL.createObjectURL(blob);
-      workerRef.current = new Worker(workerUrl);
-      workerRef.current.onmessage = (e) => {
-        if (e.data.type === 'tick') triggerTick();
-      };
-      
-      const savedTarget = localStorage.getItem(STORAGE_KEY_TIMER_TARGET);
-      if (savedTarget) {
-          const targetTime = parseInt(savedTarget, 10);
-          const now = Date.now();
-          if (targetTime > now) {
-              endTimeRef.current = targetTime;
-              setStatus(AppStatus.RUNNING);
-              workerRef.current.postMessage({ command: 'start' });
-          } else {
-              endTimeRef.current = null;
-              localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
-              setStatus(AppStatus.WAITING_FOR_INPUT);
-              setIsEntryModalOpen(true);
-          }
-      }
-
-      return () => {
-        workerRef.current?.terminate();
-        URL.revokeObjectURL(workerUrl);
-      };
-    } catch (err) { console.error(err); }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs));
-  }, [logs]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(reports));
-  }, [reports]);
-
-  useEffect(() => {
-      localStorage.setItem(STORAGE_KEY_FREEZE, JSON.stringify(freezeState));
-  }, [freezeState]);
-
-  useEffect(() => {
-      if (breakUntil) localStorage.setItem(STORAGE_KEY_BREAK_UNTIL, breakUntil.toString());
-      else localStorage.removeItem(STORAGE_KEY_BREAK_UNTIL);
-  }, [breakUntil]);
-
-  // Removed auto-generation effect for yesterday's report
-
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 10);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const handleDurationSave = (ms: number) => {
-      setCycleDuration(ms);
-      localStorage.setItem(STORAGE_KEY_CYCLE_DURATION, ms.toString());
-      setIsSettingsModalOpen(false);
-      if (status === AppStatus.IDLE) {
-          setTimeLeft(ms);
-      }
-  };
-
-  useEffect(() => {
-      const setupBackListener = async () => {
-          const handler = await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-              if (isEntryModalOpen) { setIsEntryModalOpen(false); return; }
-              if (isSettingsModalOpen) { setIsSettingsModalOpen(false); return; }
-              if (isAIModalOpen) { setIsAIModalOpen(false); setOverrideReport(null); return; }
-              if (isRankModalOpen) { setIsRankModalOpen(false); return; }
-              if (isEditingPriority) { setIsEditingPriority(false); return; }
-              
-              CapacitorApp.exitApp();
-          });
-          return handler;
-      };
-      
-      const handlerPromise = setupBackListener();
-      
-      return () => {
-          handlerPromise.then(h => h.remove());
-      };
-  }, [isEntryModalOpen, isSettingsModalOpen, isAIModalOpen, isRankModalOpen, isEditingPriority]);
-
-  const handleTakeBreak = (durationMs: number | null) => {
-      if (durationMs === null) {
-          setBreakUntil(null);
-      } else {
-          setBreakUntil(Date.now() + durationMs);
-          pauseTimer();
-      }
-  };
-
-  const isWithinSchedule = useCallback(() => {
-    if (breakUntil && Date.now() < breakUntil) return false;
-    const onboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED);
-    if (!onboarded || !schedule.enabled) return false;
-    const now = new Date();
-    const currentDay = now.getDay();
-    if (!schedule.daysOfWeek.includes(currentDay)) return false;
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const [startH, startM] = schedule.startTime.split(':').map(Number);
-    const startTotal = startH * 60 + startM;
-    const [endH, endM] = schedule.endTime.split(':').map(Number);
-    const endTotal = endH * 60 + endM;
-    
-    if (startTotal <= endTotal) {
-      return currentMinutes >= startTotal && currentMinutes < endTotal;
-    } else {
-      return currentMinutes >= startTotal || currentMinutes < endTotal;
-    }
-  }, [schedule, breakUntil]);
-
-  const scheduleNextStartNotification = useCallback(async () => {
-      if (!schedule.enabled || schedule.daysOfWeek.length === 0) return;
-      
-      const now = new Date();
-      const [startH, startM] = schedule.startTime.split(':').map(Number);
-      
-      for (let i = 0; i <= 7; i++) {
-          const checkDate = new Date(now);
-          checkDate.setDate(now.getDate() + i);
-          
-          if (schedule.daysOfWeek.includes(checkDate.getDay())) {
-              const targetTime = new Date(checkDate);
-              targetTime.setHours(startH, startM, 0, 0);
-              
-              if (targetTime.getTime() <= now.getTime()) continue;
-              
-              await scheduleNotification(
-                  "Ready to Win?", 
-                  "Time to start your priority tracking for the day.", 
-                  targetTime.getTime() - now.getTime()
-              );
-              return;
-          }
-      }
-  }, [schedule]);
-
-  const [minuteTick, setMinuteTick] = useState(0);
-  useEffect(() => {
-      const i = setInterval(() => setMinuteTick(p => p + 1), 60000);
-      return () => clearInterval(i);
-  }, []);
-
-  const lastCheckedDateRef = useRef(new Date().toDateString());
-  useEffect(() => {
-      const today = new Date().toDateString();
-      if (today !== lastCheckedDateRef.current) {
-          // New day detected
-          if (filter === 'D' && viewDate.toDateString() === lastCheckedDateRef.current) {
-              setViewDate(new Date());
-          }
-          lastCheckedDateRef.current = today;
-      }
-  }, [minuteTick, viewDate, filter]);
-
-  const getBlockStats = useCallback(() => {
-    if (!schedule.enabled) return { total: 0, remaining: 0 };
-    
-    const [startH, startM] = schedule.startTime.split(':').map(Number);
-    const [endH, endM] = schedule.endTime.split(':').map(Number);
-    
-    const startTotal = startH * 60 + startM;
-    const endTotal = endH * 60 + endM;
-    const now = new Date();
-    const currentTotal = now.getHours() * 60 + now.getMinutes();
-    
-    let totalDuration = endTotal - startTotal;
-    if (totalDuration < 0) totalDuration += 1440; 
-
-    if (totalDuration <= 0) return { total: 0, remaining: 0 };
-
-    const totalBlocks = Math.floor(totalDuration / 15);
-    
-    let elapsed = 0;
-    if (startTotal <= endTotal) {
-        if (currentTotal >= startTotal) {
-            elapsed = currentTotal - startTotal;
+            } catch (e) { console.error(e); }
         }
-    } else {
-        if (currentTotal >= startTotal) {
-            elapsed = currentTotal - startTotal;
-        } else if (currentTotal < endTotal) {
-            elapsed = (1440 - startTotal) + currentTotal;
+
+        const storedPersona = localStorage.getItem(STORAGE_KEY_PERSONA);
+        if (storedPersona) setPersona(storedPersona as AIPersona);
+
+        const storedSchedule = localStorage.getItem(STORAGE_KEY_SCHEDULE);
+        if (storedSchedule) {
+            try {
+                const parsed = JSON.parse(storedSchedule);
+                setSchedule({ ...parsed, enabled: true });
+            } catch (e) { console.error(e); }
         }
-    }
-    
-    if (elapsed < 0) elapsed = 0;
-    if (elapsed > totalDuration) elapsed = totalDuration;
-    
-    const usedBlocks = Math.floor(elapsed / 15);
-    const remaining = Math.max(0, totalBlocks - usedBlocks);
-    
-    return { total: totalBlocks, remaining };
-  }, [schedule]);
 
-  const blockStats = useMemo(() => getBlockStats(), [getBlockStats, minuteTick]);
-  useEffect(() => { blockStatsRef.current = blockStats; }, [blockStats]);
+        const storedPriority = localStorage.getItem('ironlog_strategic_priority');
+        if (storedPriority) {
+            setStrategicPriority(storedPriority);
+            setPriorityInput(storedPriority);
+        }
 
-  const handleTimerComplete = useCallback(async () => {
-    workerRef.current?.postMessage({ command: 'stop' });
-    setStatus(AppStatus.WAITING_FOR_INPUT);
-    localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
-    setIsManualEntry(false);
-    setIsEntryModalOpen(true);
-  }, []);
+        const storedDuration = localStorage.getItem(STORAGE_KEY_CYCLE_DURATION);
+        if (storedDuration) setCycleDuration(parseInt(storedDuration, 10));
 
-  const scheduleNativeAutoStart = useCallback(async () => {
-      if (!schedule.enabled) {
-          try { await TimerPlugin.cancelDailyStart(); } catch(e) {}
-          return;
-      }
-      
-      const [startH, startM] = schedule.startTime.split(':').map(Number);
-      const [endH, endM] = schedule.endTime.split(':').map(Number);
-      
-      const startTotal = startH * 60 + startM;
-      const endTotal = endH * 60 + endM;
-      
-      let totalDuration = endTotal - startTotal;
-      if (totalDuration < 0) totalDuration += 1440;
-      
-      // Calculate cycles based on duration (convert ms to minutes)
-      const durationMin = Math.floor(cycleDuration / 60000);
-      const totalCycles = Math.floor(totalDuration / durationMin);
-      
-      try {
-          await TimerPlugin.scheduleDailyStart({
-              hour: startH,
-              minute: startM,
-              duration: cycleDuration,
-              totalCycles: totalCycles
-          });
-          console.log(`Scheduled auto-start for ${startH}:${startM} with ${totalCycles} cycles`);
-      } catch (e) {
-          console.error("Failed to schedule auto-start", e);
-      }
-  }, [schedule, cycleDuration]);
+        const storedBreak = localStorage.getItem(STORAGE_KEY_BREAK_UNTIL);
+        if (storedBreak) {
+            const ts = parseInt(storedBreak, 10);
+            if (ts > Date.now()) setBreakUntil(ts);
+            else localStorage.removeItem(STORAGE_KEY_BREAK_UNTIL);
+        }
 
-  useEffect(() => {
-      scheduleNativeAutoStart();
-  }, [scheduleNativeAutoStart]);
+        const storedChallenge = localStorage.getItem(STORAGE_KEY_CHALLENGE_START);
+        if (storedChallenge) setChallengeStartDate(parseInt(storedChallenge, 10));
 
-  const tickLogic = useCallback(() => {
-    if (!endTimeRef.current || status !== AppStatus.RUNNING) return;
-    const now = Date.now();
-    const remaining = Math.max(0, endTimeRef.current - now);
-    setTimeLeft(remaining);
-    if (remaining <= 0) handleTimerComplete();
-  }, [handleTimerComplete, status]);
+        const initNotifications = async () => {
+            await configureNotificationChannel();
+            await registerNotificationActions();
+        };
+        initNotifications();
 
-  const tickRef = useRef(tickLogic);
-  useEffect(() => { tickRef.current = tickLogic; }, [tickLogic]);
-  const triggerTick = () => tickRef.current();
-
-  const startTimer = useCallback(async (overrideTime?: number, explicitEndTime?: number) => {
-    setIsPaused(false);
-    setStatus(AppStatus.RUNNING);
-    
-    const now = Date.now();
-    let targetTime = 0;
-    
-    if (explicitEndTime && explicitEndTime > now) {
-        targetTime = explicitEndTime;
-    } else {
-        const timeToUse = overrideTime ?? cycleDuration;
-        targetTime = now + timeToUse;
-    }
-    
-    endTimeRef.current = targetTime;
-    localStorage.setItem(STORAGE_KEY_TIMER_TARGET, targetTime.toString());
-    
-    const stats = getBlockStats();
-    await cancelNotification();
-    
-    const remaining = targetTime - now;
-    if (remaining > 0) {
-        TimerPlugin.start({ 
-            duration: remaining,
-            totalCycles: stats.total,
-            cyclesLeft: stats.remaining
-        });
-
-        workerRef.current?.postMessage({ command: 'start' });
-        setStatus(AppStatus.RUNNING);
-        tickLogic(); 
-    } else {
-        handleTimerComplete();
-    }
-  }, [tickLogic, getBlockStats, cycleDuration, handleTimerComplete]);
-
-  const pauseTimer = useCallback(async () => {
-    setIsPaused(true);
-    await cancelNotification();
-    workerRef.current?.postMessage({ command: 'stop' });
-    setStatus(AppStatus.IDLE);
-    setTimeLeft(cycleDuration);
-    localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
-    scheduleNextStartNotification();
-  }, [scheduleNextStartNotification, cycleDuration]);
-
-  const handleToggleTimer = () => {
-      if (status === AppStatus.RUNNING) pauseTimer();
-      else startTimer();
-  };
-
-  useEffect(() => {
-    if (!hasOnboarded) return;
-    const checkInterval = setInterval(() => {
-        const shouldRun = isWithinSchedule();
-        if (shouldRun && status === AppStatus.IDLE && !isPaused) startTimer();
-    }, 2000);
-    return () => clearInterval(checkInterval);
-  }, [isWithinSchedule, status, startTimer, pauseTimer, hasOnboarded, isPaused]);
-
-  const handleScheduleSave = (newSchedule: ScheduleConfig) => {
-    const configWithEnabled = { ...newSchedule, enabled: true };
-    setSchedule(configWithEnabled);
-    localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
-    const storedPriority = localStorage.getItem('ironlog_strategic_priority');
-    if (storedPriority) setStrategicPriority(storedPriority);
-    setIsSettingsModalOpen(false);
-  };
-
-  const handleOnboardingComplete = (goals: UserGoal[], config: ScheduleConfig, priority?: string, startChallenge?: boolean, startWithWin?: boolean) => {
-      const configWithEnabled = { ...config, enabled: true };
-      localStorage.setItem(STORAGE_KEY_ONBOARDED, 'true');
-      localStorage.setItem(STORAGE_KEY_GOAL, JSON.stringify(goals));
-      localStorage.setItem(STORAGE_KEY_PERSONA, 'LOGIC');
-      localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
-      if (priority) {
-          localStorage.setItem('ironlog_strategic_priority', priority);
-          setStrategicPriority(priority);
-          setPriorityInput(priority);
-      }
-      if (startChallenge) {
-          const now = Date.now();
-          localStorage.setItem(STORAGE_KEY_CHALLENGE_START, now.toString());
-          setChallengeStartDate(now);
-      }
-      setSchedule(configWithEnabled);
-      setHasOnboarded(true);
-
-      if (startWithWin) {
-          setTimeout(() => {
-             handleLogSave("Protocol Initiated", 'WIN', true);
-             setTimeout(() => setIsTutorialActive(true), 2000);
-          }, 500);
-      } else {
-          setIsTutorialActive(true);
-      }
-
-      setTimeout(() => {
-         const now = new Date();
-         const currentMinutes = now.getHours() * 60 + now.getMinutes();
-         const [startH, startM] = config.startTime.split(':').map(Number);
-         const startTotal = startH * 60 + startM;
-         const [endH, endM] = config.endTime.split(':').map(Number);
-         const endTotal = endH * 60 + endM;
-         
-         let shouldStart = false;
-         if (startTotal <= endTotal) {
-             shouldStart = currentMinutes >= startTotal && currentMinutes < endTotal;
-         } else {
-             shouldStart = currentMinutes >= startTotal || currentMinutes < endTotal;
-         }
-         
-         if (shouldStart) startTimer();
-      }, 500);
-  };
-
-  const handlePersonaSave = (newPersona: AIPersona) => {
-      setPersona(newPersona);
-      localStorage.setItem(STORAGE_KEY_PERSONA, newPersona);
-      setIsPersonaModalOpen(false);
-      try { Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
-  };
-
-  const handleNavigate = (direction: -1 | 1) => {
-    const newDate = new Date(viewDate);
-    if (filter === 'D') newDate.setDate(newDate.getDate() + direction);
-    else if (filter === 'W') newDate.setDate(newDate.getDate() + (direction * 7));
-    else if (filter === 'M') newDate.setMonth(newDate.getMonth() + direction);
-    else if (filter === '3M') newDate.setMonth(newDate.getMonth() + (direction * 3));
-    else if (filter === 'Y') newDate.setFullYear(newDate.getFullYear() + direction);
-    setViewDate(newDate);
-    try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
-    setAiReportContent(null);
-  };
-
-  const handleResetView = () => {
-    setViewDate(new Date());
-    try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
-    setAiReportContent(null);
-  };
-
-  const handlePrioritySave = () => {
-      const trimmed = priorityInput.trim();
-      setStrategicPriority(trimmed);
-      localStorage.setItem('ironlog_strategic_priority', trimmed);
-      setIsEditingPriority(false);
-      try { Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
-  };
-
-  const isCurrentView = useMemo(() => {
-    const now = new Date();
-    const checkSame = (d1: Date, d2: Date) => {
-        if (filter === 'D') return d1.toDateString() === d2.toDateString();
-        if (filter === 'M') return d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
-        if (filter === 'Y') return d1.getFullYear() === d2.getFullYear();
-        if (filter === 'W') {
-            const getWeekStart = (d: Date) => {
-                const copy = new Date(d);
-                const day = copy.getDay();
-                const diff = copy.getDate() - day + (day === 0 ? -6 : 1);
-                copy.setDate(diff);
-                return copy.toDateString();
+        try {
+            const blob = new Blob([WORKER_CODE], { type: 'application/javascript' });
+            const workerUrl = URL.createObjectURL(blob);
+            workerRef.current = new Worker(workerUrl);
+            workerRef.current.onmessage = (e) => {
+                if (e.data.type === 'tick') triggerTick();
             };
-            return getWeekStart(d1) === getWeekStart(d2);
+
+            const savedTarget = localStorage.getItem(STORAGE_KEY_TIMER_TARGET);
+            if (savedTarget) {
+                const targetTime = parseInt(savedTarget, 10);
+                const now = Date.now();
+                if (targetTime > now) {
+                    endTimeRef.current = targetTime;
+                    setStatus(AppStatus.RUNNING);
+                    workerRef.current.postMessage({ command: 'start' });
+                } else {
+                    endTimeRef.current = null;
+                    localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
+                    setStatus(AppStatus.WAITING_FOR_INPUT);
+                    setIsEntryModalOpen(true);
+                }
+            }
+
+            return () => {
+                workerRef.current?.terminate();
+                URL.revokeObjectURL(workerUrl);
+            };
+        } catch (err) { console.error(err); }
+    }, []);
+
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs));
+    }, [logs]);
+
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(reports));
+    }, [reports]);
+
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_FREEZE, JSON.stringify(freezeState));
+    }, [freezeState]);
+
+    useEffect(() => {
+        if (breakUntil) localStorage.setItem(STORAGE_KEY_BREAK_UNTIL, breakUntil.toString());
+        else localStorage.removeItem(STORAGE_KEY_BREAK_UNTIL);
+    }, [breakUntil]);
+
+    // Removed auto-generation effect for yesterday's report
+
+    useEffect(() => {
+        const handleScroll = () => setIsScrolled(window.scrollY > 10);
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    const handleDurationSave = (ms: number) => {
+        setCycleDuration(ms);
+        localStorage.setItem(STORAGE_KEY_CYCLE_DURATION, ms.toString());
+        setIsSettingsModalOpen(false);
+        if (status === AppStatus.IDLE) {
+            setTimeLeft(ms);
         }
-        if (filter === '3M') {
-            const getQ = (d: Date) => Math.floor(d.getMonth() / 3);
-            return getQ(d1) === getQ(d2) && d1.getFullYear() === d2.getFullYear();
-        }
-        return false;
     };
-    return checkSame(now, viewDate);
-  }, [viewDate, filter]);
 
-  const filteredLogs = useMemo(() => {
-    const current = new Date(viewDate);
-    let startTime = 0;
-    let endTime = Infinity;
-    switch (filter) {
-      case 'D': 
-        const startOfDay = new Date(current.getFullYear(), current.getMonth(), current.getDate());
-        startTime = startOfDay.getTime(); 
-        endTime = startTime + 86400000 - 1;
-        break;
-      case 'W': {
-        const day = current.getDay();
-        const diff = current.getDate() - day + (day === 0 ? -6 : 1);
-        const startOfWeek = new Date(current);
-        startOfWeek.setDate(diff);
-        startOfWeek.setHours(0,0,0,0);
-        startTime = startOfWeek.getTime();
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 7);
-        endTime = endOfWeek.getTime() - 1;
-        break;
-      }
-      case 'M': 
-        startTime = new Date(current.getFullYear(), current.getMonth(), 1).getTime(); 
-        endTime = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59).getTime();
-        break;
-      case '3M': {
-        const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
-        const qStart = new Date(current.getFullYear(), qStartMonth, 1);
-        startTime = qStart.getTime();
-        const qEnd = new Date(qStart);
-        qEnd.setMonth(qEnd.getMonth() + 3);
-        endTime = qEnd.getTime() - 1;
-        break;
-      }
-      case 'Y': 
-        startTime = new Date(current.getFullYear(), 0, 1).getTime(); 
-        endTime = new Date(current.getFullYear(), 11, 31, 23, 59, 59).getTime();
-        break;
-      default: startTime = 0;
-    }
-    return logs.filter(l => l.timestamp >= startTime && l.timestamp <= endTime);
-  }, [logs, filter, viewDate]);
+    useEffect(() => {
+        const setupBackListener = async () => {
+            const handler = await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+                if (isEntryModalOpen) { setIsEntryModalOpen(false); return; }
+                if (isSettingsModalOpen) { setIsSettingsModalOpen(false); return; }
+                if (isAIModalOpen) { setIsAIModalOpen(false); setOverrideReport(null); return; }
+                if (isRankModalOpen) { setIsRankModalOpen(false); return; }
+                if (isEditingPriority) { setIsEditingPriority(false); return; }
 
-  const { canGoBack, canGoForward } = useMemo(() => {
-    if (logs.length === 0) return { canGoBack: false, canGoForward: false };
-    const minTimestamp = Math.min(...logs.map(l => l.timestamp));
-    const maxTimestamp = Date.now(); 
-    const current = new Date(viewDate);
-    let viewStart = 0;
-    let viewEnd = 0;
-
-    switch(filter) {
-        case 'D':
-            current.setHours(0,0,0,0);
-            viewStart = current.getTime();
-            viewEnd = viewStart + 86400000;
-            break;
-        case 'W':
-            const day = current.getDay();
-            const diff = current.getDate() - day + (day === 0 ? -6 : 1);
-            current.setDate(diff);
-            current.setHours(0,0,0,0);
-            viewStart = current.getTime();
-            viewEnd = viewStart + (7 * 86400000);
-            break;
-        case 'M':
-            viewStart = new Date(current.getFullYear(), current.getMonth(), 1).getTime();
-            viewEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0).getTime();
-            break;
-        case '3M':
-            const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
-            const qStart = new Date(current.getFullYear(), qStartMonth, 1);
-            viewStart = qStart.getTime();
-            const qEnd = new Date(qStart);
-            qEnd.setMonth(qEnd.getMonth() + 3);
-            viewEnd = qEnd.getTime();
-            break;
-        case 'Y':
-            viewStart = new Date(current.getFullYear(), 0, 1).getTime();
-            viewEnd = new Date(current.getFullYear() + 1, 0, 1).getTime();
-            break;
-    }
-    return { canGoBack: viewStart > minTimestamp, canGoForward: viewEnd < maxTimestamp };
-  }, [viewDate, filter, logs]);
-
-  const totalLifetimeWins = useMemo(() => logs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [logs]);
-  
-  const dailyWins = useMemo(() => {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    return logs.filter(l => l.type === 'WIN' && !l.isFrozenWin && l.timestamp >= startOfDay).length;
-  }, [logs]);
-  
-  const currentPeriodWins = useMemo(() => filteredLogs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [filteredLogs]);
-
-  const handleManualLogStart = () => {
-    try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
-    
-    if (isTutorialActive && tutorialStepIndex === 3) {
-        setIsTutorialActive(false);
-        setTutorialPrefill("Initializing Protocol: Committing to the mission.");
-    } else {
-        setTutorialPrefill(null);
-    }
-
-    setIsManualEntry(true);
-    setIsEntryModalOpen(true);
-  };
-
-  const handleLogSave = useCallback(async (text: string, type?: 'WIN' | 'LOSS' | 'DRAW', timestampOrIsNotification?: number | boolean, duration?: number, explicitEndTime?: number) => {
-    let timestamp = Date.now();
-    let isFromNotification = false;
-    let finalDuration = duration;
-
-    if (typeof timestampOrIsNotification === 'boolean') {
-        isFromNotification = timestampOrIsNotification;
-    } else if (typeof timestampOrIsNotification === 'number') {
-        timestamp = timestampOrIsNotification;
-    }
-
-    const trimmedText = text.trim();
-    if (!trimmedText && !type) return;
-
-    if (editingLog) {
-        const updatedLogs = logs.map(l => l.id === editingLog.id ? { 
-            ...l, 
-            text: trimmedText || l.text, 
-            type: type || l.type || 'WIN', 
-            timestamp: timestamp, 
-            duration: finalDuration 
-        } : l);
-        setLogs(updatedLogs);
-        setEditingLog(null);
-        setIsEntryModalOpen(false);
-        try { await Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
-        return;
-    }
-
-    setIsEntryModalOpen(false);
-    setToast(prev => ({ ...prev, visible: false }));
-    setTutorialPrefill(null);
-
-    if (!isFromNotification) {
-        setFeedbackState({ 
-            visible: true, 
-            totalWins: dailyWins, 
-            type: 'WIN', 
-            period: 'D',
-            customTitle: "ANALYZING...",
-            customSub: "PROCESSING INTEL",
-            aiMessage: "Analyzing data..."
-        });
-    }
-
-    const strategic = localStorage.getItem('ironlog_strategic_priority') || undefined;
-    let analysis = { category: 'OTHER', type: type || 'WIN', feedback: 'Log recorded.' };
-    
-    if (!type) {
-        try {
-            // Calculate Daily Stats for Context
-            const startOfDay = new Date().setHours(0,0,0,0);
-            const todaysLogs = logs.filter(l => l.timestamp >= startOfDay);
-            const wins = todaysLogs.filter(l => l.type === 'WIN').length;
-            const losses = todaysLogs.filter(l => l.type === 'LOSS').length;
-            const categoryBreakdown: Record<string, number> = {};
-            todaysLogs.forEach(l => {
-                const cat = l.category || 'OTHER';
-                categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + 1;
+                CapacitorApp.exitApp();
             });
-            const dailyStats = { wins, losses, categoryBreakdown };
+            return handler;
+        };
 
-            // @ts-ignore
-            analysis = await analyzeEntry(trimmedText, strategic, persona, schedule, timestamp, logs.slice(0, 5), dailyStats);
-        } catch(e) {
-            console.error(e);
-        }
-    }
+        const handlerPromise = setupBackListener();
 
-    // @ts-ignore
-    const finalType = type || analysis.type;
+        return () => {
+            handlerPromise.then(h => h.remove());
+        };
+    }, [isEntryModalOpen, isSettingsModalOpen, isAIModalOpen, isRankModalOpen, isEditingPriority]);
 
-    const newLog: LogEntry = {
-      id: crypto.randomUUID(),
-      timestamp: timestamp,
-      text: trimmedText || (finalType === 'WIN' ? "Focused Work" : "Distracted"),
-      type: finalType as 'WIN' | 'LOSS',
-      // @ts-ignore
-      category: analysis.category, 
-      isFrozenWin: false,
-      duration: finalDuration
-    };
-
-    const updatedLogs = [newLog, ...logs];
-    setLogs(prev => [newLog, ...prev]);
-
-    if (!isFromNotification) {
-        if (finalType === 'WIN') {
-            try { await Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
-        } else if (finalType === 'DRAW') {
-            try { await Haptics.notification({ type: NotificationType.Warning }); } catch(e) {}
+    const handleTakeBreak = (durationMs: number | null) => {
+        if (durationMs === null) {
+            setBreakUntil(null);
         } else {
-            try { await Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
+            setBreakUntil(Date.now() + durationMs);
+            pauseTimer();
         }
-
-        const newDailyWins = updatedLogs.filter(l => l.type === 'WIN' && l.timestamp >= new Date().setHours(0,0,0,0)).length;
-
-        const title = finalType === 'WIN' ? "MISSION ACCOMPLISHED" : finalType === 'DRAW' ? "HOLDING PATTERN" : "BREACH DETECTED";
-
-        setFeedbackState({ 
-            visible: true, 
-            totalWins: newDailyWins, 
-            type: finalType as 'WIN' | 'LOSS' | 'DRAW', 
-            period: 'D',
-            customTitle: title,
-            customSub: (analysis.category || "LOGGED").toUpperCase(),
-            aiMessage: analysis.feedback
-        });
-    } else {
-        await sendFeedbackNotification(analysis.feedback);
-    }
-
-    // Update Daily Report silently
-    const now = new Date();
-    const dateKey = `D_${now.toISOString().substring(0, 10)}`;
-    const existingReport = reports[dateKey];
-    const timeStr = new Date(timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    const newEntryBlock = `[${timeStr}] [${analysis.category}] ${trimmedText} >> ${analysis.feedback}`;
-    
-    const finalContent = existingReport 
-    ? existingReport.content + "\n\n" + newEntryBlock 
-    : `TACTICAL LOG - ${now.toLocaleDateString()}\n================================\n\n${newEntryBlock}`;
-    
-    const newReport: AIReport = {
-        id: existingReport?.id || crypto.randomUUID(),
-        dateKey,
-        content: finalContent,
-        summary: existingReport?.summary || analysis.feedback,
-        timestamp: Date.now(),
-        period: 'D',
-        logCount: (existingReport?.logCount || 0) + 1,
-        read: true 
     };
-    setReports(prev => ({ ...prev, [dateKey]: newReport }));
 
-    localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
-    setTimeLeft(cycleDuration);
-    if (isWithinSchedule()) await startTimer(cycleDuration, explicitEndTime);
-    else { 
-       setStatus(AppStatus.IDLE);
-       setIsPaused(false);
-       scheduleNextStartNotification();
-    }
-  }, [startTimer, isWithinSchedule, logs, scheduleNextStartNotification, cycleDuration, editingLog, dailyWins, persona, reports]);
+    const isWithinSchedule = useCallback(() => {
+        if (breakUntil && Date.now() < breakUntil) return false;
+        const onboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED);
+        if (!onboarded || !schedule.enabled) return false;
+        const now = new Date();
+        const currentDay = now.getDay();
+        if (!schedule.daysOfWeek.includes(currentDay)) return false;
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const [startH, startM] = schedule.startTime.split(':').map(Number);
+        const startTotal = startH * 60 + startM;
+        const [endH, endM] = schedule.endTime.split(':').map(Number);
+        const endTotal = endH * 60 + endM;
 
-  const handleLogClose = () => {
-    setIsEntryModalOpen(false);
-    setEditingLog(null);
-    setToast(prev => ({ ...prev, visible: false }));
-    if (!isManualEntry && !editingLog) {
-       setTimeLeft(cycleDuration);
-       if (isWithinSchedule()) startTimer();
-       else {
-          setStatus(AppStatus.IDLE);
-          setIsPaused(false);
-          scheduleNextStartNotification();
-       }
-    }
-  };
+        if (startTotal <= endTotal) {
+            return currentMinutes >= startTotal && currentMinutes < endTotal;
+        } else {
+            return currentMinutes >= startTotal || currentMinutes < endTotal;
+        }
+    }, [schedule, breakUntil]);
 
-  const handleLogEdit = (log: LogEntry) => {
-      setEditingLog(log);
-      setIsEntryModalOpen(true);
-  };
+    const scheduleNextStartNotification = useCallback(async () => {
+        if (!schedule.enabled || schedule.daysOfWeek.length === 0) return;
 
-  const deleteLog = (id: string) => {
-    try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
-    if (window.confirm("Delete this entry?")) {
-      setLogs(prev => prev.filter(l => l.id !== id));
-    }
-  };
+        const now = new Date();
+        const [startH, startM] = schedule.startTime.split(':').map(Number);
 
-  useEffect(() => {
-    const appStateSub = CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
-      if (isActive) {
-        if (Date.now() - lastNativeInputTime.current < 2000) return;
-        try {
-            const pending = await TimerPlugin.checkPendingLog();
-            if (pending && pending.type) {
-                lastNativeInputTime.current = Date.now();
-                setIsEntryModalOpen(false);
-                handleLogSave(pending.input || "", pending.type, true, undefined, pending.activeEndTime);
-                LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
-                LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
+        for (let i = 0; i <= 7; i++) {
+            const checkDate = new Date(now);
+            checkDate.setDate(now.getDate() + i);
+
+            if (schedule.daysOfWeek.includes(checkDate.getDay())) {
+                const targetTime = new Date(checkDate);
+                targetTime.setHours(startH, startM, 0, 0);
+
+                if (targetTime.getTime() <= now.getTime()) continue;
+
+                await scheduleNotification(
+                    "Ready to Win?",
+                    "Time to start your priority tracking for the day.",
+                    targetTime.getTime() - now.getTime()
+                );
                 return;
             }
-        } catch(e) {}
+        }
+    }, [schedule]);
 
-        const savedTarget = localStorage.getItem(STORAGE_KEY_TIMER_TARGET);
-        if (savedTarget) {
-            const target = parseInt(savedTarget);
-            const now = Date.now();
-            if (target > now) {
-                endTimeRef.current = target;
-                setStatus(AppStatus.RUNNING);
-                workerRef.current?.postMessage({ command: 'start' });
-            } else {
-                handleTimerComplete();
+    const [minuteTick, setMinuteTick] = useState(0);
+    useEffect(() => {
+        const i = setInterval(() => setMinuteTick(p => p + 1), 60000);
+        return () => clearInterval(i);
+    }, []);
+
+    const lastCheckedDateRef = useRef(new Date().toDateString());
+    useEffect(() => {
+        const today = new Date().toDateString();
+        if (today !== lastCheckedDateRef.current) {
+            // New day detected
+            if (filter === 'D' && viewDate.toDateString() === lastCheckedDateRef.current) {
+                setViewDate(new Date());
+            }
+            lastCheckedDateRef.current = today;
+        }
+    }, [minuteTick, viewDate, filter]);
+
+    const getBlockStats = useCallback(() => {
+        if (!schedule.enabled) return { total: 0, remaining: 0 };
+
+        const [startH, startM] = schedule.startTime.split(':').map(Number);
+        const [endH, endM] = schedule.endTime.split(':').map(Number);
+
+        const startTotal = startH * 60 + startM;
+        const endTotal = endH * 60 + endM;
+        const now = new Date();
+        const currentTotal = now.getHours() * 60 + now.getMinutes();
+
+        let totalDuration = endTotal - startTotal;
+        if (totalDuration < 0) totalDuration += 1440;
+
+        if (totalDuration <= 0) return { total: 0, remaining: 0 };
+
+        const totalBlocks = Math.floor(totalDuration / 15);
+
+        let elapsed = 0;
+        if (startTotal <= endTotal) {
+            if (currentTotal >= startTotal) {
+                elapsed = currentTotal - startTotal;
+            }
+        } else {
+            if (currentTotal >= startTotal) {
+                elapsed = currentTotal - startTotal;
+            } else if (currentTotal < endTotal) {
+                elapsed = (1440 - startTotal) + currentTotal;
             }
         }
-      }
-    });
-    const notificationSub = LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
-        LocalNotifications.removeAllDeliveredNotifications();
-        
-        // Handle AI Report Click
-        if (notification.notification.extra?.type === 'AI_REPORT' || notification.notification.id === 3) {
-             const now = new Date();
-             const dateKey = `D_${now.toISOString().substring(0, 10)}`;
-             const report = reports[dateKey];
-             
-             if (report) {
-                 setAiReportContent(report.content);
-                 setOverrideReport(report);
-                 setIsAIModalOpen(true);
-             } else {
-                 setToast({ title: "Report Error", message: "Could not load report.", visible: true });
-             }
-             return;
-        }
 
-        // Handle AI Feedback (Instant) Click
-        if (notification.notification.extra?.type === 'AI_FEEDBACK' || notification.notification.id === 4) {
-            const message = notification.notification.body;
-            if (message) {
-                setFeedbackState({ 
-                    visible: true, 
-                    totalWins: dailyWins, // rough estimate, state might be stale but acceptable for this view
-                    type: 'WIN', // Assume win or generic for feedback display
-                    period: 'D',
-                    customTitle: "TACTICAL UPDATE",
-                    customSub: "RECEIVED",
-                    aiMessage: message
-                });
-                // Keep it visible for a bit longer or until dismissed
-            }
+        if (elapsed < 0) elapsed = 0;
+        if (elapsed > totalDuration) elapsed = totalDuration;
+
+        const usedBlocks = Math.floor(elapsed / 15);
+        const remaining = Math.max(0, totalBlocks - usedBlocks);
+
+        return { total: totalBlocks, remaining };
+    }, [schedule]);
+
+    const blockStats = useMemo(() => getBlockStats(), [getBlockStats, minuteTick]);
+    useEffect(() => { blockStatsRef.current = blockStats; }, [blockStats]);
+
+    const handleTimerComplete = useCallback(async () => {
+        workerRef.current?.postMessage({ command: 'stop' });
+        setStatus(AppStatus.WAITING_FOR_INPUT);
+        localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
+        setIsManualEntry(false);
+        setIsEntryModalOpen(true);
+    }, []);
+
+    const scheduleNativeAutoStart = useCallback(async () => {
+        if (!schedule.enabled) {
+            try { await TimerPlugin.cancelDailyStart(); } catch (e) { }
             return;
         }
 
-        if (notification.actionId === 'log_input' && notification.inputValue) {
-           handleLogSave(notification.inputValue, undefined, true);
-        } else {
-           setIsEntryModalOpen(true);
-           setIsManualEntry(false); 
-        }
-    });
+        const [startH, startM] = schedule.startTime.split(':').map(Number);
+        const [endH, endM] = schedule.endTime.split(':').map(Number);
 
-    const handleNativeInput = async () => {
+        const startTotal = startH * 60 + startM;
+        const endTotal = endH * 60 + endM;
+
+        let totalDuration = endTotal - startTotal;
+        if (totalDuration < 0) totalDuration += 1440;
+
+        // Calculate cycles based on duration (convert ms to minutes)
+        const durationMin = Math.floor(cycleDuration / 60000);
+        const totalCycles = Math.floor(totalDuration / durationMin);
+
         try {
-            const pending = await TimerPlugin.checkPendingLog();
-            if (pending && pending.type) {
-                lastNativeInputTime.current = Date.now();
-                setIsEntryModalOpen(false);
-                handleLogSave(pending.input || "", pending.type, true, undefined, pending.activeEndTime);
-                LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
-                LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => {});
+            await TimerPlugin.scheduleDailyStart({
+                hour: startH,
+                minute: startM,
+                duration: cycleDuration,
+                totalCycles: totalCycles
+            });
+            console.log(`Scheduled auto-start for ${startH}:${startM} with ${totalCycles} cycles`);
+        } catch (e) {
+            console.error("Failed to schedule auto-start", e);
+        }
+    }, [schedule, cycleDuration]);
+
+    useEffect(() => {
+        scheduleNativeAutoStart();
+    }, [scheduleNativeAutoStart]);
+
+    const tickLogic = useCallback(() => {
+        if (!endTimeRef.current || status !== AppStatus.RUNNING) return;
+        const now = Date.now();
+        const remaining = Math.max(0, endTimeRef.current - now);
+        setTimeLeft(remaining);
+        if (remaining <= 0) handleTimerComplete();
+    }, [handleTimerComplete, status]);
+
+    const tickRef = useRef(tickLogic);
+    useEffect(() => { tickRef.current = tickLogic; }, [tickLogic]);
+    const triggerTick = () => tickRef.current();
+
+    const startTimer = useCallback(async (overrideTime?: number, explicitEndTime?: number) => {
+        setIsPaused(false);
+        setStatus(AppStatus.RUNNING);
+
+        const now = Date.now();
+        let targetTime = 0;
+
+        if (explicitEndTime && explicitEndTime > now) {
+            targetTime = explicitEndTime;
+        } else {
+            const timeToUse = overrideTime ?? cycleDuration;
+            targetTime = now + timeToUse;
+        }
+
+        endTimeRef.current = targetTime;
+        localStorage.setItem(STORAGE_KEY_TIMER_TARGET, targetTime.toString());
+
+        const stats = getBlockStats();
+        await cancelNotification();
+
+        const remaining = targetTime - now;
+        if (remaining > 0) {
+            TimerPlugin.start({
+                duration: remaining,
+                totalCycles: stats.total,
+                cyclesLeft: stats.remaining
+            });
+
+            workerRef.current?.postMessage({ command: 'start' });
+            setStatus(AppStatus.RUNNING);
+            tickLogic();
+        } else {
+            handleTimerComplete();
+        }
+    }, [tickLogic, getBlockStats, cycleDuration, handleTimerComplete]);
+
+    const pauseTimer = useCallback(async () => {
+        setIsPaused(true);
+        await cancelNotification();
+        workerRef.current?.postMessage({ command: 'stop' });
+        setStatus(AppStatus.IDLE);
+        setTimeLeft(cycleDuration);
+        localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
+        scheduleNextStartNotification();
+    }, [scheduleNextStartNotification, cycleDuration]);
+
+    const handleToggleTimer = () => {
+        if (status === AppStatus.RUNNING) pauseTimer();
+        else startTimer();
+    };
+
+    useEffect(() => {
+        if (!hasOnboarded) return;
+        const checkInterval = setInterval(() => {
+            const shouldRun = isWithinSchedule();
+            if (shouldRun && status === AppStatus.IDLE && !isPaused) startTimer();
+        }, 2000);
+        return () => clearInterval(checkInterval);
+    }, [isWithinSchedule, status, startTimer, pauseTimer, hasOnboarded, isPaused]);
+
+    const handleScheduleSave = (newSchedule: ScheduleConfig) => {
+        const configWithEnabled = { ...newSchedule, enabled: true };
+        setSchedule(configWithEnabled);
+        localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
+        const storedPriority = localStorage.getItem('ironlog_strategic_priority');
+        if (storedPriority) setStrategicPriority(storedPriority);
+        setIsSettingsModalOpen(false);
+    };
+
+    const handleOnboardingComplete = (goals: UserGoal[], config: ScheduleConfig, priority?: string, startChallenge?: boolean, startWithWin?: boolean) => {
+        const configWithEnabled = { ...config, enabled: true };
+        localStorage.setItem(STORAGE_KEY_ONBOARDED, 'true');
+        localStorage.setItem(STORAGE_KEY_GOAL, JSON.stringify(goals));
+        localStorage.setItem(STORAGE_KEY_PERSONA, 'LOGIC');
+        localStorage.setItem(STORAGE_KEY_SCHEDULE, JSON.stringify(configWithEnabled));
+        if (priority) {
+            localStorage.setItem('ironlog_strategic_priority', priority);
+            setStrategicPriority(priority);
+            setPriorityInput(priority);
+        }
+        if (startChallenge) {
+            const now = Date.now();
+            localStorage.setItem(STORAGE_KEY_CHALLENGE_START, now.toString());
+            setChallengeStartDate(now);
+        }
+        setSchedule(configWithEnabled);
+        setHasOnboarded(true);
+
+        if (startWithWin) {
+            setTimeout(() => {
+                handleLogSave("Protocol Initiated", 'WIN', true);
+                setTimeout(() => setIsTutorialActive(true), 2000);
+            }, 500);
+        } else {
+            setIsTutorialActive(true);
+        }
+
+        setTimeout(() => {
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const [startH, startM] = config.startTime.split(':').map(Number);
+            const startTotal = startH * 60 + startM;
+            const [endH, endM] = config.endTime.split(':').map(Number);
+            const endTotal = endH * 60 + endM;
+
+            let shouldStart = false;
+            if (startTotal <= endTotal) {
+                shouldStart = currentMinutes >= startTotal && currentMinutes < endTotal;
+            } else {
+                shouldStart = currentMinutes >= startTotal || currentMinutes < endTotal;
             }
-        } catch (e) { console.error(e); }
+
+            if (shouldStart) startTimer();
+        }, 500);
     };
 
-    window.addEventListener('nativeLogInput', handleNativeInput);
-
-    return () => {
-      appStateSub.then(sub => sub.remove());
-      notificationSub.then(sub => sub.remove());
-      window.removeEventListener('nativeLogInput', handleNativeInput);
+    const handlePersonaSave = (newPersona: AIPersona) => {
+        setPersona(newPersona);
+        localStorage.setItem(STORAGE_KEY_PERSONA, newPersona);
+        setIsPersonaModalOpen(false);
+        try { Haptics.notification({ type: NotificationType.Success }); } catch (e) { }
     };
-  }, [status, handleTimerComplete, handleLogSave]);
 
-  const formatLogsForExport = (logsToExport: LogEntry[]) => {
-    const sortedLogs = [...logsToExport].sort((a, b) => a.timestamp - b.timestamp);
-    let text = "Time Log Export\n==========================\n\n";
-    let currentDate = "";
-    sortedLogs.forEach(log => {
-      const dateStr = new Date(log.timestamp).toLocaleDateString(undefined, { 
-        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
-      });
-      const timeStr = new Date(log.timestamp).toLocaleTimeString(undefined, { 
-        hour: '2-digit', minute: '2-digit' 
-      });
-      if (dateStr !== currentDate) { text += `\n[ ${dateStr} ]\n`; currentDate = dateStr; }
-      text += `${timeStr} - ${log.text}\n`;
-    });
-    return text;
-  };
+    const handleNavigate = (direction: -1 | 1) => {
+        const newDate = new Date(viewDate);
+        if (filter === 'D') newDate.setDate(newDate.getDate() + direction);
+        else if (filter === 'W') newDate.setDate(newDate.getDate() + (direction * 7));
+        else if (filter === 'M') newDate.setMonth(newDate.getMonth() + direction);
+        else if (filter === '3M') newDate.setMonth(newDate.getMonth() + (direction * 3));
+        else if (filter === 'Y') newDate.setFullYear(newDate.getFullYear() + direction);
+        setViewDate(newDate);
+        try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+        setAiReportContent(null);
+    };
 
-  const handleCopyClick = async () => {
-    if (filteredLogs.length === 0) return;
-    try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
-    setIsExportModalOpen(true);
-  };
+    const handleResetView = () => {
+        setViewDate(new Date());
+        try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+        setAiReportContent(null);
+    };
 
-  const getCurrentDateKey = () => {
-     const current = new Date(viewDate);
-     if (filter === 'D') return `D_${current.toISOString().substring(0, 10)}`;
-     return `D_${current.toISOString().substring(0, 10)}`; // Fallback
-  };
+    const handlePrioritySave = () => {
+        const trimmed = priorityInput.trim();
+        setStrategicPriority(trimmed);
+        localStorage.setItem('ironlog_strategic_priority', trimmed);
+        setIsEditingPriority(false);
+        try { Haptics.notification({ type: NotificationType.Success }); } catch (e) { }
+    };
 
-  const savedReportForView = useMemo(() => {
-      if (overrideReport) return overrideReport;
-      
-      if (filter === 'D') {
-          const key = getCurrentDateKey();
-          return reports[key] || null;
-      }
+    const isCurrentView = useMemo(() => {
+        const now = new Date();
+        const checkSame = (d1: Date, d2: Date) => {
+            if (filter === 'D') return d1.toDateString() === d2.toDateString();
+            if (filter === 'M') return d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
+            if (filter === 'Y') return d1.getFullYear() === d2.getFullYear();
+            if (filter === 'W') {
+                const getWeekStart = (d: Date) => {
+                    const copy = new Date(d);
+                    const day = copy.getDay();
+                    const diff = copy.getDate() - day + (day === 0 ? -6 : 1);
+                    copy.setDate(diff);
+                    return copy.toDateString();
+                };
+                return getWeekStart(d1) === getWeekStart(d2);
+            }
+            if (filter === '3M') {
+                const getQ = (d: Date) => Math.floor(d.getMonth() / 3);
+                return getQ(d1) === getQ(d2) && d1.getFullYear() === d2.getFullYear();
+            }
+            return false;
+        };
+        return checkSame(now, viewDate);
+    }, [viewDate, filter]);
 
-      // Aggregate Logic for W, M, 3M, Y
-      const current = new Date(viewDate);
-      let startTime = 0; 
-      let endTime = 0;
-      switch (filter) {
-        case 'W': {
-            const day = current.getDay();
-            const diff = current.getDate() - day + (day === 0 ? -6 : 1);
-            const startOfWeek = new Date(current);
-            startOfWeek.setDate(diff);
-            startOfWeek.setHours(0,0,0,0);
-            startTime = startOfWeek.getTime();
-            const endOfWeek = new Date(startOfWeek);
-            endOfWeek.setDate(startOfWeek.getDate() + 7);
-            endTime = endOfWeek.getTime() - 1;
-            break;
-        }
-        case 'M': 
-            startTime = new Date(current.getFullYear(), current.getMonth(), 1).getTime(); 
-            endTime = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59).getTime();
-            break;
-        case '3M': {
-            const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
-            const qStart = new Date(current.getFullYear(), qStartMonth, 1);
-            startTime = qStart.getTime();
-            const qEnd = new Date(qStart);
-            qEnd.setMonth(qEnd.getMonth() + 3);
-            endTime = qEnd.getTime() - 1;
-            break;
-        }
-        case 'Y': 
-            startTime = new Date(current.getFullYear(), 0, 1).getTime(); 
-            endTime = new Date(current.getFullYear(), 11, 31, 23, 59, 59).getTime();
-            break;
-        default: return null;
-      }
-
-      const dailyReports = Object.values(reports).filter(r => 
-          r.period === 'D' && r.timestamp >= startTime && r.timestamp <= endTime
-      ).sort((a,b) => a.timestamp - b.timestamp);
-      
-      if (dailyReports.length === 0) return null;
-      
-      return {
-          id: 'aggregate',
-          dateKey: 'AGGREGATE',
-          content: dailyReports.map(r => `--- ${new Date(r.timestamp).toLocaleDateString()} ---\n${r.content}`).join('\n\n'),
-          summary: "Aggregate Report",
-          timestamp: Date.now(),
-          period: filter,
-          logCount: dailyReports.length,
-          read: true
-      } as AIReport;
-
-  }, [viewDate, filter, reports, overrideReport]);
-
-  const canUpdateReport = useMemo(() => {
-     if (!savedReportForView) return false;
-     if (savedReportForView.id === 'aggregate') return false; // Cannot manually regenerate aggregate
-     return filteredLogs.length !== savedReportForView.logCount;
-  }, [savedReportForView, filteredLogs]);
-
-  const handleGenerateAIReport = async () => {
-      if (filter !== 'D') return; // Only Daily allowed
-      const goals = getStoredGoals();
-      const priority = localStorage.getItem('ironlog_strategic_priority') || undefined;
-      
-      setAiReportLoading(true);
-      try {
-        // Enforce STRICT limit: Only logs from today
+    const filteredLogs = useMemo(() => {
         const current = new Date(viewDate);
-        const startOfDay = new Date(current.getFullYear(), current.getMonth(), current.getDate());
-        const todaysLogs = logs.filter(l => l.timestamp >= startOfDay.getTime() && l.timestamp < startOfDay.getTime() + 86400000);
+        let startTime = 0;
+        let endTime = Infinity;
+        switch (filter) {
+            case 'D':
+                const startOfDay = new Date(current.getFullYear(), current.getMonth(), current.getDate());
+                startTime = startOfDay.getTime();
+                endTime = startTime + 86400000 - 1;
+                break;
+            case 'W': {
+                const day = current.getDay();
+                const diff = current.getDate() - day + (day === 0 ? -6 : 1);
+                const startOfWeek = new Date(current);
+                startOfWeek.setDate(diff);
+                startOfWeek.setHours(0, 0, 0, 0);
+                startTime = startOfWeek.getTime();
+                const endOfWeek = new Date(startOfWeek);
+                endOfWeek.setDate(startOfWeek.getDate() + 7);
+                endTime = endOfWeek.getTime() - 1;
+                break;
+            }
+            case 'M':
+                startTime = new Date(current.getFullYear(), current.getMonth(), 1).getTime();
+                endTime = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59).getTime();
+                break;
+            case '3M': {
+                const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
+                const qStart = new Date(current.getFullYear(), qStartMonth, 1);
+                startTime = qStart.getTime();
+                const qEnd = new Date(qStart);
+                qEnd.setMonth(qEnd.getMonth() + 3);
+                endTime = qEnd.getTime() - 1;
+                break;
+            }
+            case 'Y':
+                startTime = new Date(current.getFullYear(), 0, 1).getTime();
+                endTime = new Date(current.getFullYear(), 11, 31, 23, 59, 59).getTime();
+                break;
+            default: startTime = 0;
+        }
+        return logs.filter(l => l.timestamp >= startTime && l.timestamp <= endTime);
+    }, [logs, filter, viewDate]);
 
-        const content = await generateAIReport(todaysLogs, 'Day', goals, persona, schedule, 'FULL', priority, logs);
-        const key = getCurrentDateKey();
-        const newReport: AIReport = {
+    const { canGoBack, canGoForward } = useMemo(() => {
+        if (logs.length === 0) return { canGoBack: false, canGoForward: false };
+        const minTimestamp = Math.min(...logs.map(l => l.timestamp));
+        const maxTimestamp = Date.now();
+        const current = new Date(viewDate);
+        let viewStart = 0;
+        let viewEnd = 0;
+
+        switch (filter) {
+            case 'D':
+                current.setHours(0, 0, 0, 0);
+                viewStart = current.getTime();
+                viewEnd = viewStart + 86400000;
+                break;
+            case 'W':
+                const day = current.getDay();
+                const diff = current.getDate() - day + (day === 0 ? -6 : 1);
+                current.setDate(diff);
+                current.setHours(0, 0, 0, 0);
+                viewStart = current.getTime();
+                viewEnd = viewStart + (7 * 86400000);
+                break;
+            case 'M':
+                viewStart = new Date(current.getFullYear(), current.getMonth(), 1).getTime();
+                viewEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0).getTime();
+                break;
+            case '3M':
+                const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
+                const qStart = new Date(current.getFullYear(), qStartMonth, 1);
+                viewStart = qStart.getTime();
+                const qEnd = new Date(qStart);
+                qEnd.setMonth(qEnd.getMonth() + 3);
+                viewEnd = qEnd.getTime();
+                break;
+            case 'Y':
+                viewStart = new Date(current.getFullYear(), 0, 1).getTime();
+                viewEnd = new Date(current.getFullYear() + 1, 0, 1).getTime();
+                break;
+        }
+        return { canGoBack: viewStart > minTimestamp, canGoForward: viewEnd < maxTimestamp };
+    }, [viewDate, filter, logs]);
+
+    const totalLifetimeWins = useMemo(() => logs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [logs]);
+
+    const dailyWins = useMemo(() => {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        return logs.filter(l => l.type === 'WIN' && !l.isFrozenWin && l.timestamp >= startOfDay).length;
+    }, [logs]);
+
+    const currentPeriodWins = useMemo(() => filteredLogs.filter(l => l.type === 'WIN' && !l.isFrozenWin).length, [filteredLogs]);
+
+    const handleManualLogStart = () => {
+        try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
+
+        if (isTutorialActive && tutorialStepIndex === 3) {
+            setIsTutorialActive(false);
+            setTutorialPrefill("Initializing Protocol: Committing to the mission.");
+        } else {
+            setTutorialPrefill(null);
+        }
+
+        setIsManualEntry(true);
+        setIsEntryModalOpen(true);
+    };
+
+    const handleLogSave = useCallback(async (text: string, type?: 'WIN' | 'LOSS' | 'DRAW', timestampOrIsNotification?: number | boolean, duration?: number, explicitEndTime?: number) => {
+        let timestamp = Date.now();
+        let isFromNotification = false;
+        let finalDuration = duration;
+
+        if (typeof timestampOrIsNotification === 'boolean') {
+            isFromNotification = timestampOrIsNotification;
+        } else if (typeof timestampOrIsNotification === 'number') {
+            timestamp = timestampOrIsNotification;
+        }
+
+        const trimmedText = text.trim();
+        if (!trimmedText && !type) return;
+
+        if (editingLog) {
+            const updatedLogs = logs.map(l => l.id === editingLog.id ? {
+                ...l,
+                text: trimmedText || l.text,
+                type: type || l.type || 'WIN',
+                timestamp: timestamp,
+                duration: finalDuration
+            } : l);
+            setLogs(updatedLogs);
+            setEditingLog(null);
+            setIsEntryModalOpen(false);
+            try { await Haptics.notification({ type: NotificationType.Success }); } catch (e) { }
+            return;
+        }
+
+        setIsEntryModalOpen(false);
+        setToast(prev => ({ ...prev, visible: false }));
+        setTutorialPrefill(null);
+
+        if (!isFromNotification) {
+            setFeedbackState({
+                visible: true,
+                totalWins: dailyWins,
+                type: 'WIN',
+                period: 'D',
+                customTitle: "ANALYZING...",
+                customSub: "PROCESSING INTEL",
+                aiMessage: "Analyzing data..."
+            });
+        }
+
+        const strategic = localStorage.getItem('ironlog_strategic_priority') || undefined;
+        let analysis = { category: 'OTHER', type: type || 'WIN', feedback: 'Log recorded.' };
+
+        if (!type) {
+            try {
+                // Calculate Daily Stats for Context
+                const startOfDay = new Date().setHours(0, 0, 0, 0);
+                const todaysLogs = logs.filter(l => l.timestamp >= startOfDay);
+                const wins = todaysLogs.filter(l => l.type === 'WIN').length;
+                const losses = todaysLogs.filter(l => l.type === 'LOSS').length;
+                const categoryBreakdown: Record<string, number> = {};
+                todaysLogs.forEach(l => {
+                    const cat = l.category || 'OTHER';
+                    categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + 1;
+                });
+                const dailyStats = { wins, losses, categoryBreakdown };
+
+                // @ts-ignore
+                analysis = await analyzeEntry(trimmedText, strategic, persona, schedule, timestamp, logs.slice(0, 5), dailyStats);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // @ts-ignore
+        const finalType = type || analysis.type;
+
+        const newLog: LogEntry = {
             id: crypto.randomUUID(),
-            dateKey: key,
-            content: content,
-            summary: savedReportForView?.summary || "Manual Analysis", 
+            timestamp: timestamp,
+            text: trimmedText || (finalType === 'WIN' ? "Focused Work" : "Distracted"),
+            type: finalType as 'WIN' | 'LOSS',
+            // @ts-ignore
+            category: analysis.category,
+            isFrozenWin: false,
+            duration: finalDuration
+        };
+
+        const updatedLogs = [newLog, ...logs];
+        setLogs(prev => [newLog, ...prev]);
+
+        if (!isFromNotification) {
+            if (finalType === 'WIN') {
+                try { await Haptics.notification({ type: NotificationType.Success }); } catch (e) { }
+            } else if (finalType === 'DRAW') {
+                try { await Haptics.notification({ type: NotificationType.Warning }); } catch (e) { }
+            } else {
+                try { await Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
+            }
+
+            const newDailyWins = updatedLogs.filter(l => l.type === 'WIN' && l.timestamp >= new Date().setHours(0, 0, 0, 0)).length;
+
+            const title = finalType === 'WIN' ? "MISSION ACCOMPLISHED" : finalType === 'DRAW' ? "HOLDING PATTERN" : "BREACH DETECTED";
+
+            setFeedbackState({
+                visible: true,
+                totalWins: newDailyWins,
+                type: finalType as 'WIN' | 'LOSS' | 'DRAW',
+                period: 'D',
+                customTitle: title,
+                customSub: (analysis.category || "LOGGED").toUpperCase(),
+                aiMessage: analysis.feedback
+            });
+        } else {
+            await sendFeedbackNotification(analysis.feedback);
+        }
+
+        // Update Daily Report silently
+        const now = new Date();
+        const dateKey = `D_${now.toISOString().substring(0, 10)}`;
+        const existingReport = reports[dateKey];
+        const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const newEntryBlock = `[${timeStr}] [${analysis.category}] ${trimmedText} >> ${analysis.feedback}`;
+
+        const finalContent = existingReport
+            ? existingReport.content + "\n\n" + newEntryBlock
+            : `TACTICAL LOG - ${now.toLocaleDateString()}\n================================\n\n${newEntryBlock}`;
+
+        const newReport: AIReport = {
+            id: existingReport?.id || crypto.randomUUID(),
+            dateKey,
+            content: finalContent,
+            summary: existingReport?.summary || analysis.feedback,
+            timestamp: Date.now(),
+            period: 'D',
+            logCount: (existingReport?.logCount || 0) + 1,
+            read: true
+        };
+        setReports(prev => ({ ...prev, [dateKey]: newReport }));
+
+        localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
+        setTimeLeft(cycleDuration);
+        if (isWithinSchedule()) await startTimer(cycleDuration, explicitEndTime);
+        else {
+            setStatus(AppStatus.IDLE);
+            setIsPaused(false);
+            scheduleNextStartNotification();
+        }
+    }, [startTimer, isWithinSchedule, logs, scheduleNextStartNotification, cycleDuration, editingLog, dailyWins, persona, reports]);
+
+    const handleLogClose = () => {
+        setIsEntryModalOpen(false);
+        setEditingLog(null);
+        setToast(prev => ({ ...prev, visible: false }));
+        if (!isManualEntry && !editingLog) {
+            setTimeLeft(cycleDuration);
+            if (isWithinSchedule()) startTimer();
+            else {
+                setStatus(AppStatus.IDLE);
+                setIsPaused(false);
+                scheduleNextStartNotification();
+            }
+        }
+    };
+
+    const handleLogEdit = (log: LogEntry) => {
+        setEditingLog(log);
+        setIsEntryModalOpen(true);
+    };
+
+    const deleteLog = (id: string) => {
+        try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
+        if (window.confirm("Delete this entry?")) {
+            setLogs(prev => prev.filter(l => l.id !== id));
+        }
+    };
+
+    useEffect(() => {
+        const appStateSub = CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
+            if (isActive) {
+                if (Date.now() - lastNativeInputTime.current < 2000) return;
+                try {
+                    const pending = await TimerPlugin.checkPendingLog();
+                    if (pending && pending.type) {
+                        lastNativeInputTime.current = Date.now();
+                        setIsEntryModalOpen(false);
+                        handleLogSave(pending.input || "", pending.type, true, undefined, pending.activeEndTime);
+                        LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => { });
+                        LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => { });
+                        return;
+                    }
+                } catch (e) { }
+
+                const savedTarget = localStorage.getItem(STORAGE_KEY_TIMER_TARGET);
+                if (savedTarget) {
+                    const target = parseInt(savedTarget);
+                    const now = Date.now();
+                    if (target > now) {
+                        endTimeRef.current = target;
+                        setStatus(AppStatus.RUNNING);
+                        workerRef.current?.postMessage({ command: 'start' });
+                    } else {
+                        handleTimerComplete();
+                    }
+                }
+            }
+        });
+        const notificationSub = LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
+            LocalNotifications.removeAllDeliveredNotifications();
+
+            // Handle AI Report Click
+            if (notification.notification.extra?.type === 'AI_REPORT' || notification.notification.id === 3) {
+                const now = new Date();
+                const dateKey = `D_${now.toISOString().substring(0, 10)}`;
+                const report = reports[dateKey];
+
+                if (report) {
+                    setAiReportContent(report.content);
+                    setOverrideReport(report);
+                    setIsAIModalOpen(true);
+                } else {
+                    setToast({ title: "Report Error", message: "Could not load report.", visible: true });
+                }
+                return;
+            }
+
+            // Handle AI Feedback (Instant) Click
+            if (notification.notification.extra?.type === 'AI_FEEDBACK' || notification.notification.id === 4) {
+                const message = notification.notification.body;
+                if (message) {
+                    setFeedbackState({
+                        visible: true,
+                        totalWins: dailyWins, // rough estimate, state might be stale but acceptable for this view
+                        type: 'WIN', // Assume win or generic for feedback display
+                        period: 'D',
+                        customTitle: "TACTICAL UPDATE",
+                        customSub: "RECEIVED",
+                        aiMessage: message
+                    });
+                    // Keep it visible for a bit longer or until dismissed
+                }
+                return;
+            }
+
+            if (notification.actionId === 'log_input' && notification.inputValue) {
+                handleLogSave(notification.inputValue, undefined, true);
+            } else {
+                setIsEntryModalOpen(true);
+                setIsManualEntry(false);
+            }
+        });
+
+        const handleNativeInput = async () => {
+            try {
+                const pending = await TimerPlugin.checkPendingLog();
+                if (pending && pending.type) {
+                    lastNativeInputTime.current = Date.now();
+                    setIsEntryModalOpen(false);
+                    handleLogSave(pending.input || "", pending.type, true, undefined, pending.activeEndTime);
+                    LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => { });
+                    LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => { });
+                }
+            } catch (e) { console.error(e); }
+        };
+
+        window.addEventListener('nativeLogInput', handleNativeInput);
+
+        return () => {
+            appStateSub.then(sub => sub.remove());
+            notificationSub.then(sub => sub.remove());
+            window.removeEventListener('nativeLogInput', handleNativeInput);
+        };
+    }, [status, handleTimerComplete, handleLogSave]);
+
+    const formatLogsForExport = (logsToExport: LogEntry[]) => {
+        const sortedLogs = [...logsToExport].sort((a, b) => a.timestamp - b.timestamp);
+        let text = "Time Log Export\n==========================\n\n";
+        let currentDate = "";
+        sortedLogs.forEach(log => {
+            const dateStr = new Date(log.timestamp).toLocaleDateString(undefined, {
+                weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+            });
+            const timeStr = new Date(log.timestamp).toLocaleTimeString(undefined, {
+                hour: '2-digit', minute: '2-digit'
+            });
+            if (dateStr !== currentDate) { text += `\n[ ${dateStr} ]\n`; currentDate = dateStr; }
+            text += `${timeStr} - ${log.text}\n`;
+        });
+        return text;
+    };
+
+    const handleCopyClick = async () => {
+        if (filteredLogs.length === 0) return;
+        try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+        setIsExportModalOpen(true);
+    };
+
+    const getCurrentDateKey = () => {
+        const current = new Date(viewDate);
+        if (filter === 'D') return `D_${current.toISOString().substring(0, 10)}`;
+        return `D_${current.toISOString().substring(0, 10)}`; // Fallback
+    };
+
+    const savedReportForView = useMemo(() => {
+        if (overrideReport) return overrideReport;
+
+        if (filter === 'D') {
+            const key = getCurrentDateKey();
+            return reports[key] || null;
+        }
+
+        // Aggregate Logic for W, M, 3M, Y
+        const current = new Date(viewDate);
+        let startTime = 0;
+        let endTime = 0;
+        switch (filter) {
+            case 'W': {
+                const day = current.getDay();
+                const diff = current.getDate() - day + (day === 0 ? -6 : 1);
+                const startOfWeek = new Date(current);
+                startOfWeek.setDate(diff);
+                startOfWeek.setHours(0, 0, 0, 0);
+                startTime = startOfWeek.getTime();
+                const endOfWeek = new Date(startOfWeek);
+                endOfWeek.setDate(startOfWeek.getDate() + 7);
+                endTime = endOfWeek.getTime() - 1;
+                break;
+            }
+            case 'M':
+                startTime = new Date(current.getFullYear(), current.getMonth(), 1).getTime();
+                endTime = new Date(current.getFullYear(), current.getMonth() + 1, 0, 23, 59, 59).getTime();
+                break;
+            case '3M': {
+                const qStartMonth = Math.floor(current.getMonth() / 3) * 3;
+                const qStart = new Date(current.getFullYear(), qStartMonth, 1);
+                startTime = qStart.getTime();
+                const qEnd = new Date(qStart);
+                qEnd.setMonth(qEnd.getMonth() + 3);
+                endTime = qEnd.getTime() - 1;
+                break;
+            }
+            case 'Y':
+                startTime = new Date(current.getFullYear(), 0, 1).getTime();
+                endTime = new Date(current.getFullYear(), 11, 31, 23, 59, 59).getTime();
+                break;
+            default: return null;
+        }
+
+        const dailyReports = Object.values(reports).filter(r =>
+            r.period === 'D' && r.timestamp >= startTime && r.timestamp <= endTime
+        ).sort((a, b) => a.timestamp - b.timestamp);
+
+        if (dailyReports.length === 0) return null;
+
+        return {
+            id: 'aggregate',
+            dateKey: 'AGGREGATE',
+            content: dailyReports.map(r => `--- ${new Date(r.timestamp).toLocaleDateString()} ---\n${r.content}`).join('\n\n'),
+            summary: "Aggregate Report",
             timestamp: Date.now(),
             period: filter,
-            logCount: todaysLogs.length, 
-            read: true 
-        };
-        setReports(prev => ({ ...prev, [key]: newReport }));
-        setAiReportContent(content);
-        try { Haptics.notification({ type: NotificationType.Success }); } catch(e) {}
-      } catch (error) {
-        setToast({ title: "Error", message: "Failed to generate report.", visible: true });
-      } finally {
-        setAiReportLoading(false);
-      }
-  };
+            logCount: dailyReports.length,
+            read: true
+        } as AIReport;
 
-  // Removed checkAndGenerateEndShiftReport logic
+    }, [viewDate, filter, reports, overrideReport]);
 
-  const handleOpenAIModal = () => {
-      if (savedReportForView) {
-          setAiReportContent(savedReportForView.content);
-          if (savedReportForView.read === false) {
-             const updatedReport = { ...savedReportForView, read: true };
-             setReports(prev => ({ ...prev, [savedReportForView.dateKey]: updatedReport }));
-          }
-      } else setAiReportContent(null);
-      setIsAIModalOpen(true);
-  };
+    const canUpdateReport = useMemo(() => {
+        if (!savedReportForView) return false;
+        if (savedReportForView.id === 'aggregate') return false; // Cannot manually regenerate aggregate
+        return filteredLogs.length !== savedReportForView.logCount;
+    }, [savedReportForView, filteredLogs]);
 
-  const initialEntryProp = useMemo(() => {
-    if (editingLog) return { text: editingLog.text, type: editingLog.type || 'WIN', timestamp: editingLog.timestamp, duration: editingLog.duration };
-    if (tutorialPrefill) return { text: tutorialPrefill, type: 'WIN' as const, timestamp: Date.now() };
-    return null;
-  }, [editingLog, tutorialPrefill]);
+    const handleGenerateAIReport = async () => {
+        if (filter !== 'D') return; // Only Daily allowed
+        const goals = getStoredGoals();
+        const priority = localStorage.getItem('ironlog_strategic_priority') || undefined;
 
-  const handleLoadDemoData = () => {
-      if (confirm("Load Demo Data? This will replace current logs.")) {
-          const demoLogs = generateDemoData();
-          setLogs(demoLogs);
-          setToast({ title: "Demo Data Loaded", message: "System populated with simulation data.", visible: true });
-          setIsSettingsModalOpen(false);
-      }
-  };
+        setAiReportLoading(true);
+        try {
+            // Enforce STRICT limit: Only logs from today
+            const current = new Date(viewDate);
+            const startOfDay = new Date(current.getFullYear(), current.getMonth(), current.getDate());
+            const todaysLogs = logs.filter(l => l.timestamp >= startOfDay.getTime() && l.timestamp < startOfDay.getTime() + 86400000);
 
-  const currentChallengeDay = useMemo(() => {
-    if (!challengeStartDate) return 0;
-    const diff = Date.now() - challengeStartDate;
-    return Math.floor(diff / 86400000) + 1;
-  }, [challengeStartDate]);
+            const content = await generateAIReport(todaysLogs, 'Day', goals, persona, schedule, 'FULL', priority, logs);
+            const key = getCurrentDateKey();
+            const newReport: AIReport = {
+                id: crypto.randomUUID(),
+                dateKey: key,
+                content: content,
+                summary: savedReportForView?.summary || "Manual Analysis",
+                timestamp: Date.now(),
+                period: filter,
+                logCount: todaysLogs.length,
+                read: true
+            };
+            setReports(prev => ({ ...prev, [key]: newReport }));
+            setAiReportContent(content);
+            try { Haptics.notification({ type: NotificationType.Success }); } catch (e) { }
+        } catch (error) {
+            setToast({ title: "Error", message: "Failed to generate report.", visible: true });
+        } finally {
+            setAiReportLoading(false);
+        }
+    };
 
-  const currentChallengeProgress = useMemo(() => {
-      const dailyTarget = 4;
-      const progress = Math.min(dailyWins, dailyTarget);
-      return { wins: progress, target: dailyTarget, percent: (progress / dailyTarget) * 100 };
-  }, [dailyWins]);
+    // Removed checkAndGenerateEndShiftReport logic
 
-  if (!hasOnboarded) return <Onboarding onComplete={handleOnboardingComplete} />;
+    const handleOpenAIModal = () => {
+        if (savedReportForView) {
+            setAiReportContent(savedReportForView.content);
+            if (savedReportForView.read === false) {
+                const updatedReport = { ...savedReportForView, read: true };
+                setReports(prev => ({ ...prev, [savedReportForView.dateKey]: updatedReport }));
+            }
+        } else setAiReportContent(null);
+        setIsAIModalOpen(true);
+    };
 
-  return (
-    <div className="min-h-screen font-sans pb-[env(safe-area-inset-bottom)] text-white relative">
-      <div className="fixed inset-0 -z-50 bg-black" />
-      <div className={`fixed inset-0 pointer-events-none z-50 bg-green-500/20 transition-opacity duration-150 ease-out ${flashWin ? 'opacity-100' : 'opacity-0'}`} />
-      
-      <div className="relative z-10">
-        <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center border-b ${isScrolled ? 'bg-[#050505]/80 backdrop-blur-md border-white/5' : 'border-transparent'}`} >
-          <div className="relative flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl overflow-hidden transition-all duration-500">
-               <img src="/icon.png" alt="App Icon" className="w-full h-full object-cover" />
-             </div>
-             <div className="flex flex-col">
-               <span className="text-xl font-bold tracking-[0.1em] uppercase text-white leading-none">Winner</span>
-               <span className="text-xl font-light tracking-[0.1em] uppercase text-white leading-none">Effect</span>
-             </div>
-          </div>
-          <div className="flex items-center gap-3">
-              <RankHUD 
-                  totalWins={dailyWins} 
-                  period="D"
-                  isFrozen={freezeState.isFrozen} 
-                  onClick={() => {
-                      try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {}
-                      setIsRankModalOpen(true);
-                  }}
-              />
-              <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setIsSettingsModalOpen(true); }} id="settings-btn" className="text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-zinc-800 p-2.5 rounded-xl transition-all border border-white/5 hover:border-white/10" title="Settings" >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-              </button>
-          </div>
-        </header>
-        <FeedbackOverlay 
-          isVisible={feedbackState.visible} 
-          totalWins={feedbackState.totalWins}
-          type={feedbackState.type}
-          customTitle={feedbackState.customTitle}
-          customSub={feedbackState.customSub}
-          aiMessage={feedbackState.aiMessage}
-          period={feedbackState.period}
-          isFrozen={freezeState.isFrozen}
-          onDismiss={() => {
-              setFeedbackState(prev => ({ ...prev, visible: false }));
-              if (tutorialStepIndex === 3 && !localStorage.getItem('ironlog_tutorial_complete')) {
-                  setTutorialStepIndex(4);
-                  setIsTutorialActive(true);
-              }
-          }}
-        />
-        <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} onAction={toast.onAction} />
-        <main className="max-w-xl mx-auto p-5 pt-44 flex flex-col min-h-[calc(100vh-80px)]">
-          {/* Challenge Banner */}
-          {currentChallengeDay > 0 && currentChallengeDay <= 7 && (
-              <div className="mb-6 p-1 rounded-2xl bg-gradient-to-r from-green-500/20 via-green-500/10 to-transparent border border-green-500/20 animate-fade-in relative overflow-hidden">
-                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-20" />
-                  <div className="flex items-center justify-between px-4 py-3 relative z-10">
-                      <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-lg transition-colors ${currentChallengeProgress.wins >= 4 ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-zinc-900 border border-green-500/30 text-green-500'}`}>
-                              {currentChallengeDay}
-                          </div>
-                          <div className="flex flex-col">
-                              <span className="text-xs font-black uppercase tracking-[0.2em] text-green-500">
-                                  {currentChallengeProgress.wins >= 4 ? 'DAY SECURED' : 'DETOX PROTOCOL'}
-                              </span>
-                              <span className="text-[10px] text-white/40 uppercase tracking-widest font-mono">
-                                  {currentChallengeProgress.wins} / {currentChallengeProgress.target} Wins to Secure
-                              </span>
-                          </div>
-                      </div>
-                      <div className="h-1.5 flex-1 max-w-[100px] bg-white/10 rounded-full ml-4 overflow-hidden relative">
-                          <div 
-                            className={`h-full transition-all duration-700 ease-out ${currentChallengeProgress.wins >= 4 ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]' : 'bg-green-500/50'}`} 
-                            style={{ width: `${currentChallengeProgress.percent}%` }} 
-                          />
-                      </div>
-                  </div>
-              </div>
-          )}
+    const initialEntryProp = useMemo(() => {
+        if (editingLog) return { text: editingLog.text, type: editingLog.type || 'WIN', timestamp: editingLog.timestamp, duration: editingLog.duration };
+        if (tutorialPrefill) return { text: tutorialPrefill, type: 'WIN' as const, timestamp: Date.now() };
+        return null;
+    }, [editingLog, tutorialPrefill]);
 
-          {/* Strategic Priority / North Star */}
-          <section className="mb-6 group">
-              {isEditingPriority ? (
-                  <div className="bg-black border border-green-500/50 rounded-3xl p-1 shadow-[0_0_30px_rgba(34,197,94,0.15)] animate-fade-in relative overflow-hidden">
-                      <div className="absolute inset-0 bg-green-500/5 pointer-events-none" />
-                      <textarea 
-                        value={priorityInput}
-                        onChange={(e) => setPriorityInput(e.target.value)}
-                        className="w-full bg-transparent text-white font-black text-2xl p-6 outline-none resize-none tracking-tight placeholder:text-white/20 relative z-10"
-                        placeholder="Define your objective..."
-                        rows={3}
-                        autoFocus
-                        onBlur={handlePrioritySave}
-                        onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); handlePrioritySave(); } }}
-                      />
-                      <div className="absolute bottom-4 right-4 z-20">
-                           <span className="text-[10px] font-black uppercase tracking-widest text-green-500 bg-black/50 px-2 py-1 rounded backdrop-blur-md">Press Enter</span>
-                      </div>
-                  </div>
-              ) : (
-                  <button 
-                    onClick={() => {
-                        try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
-                        setIsEditingPriority(true);
+    const handleLoadDemoData = () => {
+        if (confirm("Load Demo Data? This will replace current logs.")) {
+            const demoLogs = generateDemoData();
+            setLogs(demoLogs);
+            setToast({ title: "Demo Data Loaded", message: "System populated with simulation data.", visible: true });
+            setIsSettingsModalOpen(false);
+        }
+    };
+
+    const currentChallengeDay = useMemo(() => {
+        if (!challengeStartDate) return 0;
+        const diff = Date.now() - challengeStartDate;
+        return Math.floor(diff / 86400000) + 1;
+    }, [challengeStartDate]);
+
+    const currentChallengeProgress = useMemo(() => {
+        const dailyTarget = 4;
+        const progress = Math.min(dailyWins, dailyTarget);
+        return { wins: progress, target: dailyTarget, percent: (progress / dailyTarget) * 100 };
+    }, [dailyWins]);
+
+    if (!hasOnboarded) return <Onboarding onComplete={handleOnboardingComplete} />;
+
+    return (
+        <div className="min-h-screen font-sans pb-[env(safe-area-inset-bottom)] text-white relative">
+            <div className="fixed inset-0 -z-50 bg-black" />
+            <div className={`fixed inset-0 pointer-events-none z-50 bg-green-500/20 transition-opacity duration-150 ease-out ${flashWin ? 'opacity-100' : 'opacity-0'}`} />
+
+            <div className="relative z-10">
+                <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center border-b ${isScrolled ? 'bg-[#050505]/80 backdrop-blur-md border-white/5' : 'border-transparent'}`} >
+                    <div className="relative flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl overflow-hidden transition-all duration-500">
+                            <img src="/icon.png" alt="App Icon" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-xl font-bold tracking-[0.1em] uppercase text-white leading-none">Winner</span>
+                            <span className="text-xl font-light tracking-[0.1em] uppercase text-white leading-none">Effect</span>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <RankHUD
+                            totalWins={dailyWins}
+                            period="D"
+                            isFrozen={freezeState.isFrozen}
+                            dayStreak={currentStreak}
+                            onClick={() => {
+                                try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
+                                setIsRankModalOpen(true);
+                            }}
+                        />
+                        <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { } setIsSettingsModalOpen(true); }} id="settings-btn" className="text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-zinc-800 p-2.5 rounded-xl transition-all border border-white/5 hover:border-white/10" title="Settings" >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        </button>
+                    </div>
+                </header>
+                <FeedbackOverlay
+                    isVisible={feedbackState.visible}
+                    totalWins={feedbackState.totalWins}
+                    type={feedbackState.type}
+                    customTitle={feedbackState.customTitle}
+                    customSub={feedbackState.customSub}
+                    aiMessage={feedbackState.aiMessage}
+                    period={feedbackState.period}
+                    isFrozen={freezeState.isFrozen}
+                    onDismiss={() => {
+                        setFeedbackState(prev => ({ ...prev, visible: false }));
+                        if (tutorialStepIndex === 3 && !localStorage.getItem('ironlog_tutorial_complete')) {
+                            setTutorialStepIndex(4);
+                            setIsTutorialActive(true);
+                        }
                     }}
-                    className="w-full text-left bg-gradient-to-br from-white/10 to-black border border-green-500/20 rounded-3xl p-6 transition-all active:scale-[0.98] shadow-2xl relative overflow-hidden group"
-                  >
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 blur-[50px] rounded-full pointer-events-none group-hover:bg-green-500/20 transition-all" />
-
-                      <div className="flex items-center justify-between mb-3 relative z-10">
-                          <span className="text-xs font-black uppercase tracking-[0.3em] text-green-500 italic drop-shadow-sm flex items-center gap-2">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-green-500"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                              North Star
-                          </span>
-                          
-                      </div>
-                      <div className={`text-2xl font-black italic tracking-tighter leading-none relative z-10 ${strategicPriority ? 'text-white drop-shadow-lg' : 'text-white/20'}`}>
-                          {strategicPriority || "DEFINE YOUR PRIMARY OBJECTIVE"}
-                      </div>
-                  </button>
-              )}
-          </section>
-
-          <section className="flex-none mb-8" id="status-card">
-              <StatusCard isActive={status === AppStatus.RUNNING} timeLeft={timeLeft} schedule={schedule} blockStats={blockStats} onToggle={handleToggleTimer} />
-          </section>
-          <section className="flex-1 flex flex-col">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-2xl font-black text-white tracking-tight uppercase">Priority Log</h2>
-              <button onClick={handleManualLogStart} id="manual-entry-btn" className="text-zinc-500 hover:text-green-500 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-green-500/20" >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                Manual Entry
-              </button>
-            </div>
-            <div id="stats-card">
-                <StatsCard 
-                    logs={filteredLogs} 
-                    filter={filter} 
-                    schedule={schedule} 
-                    durationMs={DEFAULT_INTERVAL_MS} 
-                    viewDate={viewDate} 
-                    onNavigate={handleNavigate} 
-                    onReset={handleResetView} 
-                    isCurrentView={isCurrentView} 
-                    canGoBack={canGoBack} 
-                    canGoForward={canGoForward}
-                    onStreakClick={() => setIsPersonaModalOpen(true)}
                 />
-            </div>
-            <div className="flex justify-center mb-6">
-              <div className="bg-zinc-900 p-1.5 rounded-2xl flex items-center justify-between w-full border border-zinc-800">
-                  {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
-                  <button key={f} onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {} setFilter(f); setViewDate(new Date()); }} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-[0.2em] transition-all duration-300 ${ filter === f ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'text-zinc-500 hover:text-white hover:bg-zinc-800' }`} >
-                      {f}
-                  </button>
-                  ))}
-              </div>
-            </div>
-            {filteredLogs.length > 0 && (
-               <div className="flex items-center justify-between mb-6 px-1 gap-4">
-                   {savedReportForView ? (
-                     <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleOpenAIModal(); }} className="flex-1 flex items-center gap-3 py-4 px-6 rounded-2xl transition-all border bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20" >
-                        <div className="p-2 rounded-lg transition-colors bg-green-500/20">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                        </div>
-                        <div className="flex flex-col items-start">
-                             <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">Tactical Intel</span>
-                             {savedReportForView.read === false && ( <span className="text-xs text-green-500/60 font-black uppercase tracking-widest leading-none mt-2 animate-pulse">New Tactical Analysis</span> )}
-                        </div>
-                     </button>
-                   ) : (
-                     <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch(e) {} handleGenerateAIReport(); }} className="flex-0 p-4 rounded-2xl transition-all border bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800" title="Generate Insight">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                     </button>
-                   )}
-                   <button onClick={handleCopyClick} className={`flex items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 transition-all active:scale-95 shadow-inner ${savedReportForView ? 'w-14 h-14' : 'flex-1 py-4 px-6'}`} title="Export Logs" >
-                       <div className="flex items-center gap-2">
-                           {copyFeedback ? ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg> ) : ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> )}
-                           {!savedReportForView && <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">EXPORT DATA</span>}
-                       </div>
-                   </button>
-               </div>
-            )}
-            <div className="flex-1"><LogList logs={filteredLogs} onDelete={deleteLog} onEdit={handleLogEdit} /></div>
-          </section>
-        </main>
-      </div>
+                <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} onAction={toast.onAction} />
+                <main className="max-w-xl mx-auto p-5 pt-44 flex flex-col min-h-[calc(100vh-80px)]">
+                    {/* Challenge Banner */}
+                    {currentChallengeDay > 0 && currentChallengeDay <= 7 && (
+                        <button
+                            onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { } setIsPersonaModalOpen(true); }}
+                            className="mb-6 w-full text-left rounded-2xl bg-gradient-to-r from-zinc-900 via-zinc-900/95 to-zinc-900/90 border border-white/10 hover:border-orange-500/30 transition-all active:scale-[0.98] relative overflow-hidden group"
+                        >
+                            {/* Background glow */}
+                            <div className="absolute top-0 left-0 w-40 h-full bg-gradient-to-r from-orange-500/10 to-transparent pointer-events-none" />
+                            <div className="absolute top-0 right-0 w-20 h-full bg-gradient-to-l from-green-500/5 to-transparent pointer-events-none" />
 
-      <TutorialOverlay 
-        isActive={isTutorialActive} 
-        step={tutorialSteps[tutorialStepIndex]} 
-        onNext={handleTutorialNext} 
-      />
-      <EntryModal 
-        isOpen={isEntryModalOpen} 
-        onSave={handleLogSave} 
-        onClose={handleLogClose} 
-        initialEntry={initialEntryProp} 
-      />
-      <SettingsModal 
-        isOpen={isSettingsModalOpen} 
-        currentDurationMs={cycleDuration} 
-        logs={logs} 
-        schedule={schedule} 
-        breakUntil={breakUntil}
-        onSave={handleDurationSave} 
-        onSaveSchedule={handleScheduleSave} 
-        onTakeBreak={handleTakeBreak}
-        onLoadDemoData={handleLoadDemoData}
-        onOpenPersona={() => setIsPersonaModalOpen(true)}
-        onClose={() => setIsSettingsModalOpen(false)} 
-      />
-      <PersonaSelector 
-        isOpen={isPersonaModalOpen}
-        currentPersona={persona}
-        currentStreak={currentStreak}
-        onSelect={handlePersonaSave}
-        onClose={() => setIsPersonaModalOpen(false)}
-      />
-      <ExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        logs={filteredLogs}
-        onSuccess={(msg) => setToast({ title: "Export Success", message: msg, visible: true })}
-      />
-      <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={'Daily'} onClose={() => { setIsAIModalOpen(false); setOverrideReport(null); }} onGenerate={handleGenerateAIReport} />
-      <RankHierarchyModal 
-        isOpen={isRankModalOpen} 
-        onClose={() => setIsRankModalOpen(false)} 
-        currentWins={dailyWins}
-        period="Daily"
-      />
-      <div className="h-[env(safe-area-inset-bottom)]" />
-    </div>
-  );
+                            <div className="flex items-center justify-between px-4 py-3.5 relative z-10">
+                                <div className="flex items-center gap-3">
+                                    {/* Day indicator */}
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm transition-all ${currentChallengeProgress.wins >= 4 ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'bg-white/5 border border-white/10 text-white/60'}`}>
+                                        D{currentChallengeDay}
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-black uppercase tracking-[0.15em] text-white">
+                                                {currentChallengeProgress.wins >= 4 ? 'DAY COMPLETE' : '7-DAY CHALLENGE'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`${currentStreak > 0 ? 'text-orange-500' : 'text-white/20'}`}>
+                                                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+                                            </svg>
+                                            <span className={`text-[10px] font-bold tracking-wider ${currentStreak > 0 ? 'text-orange-500/70' : 'text-white/25'}`}>
+                                                {currentStreak}d streak
+                                            </span>
+                                            <span className="text-[10px] text-white/15">·</span>
+                                            <span className="text-[10px] text-white/30 font-mono">
+                                                {currentChallengeProgress.wins}/{currentChallengeProgress.target} wins
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* Right side: progress + arrow */}
+                                <div className="flex items-center gap-3">
+                                    <div className="h-1.5 w-16 bg-white/5 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full transition-all duration-700 ease-out rounded-full ${currentChallengeProgress.wins >= 4 ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gradient-to-r from-orange-500 to-amber-400'}`}
+                                            style={{ width: `${currentChallengeProgress.percent}%` }}
+                                        />
+                                    </div>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/20 group-hover:text-orange-500 transition-colors">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+                            {/* Bottom streak bar */}
+                            {(() => {
+                                const nextThreshold = currentStreak < 7 ? 7 : currentStreak < 14 ? 14 : 0;
+                                const prevThreshold = currentStreak < 7 ? 0 : currentStreak < 14 ? 7 : 14;
+                                const progress = nextThreshold > 0 ? ((currentStreak - prevThreshold) / (nextThreshold - prevThreshold)) * 100 : 100;
+                                return (
+                                    <div className="h-[2px] w-full bg-white/5">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-700"
+                                            style={{ width: `${Math.min(progress, 100)}%` }}
+                                        />
+                                    </div>
+                                );
+                            })()}
+                        </button>
+                    )}
+
+                    {/* Strategic Priority / North Star */}
+                    <section className="mb-6 group">
+                        {isEditingPriority ? (
+                            <div className="bg-black border border-green-500/50 rounded-3xl p-1 shadow-[0_0_30px_rgba(34,197,94,0.15)] animate-fade-in relative overflow-hidden">
+                                <div className="absolute inset-0 bg-green-500/5 pointer-events-none" />
+                                <textarea
+                                    value={priorityInput}
+                                    onChange={(e) => setPriorityInput(e.target.value)}
+                                    className="w-full bg-transparent text-white font-black text-2xl p-6 outline-none resize-none tracking-tight placeholder:text-white/20 relative z-10"
+                                    placeholder="Define your objective..."
+                                    rows={3}
+                                    autoFocus
+                                    onBlur={handlePrioritySave}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handlePrioritySave(); } }}
+                                />
+                                <div className="absolute bottom-4 right-4 z-20">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-green-500 bg-black/50 px-2 py-1 rounded backdrop-blur-md">Press Enter</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => {
+                                    try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+                                    setIsEditingPriority(true);
+                                }}
+                                className="w-full text-left bg-gradient-to-br from-white/10 to-black border border-green-500/20 rounded-3xl p-6 transition-all active:scale-[0.98] shadow-2xl relative overflow-hidden group"
+                            >
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 blur-[50px] rounded-full pointer-events-none group-hover:bg-green-500/20 transition-all" />
+
+                                <div className="flex items-center justify-between mb-3 relative z-10">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-black uppercase tracking-[0.3em] text-green-500 italic drop-shadow-sm flex items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-green-500"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                            North Star
+                                        </span>
+                                        <span className="text-[9px] font-mono text-white/30 tracking-widest uppercase mt-0.5">Your main goal</span>
+                                    </div>
+
+                                </div>
+                                <div className={`text-2xl font-black italic tracking-tighter leading-none relative z-10 ${strategicPriority ? 'text-white drop-shadow-lg' : 'text-white/20'}`}>
+                                    {strategicPriority || "Tap to set your main goal"}
+                                </div>
+                            </button>
+                        )}
+                    </section>
+
+                    <section className="flex-none mb-8" id="status-card">
+                        <StatusCard isActive={status === AppStatus.RUNNING} timeLeft={timeLeft} schedule={schedule} blockStats={blockStats} onToggle={handleToggleTimer} />
+                    </section>
+                    <section className="flex-1 flex flex-col">
+                        <div className="flex items-center justify-between mb-5">
+                            <h2 className="text-2xl font-black text-white tracking-tight uppercase">Activity Log</h2>
+                            <button onClick={handleManualLogStart} id="manual-entry-btn" className="text-zinc-500 hover:text-green-500 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-green-500/20" >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                Manual Entry
+                            </button>
+                        </div>
+                        <div id="stats-card">
+                            <StatsCard
+                                logs={filteredLogs}
+                                filter={filter}
+                                schedule={schedule}
+                                durationMs={DEFAULT_INTERVAL_MS}
+                                viewDate={viewDate}
+                                onNavigate={handleNavigate}
+                                onReset={handleResetView}
+                                isCurrentView={isCurrentView}
+                                canGoBack={canGoBack}
+                                canGoForward={canGoForward}
+                            />
+                        </div>
+                        <div className="flex justify-center mb-6">
+                            <div className="bg-zinc-900 p-1.5 rounded-2xl flex items-center justify-between w-full border border-zinc-800">
+                                {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
+                                    <button key={f} onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { } setFilter(f); setViewDate(new Date()); }} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-[0.2em] transition-all duration-300 ${filter === f ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : 'text-zinc-500 hover:text-white hover:bg-zinc-800'}`} >
+                                        {f}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        {filteredLogs.length > 0 && (
+                            <div className="flex items-center justify-between mb-6 px-1 gap-4">
+                                {savedReportForView ? (
+                                    <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } handleOpenAIModal(); }} className="flex-1 flex items-center gap-3 py-4 px-6 rounded-2xl transition-all border bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20" >
+                                        <div className="p-2 rounded-lg transition-colors bg-green-500/20">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                        </div>
+                                        <div className="flex flex-col items-start">
+                                            <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">AI Summary</span>
+                                            {savedReportForView.read === false && (<span className="text-xs text-green-500/60 font-black uppercase tracking-widest leading-none mt-2 animate-pulse">New insight available</span>)}
+                                        </div>
+                                    </button>
+                                ) : (
+                                    <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } handleGenerateAIReport(); }} className="flex-0 p-4 rounded-2xl transition-all border bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800" title="Generate Insight">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                                    </button>
+                                )}
+                                <button onClick={handleCopyClick} className={`flex items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700 transition-all active:scale-95 shadow-inner ${savedReportForView ? 'w-14 h-14' : 'flex-1 py-4 px-6'}`} title="Export Logs" >
+                                    <div className="flex items-center gap-2">
+                                        {copyFeedback ? (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg>) : (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>)}
+                                        {!savedReportForView && <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">EXPORT</span>}
+                                    </div>
+                                </button>
+                            </div>
+                        )}
+                        <div className="flex-1"><LogList logs={filteredLogs} onDelete={deleteLog} onEdit={handleLogEdit} /></div>
+                    </section>
+                </main>
+            </div>
+
+            <TutorialOverlay
+                isActive={isTutorialActive}
+                step={tutorialSteps[tutorialStepIndex]}
+                onNext={handleTutorialNext}
+            />
+            <EntryModal
+                isOpen={isEntryModalOpen}
+                onSave={handleLogSave}
+                onClose={handleLogClose}
+                initialEntry={initialEntryProp}
+            />
+            <SettingsModal
+                isOpen={isSettingsModalOpen}
+                currentDurationMs={cycleDuration}
+                logs={logs}
+                schedule={schedule}
+                breakUntil={breakUntil}
+                onSave={handleDurationSave}
+                onSaveSchedule={handleScheduleSave}
+                onTakeBreak={handleTakeBreak}
+                onLoadDemoData={handleLoadDemoData}
+                onOpenPersona={() => setIsPersonaModalOpen(true)}
+                onClose={() => setIsSettingsModalOpen(false)}
+            />
+            <PersonaSelector
+                isOpen={isPersonaModalOpen}
+                currentPersona={persona}
+                currentStreak={currentStreak}
+                onSelect={handlePersonaSave}
+                onClose={() => setIsPersonaModalOpen(false)}
+            />
+            <ExportModal
+                isOpen={isExportModalOpen}
+                onClose={() => setIsExportModalOpen(false)}
+                logs={filteredLogs}
+                onSuccess={(msg) => setToast({ title: "Export Success", message: msg, visible: true })}
+            />
+            <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={'Daily'} onClose={() => { setIsAIModalOpen(false); setOverrideReport(null); }} onGenerate={handleGenerateAIReport} />
+            <RankHierarchyModal
+                isOpen={isRankModalOpen}
+                onClose={() => setIsRankModalOpen(false)}
+                currentWins={dailyWins}
+                period="Daily"
+            />
+            <div className="h-[env(safe-area-inset-bottom)]" />
+        </div>
+    );
 };
 
 export default App;

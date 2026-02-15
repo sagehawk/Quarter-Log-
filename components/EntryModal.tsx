@@ -4,7 +4,7 @@ import TacticalCoachView, { CoachMood } from './TacticalCoachView';
 
 interface EntryModalProps {
   isOpen: boolean;
-  onSave: (text: string) => void; 
+  onSave: (text: string) => void;
   onClose: () => void;
   initialEntry?: { text: string; } | null;
 }
@@ -19,13 +19,13 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, initia
       if (initialEntry) {
         setText(initialEntry.text);
         setCoachMood('IDLE');
-        setCoachMsg("Update your intel, Operator.");
+        setCoachMsg("Edit your entry.");
       } else {
         setText('');
         setCoachMood('ASKING');
-        setCoachMsg("Report Status. What did you accomplish?");
+        setCoachMsg("What did you work on?");
       }
-      try { Haptics.impact({ style: ImpactStyle.Light }); } catch(e) {}
+      try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
     }
   }, [isOpen, initialEntry]);
 
@@ -39,26 +39,26 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, initia
 
   return (
     <div className="fixed inset-0 z-50">
-        <TacticalCoachView mood={coachMood} message={coachMsg}>
-            <div className="space-y-4 animate-fade-in">
-                <textarea 
-                    autoFocus
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder="> e.g. Deep work on Q3 report, 45 mins."
-                    className="w-full bg-black/50 text-white font-mono p-4 rounded-xl border border-white/20 focus:border-green-500 outline-none h-32 resize-none"
-                />
-                
-                <div className="flex gap-3">
-                        <button onClick={onClose} className="flex-1 py-4 bg-white/10 text-white font-black uppercase tracking-widest rounded-xl hover:bg-white/20">
-                            Abort
-                        </button>
-                        <button onClick={handleSubmit} disabled={!text.trim()} className="flex-[2] py-4 bg-green-500 text-black font-black uppercase tracking-widest rounded-xl hover:bg-white shadow-[0_0_20px_rgba(34,197,94,0.4)] disabled:opacity-50">
-                            Transmit
-                        </button>
-                </div>
-            </div>
-        </TacticalCoachView>
+      <TacticalCoachView mood={coachMood} message={coachMsg}>
+        <div className="space-y-4 animate-fade-in">
+          <textarea
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="> e.g. Deep work on Q3 report, 45 mins."
+            className="w-full bg-black/50 text-white font-mono p-4 rounded-xl border border-white/20 focus:border-green-500 outline-none h-32 resize-none"
+          />
+
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 py-4 bg-white/10 text-white font-black uppercase tracking-widest rounded-xl hover:bg-white/20">
+              Cancel
+            </button>
+            <button onClick={handleSubmit} disabled={!text.trim()} className="flex-[2] py-4 bg-green-500 text-black font-black uppercase tracking-widest rounded-xl hover:bg-white shadow-[0_0_20px_rgba(34,197,94,0.4)] disabled:opacity-50">
+              Submit
+            </button>
+          </div>
+        </div>
+      </TacticalCoachView>
     </div>
   );
 };
