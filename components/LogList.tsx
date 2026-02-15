@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { LogEntry } from '../types';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
@@ -7,6 +7,93 @@ interface LogListProps {
   onDelete: (id: string) => void;
   onEdit: (log: LogEntry) => void;
 }
+
+const LogItem: React.FC<{
+  log: LogEntry;
+  index: number;
+  onEdit: (log: LogEntry) => void;
+  onDelete: (id: string) => void;
+}> = ({ log, index, onEdit, onDelete }) => {
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPress = useRef(false);
+
+  const handleStart = () => {
+    isLongPress.current = false;
+    timerRef.current = setTimeout(() => {
+      isLongPress.current = true;
+      try { Haptics.impact({ style: ImpactStyle.Heavy }); } catch (e) { }
+      onDelete(log.id);
+    }, 600);
+  };
+
+  const handleEnd = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (isLongPress.current) {
+      e.stopPropagation();
+      return;
+    }
+    try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+    onEdit(log);
+  };
+
+  return (
+    <div
+      onTouchStart={handleStart}
+      onTouchEnd={handleEnd}
+      onMouseDown={handleStart}
+      onMouseUp={handleEnd}
+      onMouseLeave={handleEnd}
+      onClick={handleClick}
+      className="group relative pl-8 py-6 transition-all duration-300 cursor-pointer hover:bg-white/5 select-none"
+      style={{
+        animation: `slideInLeft 0.4s ease-out ${index * 0.06}s both`,
+      }}
+    >
+      {/* Timeline Node */}
+      <div className={`absolute left-[-5px] top-8 w-2.5 h-2.5 rounded-full border-2 transition-all duration-300 ${log.type === 'WIN'
+        ? 'border-zinc-800 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)] group-hover:scale-125'
+        : log.type === 'DRAW'
+          ? 'border-zinc-800 bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)] group-hover:scale-125'
+          : 'border-zinc-800 bg-red-500 shadow-[0_0_10px_rgba(220,38,38,0.4)]'
+        }`} />
+
+      <div className="flex flex-col gap-2 pointer-events-none">
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-mono text-white/30 tracking-widest">
+            {new Date(log.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+          </span>
+          <span className={`text-[9px] font-black tracking-[0.2em] uppercase px-2 py-0.5 rounded-sm ${log.type === 'WIN'
+            ? 'bg-green-500/10 text-green-500'
+            : log.type === 'DRAW'
+              ? 'bg-amber-500/10 text-amber-500'
+              : 'bg-red-500/10 text-red-500'
+            }`}>
+            {log.type}
+          </span>
+        </div>
+
+        <div className="flex items-start justify-between gap-4">
+          <p className={`text-lg font-bold font-mono tracking-tight leading-snug uppercase ${log.type === 'WIN'
+            ? 'text-white'
+            : log.type === 'DRAW'
+              ? 'text-white/80'
+              : 'text-white/40 line-through decoration-red-500/50'
+            }`}>
+            {log.text}
+          </p>
+        </div>
+      </div>
+
+      {/* Helper text for long press (optional, or just rely on intuition/tutorial) */}
+    </div>
+  );
+};
 
 const LogList: React.FC<LogListProps> = ({ logs, onDelete, onEdit }) => {
   if (logs.length === 0) {
@@ -49,64 +136,15 @@ const LogList: React.FC<LogListProps> = ({ logs, onDelete, onEdit }) => {
           </div>
 
           <div className="space-y-0 relative border-l border-white/5 ml-3">
-            {groupedLogs[date].map((log, index) => {
-              const isWin = log.type === 'WIN';
-              return (
-                <div
-                  key={log.id}
-                  onClick={() => {
-                    try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
-                    onEdit(log);
-                  }}
-                  className="group relative pl-8 py-6 transition-all duration-300 cursor-pointer hover:bg-white/5"
-                >
-                  {/* Timeline Node */}
-                  <div className={`absolute left-[-5px] top-8 w-2.5 h-2.5 rounded-full border-2 transition-all duration-300 ${log.type === 'WIN'
-                      ? 'border-zinc-800 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)] group-hover:scale-125'
-                      : log.type === 'DRAW'
-                        ? 'border-zinc-800 bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)] group-hover:scale-125'
-                        : 'border-zinc-800 bg-red-500 shadow-[0_0_10px_rgba(220,38,38,0.4)]'
-                    }`} />
-
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-mono text-white/30 tracking-widest">
-                        {new Date(log.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      <span className={`text-[9px] font-black tracking-[0.2em] uppercase px-2 py-0.5 rounded-sm ${log.type === 'WIN'
-                          ? 'bg-green-500/10 text-green-500'
-                          : log.type === 'DRAW'
-                            ? 'bg-amber-500/10 text-amber-500'
-                            : 'bg-red-500/10 text-red-500'
-                        }`}>
-                        {log.type}
-                      </span>
-                    </div>
-
-                    <div className="flex items-start justify-between gap-4">
-                      <p className={`text-lg font-bold font-mono tracking-tight leading-snug uppercase ${log.type === 'WIN'
-                          ? 'text-white'
-                          : log.type === 'DRAW'
-                            ? 'text-white/80'
-                            : 'text-white/40 line-through decoration-red-500/50'
-                        }`}>
-                        {log.text}
-                      </p>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(log.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-2 text-zinc-600 hover:text-red-500 transition-colors"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {groupedLogs[date].map((log, index) => (
+              <LogItem
+                key={log.id}
+                log={log}
+                index={index}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            ))}
           </div>
         </div>
       ))}

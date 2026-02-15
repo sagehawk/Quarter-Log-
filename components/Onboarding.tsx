@@ -35,7 +35,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
     const nextScene = () => {
         try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
-        setScene(prev => prev + 1);
+        setScene(prev => Math.min(prev + 1, scenes.length - 1));
     };
 
     const handleFinish = () => {

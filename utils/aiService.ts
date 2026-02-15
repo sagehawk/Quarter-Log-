@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { LogEntry, UserGoal, ScheduleConfig, AIPersona } from "../types";
+import { LogEntry, UserGoal, ScheduleConfig, AIPersona, DayPlan } from "../types";
 
 const getPersonaInstruction = (persona: AIPersona = 'LOGIC'): string => {
   switch (persona) {
@@ -36,7 +36,8 @@ export const generateAIReport = async (
   schedule: ScheduleConfig,
   type: 'FULL' | 'BRIEF' = 'FULL',
   strategicPriority?: string,
-  allLogs: LogEntry[] = []
+  allLogs: LogEntry[] = [],
+  dayPlan: DayPlan | null = null
 ): Promise<string> => {
 
   const apiKey = process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
@@ -71,6 +72,15 @@ export const generateAIReport = async (
   const priorityContext = strategicPriority ? `Target Objective: ${strategicPriority}` : "Target: General Self-Improvement";
   const personaStyle = getPersonaInstruction(persona);
 
+  let planContext = "NO SPECIFIC PLAN SET.";
+  if (dayPlan && dayPlan.blocks.length > 0) {
+    const blockList = dayPlan.blocks
+      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+      .map(b => `[${b.startTime}] ${b.label} (${b.category})`)
+      .join('\n');
+    planContext = `PLANNED SCHEDULE:\n${blockList}`;
+  }
+
   const systemInstruction = `
   You are the Chief of Staff.
   ${personaStyle}
@@ -94,6 +104,8 @@ export const generateAIReport = async (
   LOGS:
   ${logText}
 
+  ${planContext}
+
   TARGET OBJECTIVE:
   ${priorityContext}
 
@@ -113,7 +125,7 @@ export const generateAIReport = async (
     return response.text || "Since you are here, you can probably try again.";
   } catch (error: any) {
     console.error("AI Generation Error:", error);
-    return `Analysis Failed: ${error.message}`;
+    return `Analysis Failed: ${error.message} `;
   }
 };
 
@@ -130,37 +142,37 @@ export const generateInstantFeedback = async (
 
   const contextLogs = recentLogs
     .slice(0, 5) // Last 5 logs for immediate context
-    .map(l => `[${new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}] ${l.type}: ${l.text}`)
+    .map(l => `[${new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}] ${l.type}: ${l.text} `)
     .join('\n');
 
-  const priorityContext = strategicPriority ? `Target Objective: ${strategicPriority}` : "";
+  const priorityContext = strategicPriority ? `Target Objective: ${strategicPriority} ` : "";
   const personaStyle = getPersonaInstruction(persona);
 
   const systemInstruction = `
   You are a hype man and coach.
-  ${personaStyle}
+    ${personaStyle}
   
   Your Goal: Prove to the user they are winning based on their action.
 
-  METHODOLOGY:
+    METHODOLOGY:
   1. LOOK at the WIN.
-  2. MATCH it to a good trait (e.g., worked hard -> Disciplined).
+  2. MATCH it to a good trait(e.g., worked hard -> Disciplined).
   3. SAY: "Because you did [Action], you are [Trait], so go do [Next Step]."
 
   STRICT OUTPUT RULES:
   - Write ONE simple, natural sentence.
-  - No jargon. Speak like a normal person.
-  - START with a mood tag: [MOOD: WIN], [MOOD: LOSS], [MOOD: SAVAGE], [MOOD: STOIC], or [MOOD: IDLE].
+  - No jargon.Speak like a normal person.
+  - START with a mood tag: [MOOD: WIN], [MOOD: LOSS], [MOOD: SAVAGE], [MOOD: STOIC], or[MOOD: IDLE].
   - Example: "[MOOD: WIN] You finished that report early, which shows focus, so start the next task now."
-  - Max 40 words (excluding tag).
-  ${priorityContext}
+    - Max 40 words(excluding tag).
+      ${priorityContext}
   `;
 
   const prompt = `
   RECENT CONTEXT:
   ${contextLogs}
 
-  LATEST ENTRY (WIN):
+  LATEST ENTRY(WIN):
   ${latestLog.text}
 
   GENERATE IDENTITY PROOF:
@@ -194,25 +206,25 @@ export const generateProtocolRecovery = async (
 
   const ai = new GoogleGenAI({ apiKey });
 
-  const priorityContext = strategicPriority ? `Target Objective: ${strategicPriority}` : "";
+  const priorityContext = strategicPriority ? `Target Objective: ${strategicPriority} ` : "";
   const personaStyle = getPersonaInstruction(persona);
 
   const systemInstruction = `
   You are a Recovery Coach.
-  ${personaStyle}
+    ${personaStyle}
   
-  The user messed up. Don't let them feel bad. Fix it fast.
-  
+  The user messed up.Don't let them feel bad. Fix it fast.
+
   METHODOLOGY:
-  1. GUESS why they failed: (Didn't know how? Didn't want to? Distracted?)
+  1. GUESS why they failed: (Didn't know how? Didn't want to ? Distracted ?)
   2. TELL them one tiny thing to do right now to fix it.
   3. Remind them: "New moment, new start."
 
   STRICT OUTPUT RULES:
   - Format: "[MOOD: LOSS] Problem: [Reason]. Fix: [Tiny Action]."
-  - Keep it super simple.
+    - Keep it super simple.
   - Max 15 words.
-  ${priorityContext}
+    ${priorityContext}
   `;
 
   const prompt = `
@@ -261,14 +273,14 @@ export const analyzeEntry = async (
     const isWorkDay = schedule.daysOfWeek.includes(day);
     scheduleContext = `
       CURRENT TIME: ${timeStr}
-      SCHEDULE: ${schedule.startTime} to ${schedule.endTime}
+  SCHEDULE: ${schedule.startTime} to ${schedule.endTime}
       IS WORK DAY: ${isWorkDay}
-      `;
+  `;
   }
 
   // Recent History Context
   const historyContext = recentLogs.length > 0
-    ? "RECENT HISTORY:\n" + recentLogs.slice(0, 5).map(l => `- [${l.category}] ${l.text}`).join('\n')
+    ? "RECENT HISTORY:\n" + recentLogs.slice(0, 5).map(l => `- [${l.category}] ${l.text} `).join('\n')
     : "NO RECENT LOGS";
 
   // Daily Scorecard Context
@@ -277,67 +289,67 @@ export const analyzeEntry = async (
     const total = dailyStats.wins + dailyStats.losses;
     const winRate = total > 0 ? Math.round((dailyStats.wins / total) * 100) : 0;
     const breakdown = Object.entries(dailyStats.categoryBreakdown)
-      .map(([cat, count]) => `${cat}: ${count}`)
+      .map(([cat, count]) => `${cat}: ${count} `)
       .join(', ');
 
     dailyScorecardContext = `
       DAILY SCORECARD:
-      - Wins: ${dailyStats.wins} | Losses: ${dailyStats.losses} | Win Rate: ${winRate}%
-      - Breakdown: ${breakdown}
-      `;
+  - Wins: ${dailyStats.wins} | Losses: ${dailyStats.losses} | Win Rate: ${winRate}%
+    - Breakdown: ${breakdown}
+  `;
   }
 
   const systemInstruction = `
   You are a Tactical Analyst.
-  ${personaStyle}
+    ${personaStyle}
   
   Your Task: Analyze the user's log entry.
   ${scheduleContext}
   ${dailyScorecardContext}
   ${historyContext}
-  
-  1. CATEGORIZE it into one of the High-Performance Buckets:
-     - MAKER: High Leverage, Revenue Generating, Deep Work. (The Goal)
-     - MANAGER: Low Leverage, Admin, Calls, Maintenance. (Necessary Evil)
-     - R&D: Learning, Skill Acquisition, Research. (Investing)
-     - FUEL: Health, Sleep, Gym, Bio-Support. (Foundation)
-     - RECOVERY: Active Rest, Family, Leisure. (Recharging)
-     - BURN: Wasted time, Scrolling, Drifting. (The Enemy)
-  
-  2. JUDGE it: 
-     - WIN: Moving forward (MAKER, R&D, Strategic FUEL, Planned RECOVERY).
-     - LOSS: Moving backward (BURN, Procrastination, Avoidance).
-     - DRAW: Neutral / Maintenance / Holding Pattern (Routine FUEL, Commuting, Chores, Necessary but non-strategic Admin).
+
+  1. CATEGORIZE it into one of the High - Performance Buckets:
+  - MAKER: High Leverage, Revenue Generating, Deep Work. (The Goal)
+    - MANAGER: Low Leverage, Admin, Calls, Maintenance. (Necessary Evil)
+      - R & D: Learning, Skill Acquisition, Research. (Investing)
+        - FUEL: Health, Sleep, Gym, Bio - Support. (Foundation)
+          - RECOVERY: Active Rest, Family, Leisure. (Recharging)
+            - BURN: Wasted time, Scrolling, Drifting. (The Enemy)
+
+  2. JUDGE it:
+  - WIN: Moving forward(MAKER, R & D, Strategic FUEL, Planned RECOVERY).
+     - LOSS: Moving backward(BURN, Procrastination, Avoidance).
+     - DRAW: Neutral / Maintenance / Holding Pattern(Routine FUEL, Commuting, Chores, Necessary but non - strategic Admin).
      
-     * SPECIAL RULE: Routine meals (Lunch/Dinner) are a DRAW unless combined with "Networking".
+     * SPECIAL RULE: Routine meals(Lunch / Dinner) are a DRAW unless combined with "Networking".
 
   3. FEEDBACK: One short, punchy sentence.
-     - CRITICAL: Do NOT repeat advice given in the RECENT HISTORY. Be fresh.
-     - TRIGGER [MOOD: SAVAGE] if 'BURN' count > 2 in the DAILY SCORECARD.
+     - CRITICAL: Do NOT repeat advice given in the RECENT HISTORY.Be fresh.
+     - TRIGGER[MOOD: SAVAGE]if 'BURN' count > 2 in the DAILY SCORECARD.
 
-  4. TIME AWARENESS RULES (CRITICAL):
-     - If CURRENT TIME is past SCHEDULE END TIME (by > 1 hour) on a WORK DAY:
-       - DO NOT encourage "grinding" or "pushing harder".
+  4. TIME AWARENESS RULES(CRITICAL):
+  - If CURRENT TIME is past SCHEDULE END TIME(by > 1 hour) on a WORK DAY:
+  - DO NOT encourage "grinding" or "pushing harder".
        - DO suggest sleep, rest, or winding down.
        - If the log is "Coding" or "Work" late at night, mark it as a 'WIN' but warn about burnout in the feedback.
-     - If CURRENT TIME is very late (e.g., 1 AM - 4 AM):
-       - Be concerned. Suggest sleep immediately.
-       - Use [MOOD: STOIC] or [MOOD: DRAW] to signal concern.
+     - If CURRENT TIME is very late(e.g., 1 AM - 4 AM):
+  - Be concerned.Suggest sleep immediately.
+       - Use[MOOD: STOIC]or[MOOD: DRAW] to signal concern.
 
-  STRICT OUTPUT FORMAT (JSON ONLY):
+  STRICT OUTPUT FORMAT(JSON ONLY):
   {
     "category": "CATEGORY_NAME",
-    "type": "WIN" or "LOSS" or "DRAW",
-    "feedback": "[MOOD: TAG] Your feedback text."
+      "type": "WIN" or "LOSS" or "DRAW",
+        "feedback": "[MOOD: TAG] Your feedback text."
   }
   
-  Mood Tags: 
-  - [MOOD: WIN]: Progress.
+  Mood Tags:
+  -[MOOD: WIN]: Progress.
   - [MOOD: LOSS]: Setback.
   - [MOOD: DRAW]: Holding pattern / Maintenance.
   - [MOOD: SAVAGE]: Call out laziness.
   - [MOOD: STOIC]: Serious, philosophical advice.
-  - [MOOD: IDLE]: Low-key acknowledgement, no strong judgment.
+  - [MOOD: IDLE]: Low - key acknowledgement, no strong judgment.
   `;
 
   const prompt = `LOG: "${text}"`;

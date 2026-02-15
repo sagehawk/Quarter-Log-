@@ -110,7 +110,7 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
           </div>
 
           {/* Interaction Area (Buttons/Inputs) */}
-          <div className={`transition-all ${displayedText !== message ? 'duration-300 opacity-0 translate-y-4' : 'duration-500 opacity-100 translate-y-0'}`}>
+          <div className={`transition-all ${displayedText !== message ? 'duration-300 opacity-0 translate-y-4 pointer-events-none' : 'duration-500 opacity-100 translate-y-0'}`}>
             {bufferedChildrenRef.current}
           </div>
         </div>

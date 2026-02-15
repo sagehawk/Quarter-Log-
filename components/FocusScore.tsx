@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LogEntry } from '../types';
 import { calculateFocusScore, calculateHistoricalScores } from '../utils/focusScoreEngine';
 
@@ -10,10 +10,34 @@ interface FocusScoreProps {
 
 const FocusScore: React.FC<FocusScoreProps> = ({ logs, allLogs, streak = 0 }) => {
     const [expanded, setExpanded] = useState(false);
+    const [displayScore, setDisplayScore] = useState(0);
+    const animFrameRef = useRef<number>(0);
 
     const { score, breakdown } = useMemo(() => {
         return calculateFocusScore(logs, streak);
     }, [logs, streak]);
+
+    // Animated counter effect
+    useEffect(() => {
+        const start = displayScore;
+        const end = score;
+        if (start === end) return;
+        const duration = 800;
+        const startTime = performance.now();
+
+        const tick = (now: number) => {
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Ease-out cubic
+            const eased = 1 - Math.pow(1 - progress, 3);
+            setDisplayScore(Math.round(start + (end - start) * eased));
+            if (progress < 1) {
+                animFrameRef.current = requestAnimationFrame(tick);
+            }
+        };
+        animFrameRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(animFrameRef.current);
+    }, [score]);
 
     const history = useMemo(() => calculateHistoricalScores(allLogs, 14), [allLogs]);
 
@@ -75,7 +99,7 @@ const FocusScore: React.FC<FocusScoreProps> = ({ logs, allLogs, streak = 0 }) =>
                         </span>
                         <div className="flex items-baseline gap-3">
                             <span className={`text-5xl font-black tracking-tighter ${colorClass} leading-none`}>
-                                {score}
+                                {displayScore}
                             </span>
                             <span className="text-xs font-bold uppercase tracking-widest text-zinc-600">
                                 / 100
@@ -106,6 +130,7 @@ const FocusScore: React.FC<FocusScoreProps> = ({ logs, allLogs, streak = 0 }) =>
                                 key={i}
                                 className={`flex-1 rounded-sm transition-all duration-500 ${filled ? barColorClass : 'bg-zinc-800'}`}
                                 style={{
+                                    transitionDelay: filled ? `${i * 30}ms` : '0ms',
                                     opacity: filled ? 1 : 0.3,
                                     boxShadow: filled ? `0 0 10px ${score >= 90 ? 'rgba(192, 132, 252, 0.5)' : score >= 70 ? 'rgba(74, 222, 128, 0.5)' : 'rgba(251, 191, 36, 0.5)'}` : 'none'
                                 }}

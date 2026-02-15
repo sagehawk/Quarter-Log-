@@ -17,13 +17,15 @@ import Onboarding from './components/Onboarding';
 import ExportModal from './components/ExportModal';
 import { generateDemoData } from './utils/demoData';
 import StatusCard from './components/StatusCard';
-import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState, FilterType, AIPersona } from './types';
+import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState, FilterType, AIPersona, DayPlan } from './types';
 import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification, sendReportNotification, sendFeedbackNotification } from './utils/notifications';
 import { generateAIReport, analyzeEntry } from './utils/aiService';
 import TimerPlugin from './utils/nativeTimer';
 import TutorialOverlay, { TutorialStep } from './components/TutorialOverlay';
 import FocusScore from './components/FocusScore';
 import WeeklyDebrief from './components/WeeklyDebrief';
+import InsightsCard from './components/InsightsCard';
+import DayPlanner from './components/DayPlanner';
 
 const STORAGE_KEY_LOGS = 'ironlog_entries';
 const STORAGE_KEY_SCHEDULE = 'ironlog_schedule';
@@ -37,6 +39,7 @@ const STORAGE_KEY_SEEN_FREEZE_WARNING = 'ironlog_seen_freeze_warning';
 const STORAGE_KEY_CYCLE_DURATION = 'ironlog_cycle_duration';
 const STORAGE_KEY_BREAK_UNTIL = 'ironlog_break_until';
 const STORAGE_KEY_CHALLENGE_START = 'ironlog_challenge_start';
+const STORAGE_KEY_DAY_PLAN = 'ironlog_day_plan';
 
 const WORKER_CODE = `
 let intervalId = null;
@@ -91,6 +94,23 @@ const App: React.FC = () => {
 
     const [isAIModalOpen, setIsAIModalOpen] = useState(false);
     const [isWeeklyDebriefOpen, setIsWeeklyDebriefOpen] = useState(false);
+
+    const [dayPlan, setDayPlan] = useState<DayPlan | null>(() => {
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY_DAY_PLAN);
+            if (stored) {
+                const parsed = JSON.parse(stored) as DayPlan;
+                const todayKey = new Date().toISOString().split('T')[0];
+                if (parsed.dateKey === todayKey) return parsed;
+            }
+        } catch (e) { }
+        return null;
+    });
+
+    const handlePlanUpdate = useCallback((plan: DayPlan) => {
+        setDayPlan(plan);
+        localStorage.setItem(STORAGE_KEY_DAY_PLAN, JSON.stringify(plan));
+    }, []);
 
     const [isTutorialActive, setIsTutorialActive] = useState(false);
     const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
@@ -1242,7 +1262,7 @@ const App: React.FC = () => {
             const startOfDay = new Date(current.getFullYear(), current.getMonth(), current.getDate());
             const todaysLogs = logs.filter(l => l.timestamp >= startOfDay.getTime() && l.timestamp < startOfDay.getTime() + 86400000);
 
-            const content = await generateAIReport(todaysLogs, 'Day', goals, persona, schedule, 'FULL', priority, logs);
+            const content = await generateAIReport(todaysLogs, 'Day', goals, persona, schedule, 'FULL', priority, logs, dayPlan);
             const key = getCurrentDateKey();
             const newReport: AIReport = {
                 id: crypto.randomUUID(),
@@ -1405,6 +1425,10 @@ const App: React.FC = () => {
                         )}
                     </section>
 
+                    <section className="flex-none mb-4">
+                        <DayPlanner schedule={schedule} logs={logs} plan={dayPlan} onPlanUpdate={handlePlanUpdate} />
+                    </section>
+
                     <section className="flex-none mb-8" id="status-card">
                         <StatusCard isActive={status === AppStatus.RUNNING} timeLeft={timeLeft} schedule={schedule} blockStats={blockStats} onToggle={handleToggleTimer} />
                     </section>
@@ -1416,6 +1440,11 @@ const App: React.FC = () => {
                             allLogs={logs}
                             streak={currentStreak}
                         />
+                    </div>
+
+                    {/* Pattern Intelligence */}
+                    <div className="mb-8">
+                        <InsightsCard logs={logs} />
                     </div>
 
                     <section className="flex-1 flex flex-col">

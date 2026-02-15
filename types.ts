@@ -49,3 +49,16 @@ export interface AIReport {
 
 export const DEFAULT_INTERVAL_MINUTES = 15;
 export const DEFAULT_INTERVAL_MS = DEFAULT_INTERVAL_MINUTES * 60 * 1000;
+
+export interface PlannedBlock {
+  id: string;
+  startTime: string;      // "09:00"
+  label: string;           // "Deep work on landing page"
+  category: LogCategory;
+}
+
+export interface DayPlan {
+  dateKey: string;          // "2026-02-15"
+  blocks: PlannedBlock[];
+  createdAt: number;
+}
