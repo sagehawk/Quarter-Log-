@@ -222,7 +222,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
         return (
             <div className="flex gap-2 w-full items-end">
                 {/* Left Labels (Mon, Wed, Fri) - Fixed */}
-                <div className={`flex flex-col gap-[2px] h-full justify-end text-[6px] font-black uppercase ${isDark ? 'text-white/40' : 'text-zinc-400'} w-5 shrink-0 text-right`}>
+                <div className={`flex flex-col gap-[2px] h-full justify-end text-[6px] font-black uppercase ${isDark ? 'text-white/40' : 'text-zinc-500'} w-5 shrink-0 text-right`}>
                     <div className="h-1.5 flex items-center justify-end">Mon</div>
                     <div className="h-1.5"></div>
                     <div className="h-1.5 flex items-center justify-end">Wed</div>
@@ -236,7 +236,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                         {/* Month Labels */}
                         <div className="relative w-full h-3 mb-1">
                             {monthLabels.map((m, i) => (
-                                <span key={i} className={`absolute text-[7px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-zinc-400'} transform -translate-x-1/2`} style={{ left: `${m.left}%` }}>{m.label}</span>
+                                <span key={i} className={`absolute text-[7px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-zinc-500'} transform -translate-x-1/2`} style={{ left: `${m.left}%` }}>{m.label}</span>
                             ))}
                         </div>
 
@@ -309,7 +309,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                         style={{ left: hoverPos.x, top: hoverPos.y - 8 }}
                     >
                         <span className="block text-[10px] font-black uppercase tracking-widest text-green-500 mb-0.5">{hoverData.date}</span>
-                        <span className={`block text-[10px] font-mono ${isDark ? 'text-white/60' : 'text-zinc-600'}`}>{hoverData.wins} WINS / {hoverData.losses} LOSSES</span>
+                        <span className={`block text-[10px] font-mono ${isDark ? 'text-white/60' : 'text-zinc-500'}`}>{hoverData.wins} WINS / {hoverData.losses} LOSSES</span>
                         {/* Triangle Pointer */}
                         <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 border-r border-b ${isDark ? 'bg-zinc-900 border-white/10' : 'bg-white border-zinc-200'}`}></div>
                     </div>
@@ -357,7 +357,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                         >
                             {/* Label */}
                             {showLabel && (
-                                <div className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 text-[8px] font-black tracking-widest whitespace-nowrap ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>
+                                <div className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 text-[8px] font-black tracking-widest whitespace-nowrap ${isDark ? 'text-white/30' : 'text-zinc-500'}`}>
                                     {d.label}
                                 </div>
                             )}
@@ -382,7 +382,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                         style={{ left: hoverPos.x, top: hoverPos.y - 8 }}
                     >
                         <span className="block text-[10px] font-black uppercase tracking-widest text-green-500 mb-0.5">{hoverData.date}</span>
-                        <span className={`block text-[10px] font-mono ${isDark ? 'text-white/60' : 'text-zinc-600'}`}>
+                        <span className={`block text-[10px] font-mono ${isDark ? 'text-white/60' : 'text-zinc-500'}`}>
                             {hoverData.wins} W / {hoverData.draws || 0} D / {hoverData.losses} L
                         </span>
                         <div className={`absolute bottom-0 w-2 h-2 border-r border-b translate-y-1/2 rotate-45 ${isDark ? 'bg-zinc-900 border-white/10' : 'bg-white border-zinc-200'} ${hoverPos.x > window.innerWidth * 0.7
@@ -460,10 +460,10 @@ const StatsCard: React.FC<StatsCardProps> = ({
                 <div className="relative z-10 flex flex-col gap-4">
                     <div className="flex justify-between items-end">
                         <div>
-                            <div className={`text-[10px] font-black uppercase tracking-[0.3em] mb-1 ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>Win Rate</div>
-                            <div className={`text-5xl font-black tracking-tighter drop-shadow-xl flex items-baseline gap-2 ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                            <div className={`text-[10px] font-black uppercase tracking-[0.3em] mb-1 ${isDark ? 'text-white/30' : 'text-zinc-500'}`}>Win Rate</div>
+                            <div className={`text-5xl font-black tracking-tighter drop-shadow-xl flex items-baseline gap-2 ${isDark ? 'text-white' : 'text-zinc-700'}`}>
                                 {stats.rate}%
-                                <span className={`text-xs font-bold tracking-normal ${isDark ? 'text-white/40' : 'text-zinc-400'}`}>OF ENTRIES</span>
+                                <span className={`text-xs font-bold tracking-normal ${isDark ? 'text-white/40' : 'text-zinc-500'}`}>OF ENTRIES</span>
                             </div>
                         </div>
                     </div>
@@ -471,10 +471,10 @@ const StatsCard: React.FC<StatsCardProps> = ({
                     {/* The Heatmap / Chart */}
                     <div className={`mt-2 pt-4 border-t ${isDark ? 'border-white/5' : 'border-zinc-100'}`}>
                         <div className="flex justify-between items-center mb-2">
-                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-white/20' : 'text-zinc-300'}`}>
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-white/20' : 'text-zinc-500'}`}>
                                 {filter === 'Y' ? 'Year Overview' : 'Activity'}
                             </span>
-                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-white/20' : 'text-zinc-300'}`}>
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-white/20' : 'text-zinc-500'}`}>
                                 {filter === 'Y' ? 'L-365' : filter}
                             </span>
                         </div>
@@ -482,7 +482,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
 
                         {/* Color Legend */}
                         {filter === 'Y' ? (
-                            <div className={`flex items-center justify-end gap-1.5 mt-3 text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>
+                            <div className={`flex items-center justify-end gap-1.5 mt-3 text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-zinc-500'}`}>
                                 <span>Less</span>
                                 <div className={`w-2 h-2 rounded-[1px] ${isDark ? 'bg-white/5' : 'bg-zinc-200'}`} />
                                 <div className="w-2 h-2 rounded-[1px] bg-green-900/40" />
@@ -495,7 +495,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                                 <span>Loss</span>
                             </div>
                         ) : (
-                            <div className={`flex items-center justify-end gap-3 mt-8 text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>
+                            <div className={`flex items-center justify-end gap-3 mt-8 text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-white/30' : 'text-zinc-500'}`}>
                                 <div className="flex items-center gap-1">
                                     <div className="w-2 h-2 rounded-full bg-green-500" />
                                     <span>Wins</span>
@@ -518,24 +518,24 @@ const StatsCard: React.FC<StatsCardProps> = ({
             <div className="grid grid-cols-2 gap-3">
                 <div className={`border p-4 rounded-2xl flex flex-col justify-between h-24 relative overflow-hidden transition-colors duration-300 ${isDark ? 'bg-zinc-900/50 border-white/5' : 'bg-white border-zinc-200 shadow-sm'}`}>
                     <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-2 translate-y-2">
-                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={isDark ? "text-white" : "text-zinc-900"}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={isDark ? "text-white" : "text-zinc-700"}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
                     </div>
-                    <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-white/40' : 'text-zinc-400'}`}>Total Entries</span>
-                    <span className={`text-3xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-zinc-900'}`}>{stats.total}</span>
+                    <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-white/40' : 'text-zinc-500'}`}>Total Entries</span>
+                    <span className={`text-3xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-zinc-700'}`}>{stats.total}</span>
                 </div>
 
                 <div className={`border p-4 rounded-2xl flex flex-col justify-between h-24 relative overflow-hidden transition-colors duration-300 ${isDark ? 'bg-zinc-900/50 border-white/5' : 'bg-white border-zinc-200 shadow-sm'}`}>
                     <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-2 translate-y-2">
                         <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-green-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
                     </div>
-                    <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-white/40' : 'text-zinc-400'}`}>Wins</span>
+                    <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${isDark ? 'text-white/40' : 'text-zinc-500'}`}>Wins</span>
                     <span className="text-3xl font-black text-green-500 tracking-tighter drop-shadow-[0_0_10px_rgba(34,197,94,0.3)]">{stats.wins}</span>
                 </div>
             </div>
 
             {/* RESOURCE ALLOCATION (PIE CHART) */}
             <div id="pie-chart" className={`border rounded-2xl p-4 mt-3 transition-colors duration-300 ${isDark ? 'bg-zinc-900/50 border-white/5' : 'bg-zinc-100 border-zinc-200 shadow-sm'}`}>
-                <div className={`text-[9px] font-black uppercase tracking-[0.2em] mb-4 ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>Time Breakdown</div>
+                <div className={`text-[9px] font-black uppercase tracking-[0.2em] mb-4 ${isDark ? 'text-white/30' : 'text-zinc-500'}`}>Time Breakdown</div>
                 <CategoryPieChart logs={logs} theme={theme} />
             </div>
 

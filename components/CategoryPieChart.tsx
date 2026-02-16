@@ -57,7 +57,7 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ logs, theme = 'dark
 
     if (data.length === 0) {
         return (
-            <div className={`flex flex-col items-center justify-center h-48 ${isDark ? 'text-white/20' : 'text-zinc-300'}`}>
+            <div className={`flex flex-col items-center justify-center h-48 ${isDark ? 'text-white/20' : 'text-zinc-500'}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
                 <span className="text-xs font-black uppercase tracking-widest mt-2">NO DATA</span>
             </div>
@@ -107,7 +107,7 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ logs, theme = 'dark
                 </svg>
                 {/* Total Center Text */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className={`text-xs font-black ${isDark ? 'text-white' : 'text-zinc-900'}`}>{logs.length}</span>
+                    <span className={`text-xs font-black ${isDark ? 'text-white' : 'text-zinc-700'}`}>{logs.length}</span>
                 </div>
             </div>
 
@@ -119,7 +119,7 @@ const CategoryPieChart: React.FC<CategoryPieChartProps> = ({ logs, theme = 'dark
                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: slice.color }} />
                             <span className={`font-mono uppercase truncate max-w-[80px] ${isDark ? 'text-white/60' : 'text-zinc-500'}`}>{slice.displayName}</span>
                         </div>
-                        <span className={`font-bold ${isDark ? 'text-white' : 'text-zinc-800'}`}>{slice.percent < 1 && slice.percent > 0 ? slice.percent.toFixed(1) : Math.round(slice.percent)}%</span>
+                        <span className={`font-bold ${isDark ? 'text-white' : 'text-zinc-700'}`}>{slice.percent < 1 && slice.percent > 0 ? slice.percent.toFixed(1) : Math.round(slice.percent)}%</span>
                     </div>
                 ))}
             </div>

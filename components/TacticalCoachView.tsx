@@ -74,7 +74,7 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
       {/* Background Image Layer */}
       {currentImage && (
         <div className="absolute inset-0 z-0 pointer-events-auto flex items-end justify-center">
-          <div className={`absolute inset-0 z-10 ${isDark ? 'bg-black/20' : 'bg-white/20'}`} /> {/* Dimmer */}
+          <div className="absolute inset-0 z-10 bg-black/20" /> {/* Dimmer */}
           <img
             src={currentImage}
             alt="Tactical Coach"
@@ -89,7 +89,7 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
       )}
 
       {/* Dialogue Box */}
-      <div className={`absolute bottom-0 left-0 right-0 z-20 p-6 pb-12 pointer-events-auto bg-gradient-to-t ${isDark ? 'from-black via-black/90' : 'from-[#F4F5F7] via-[#F4F5F7]/95'} to-transparent`}>
+      <div className={`absolute bottom-0 left-0 right-0 z-20 p-6 pb-12 pointer-events-auto bg-gradient-to-t from-black via-black/90 to-transparent`}>
 
         <div className="max-w-xl mx-auto space-y-6">
           {/* Character Name Tag */}
@@ -101,13 +101,13 @@ const TacticalCoachView: React.FC<TacticalCoachViewProps> = ({
           </div>
 
           {/* Text Area */}
-          <div className={`min-h-[100px] border-l-2 border-green-500/50 pl-4 p-4 rounded-r-xl relative backdrop-blur-sm ${isDark ? 'bg-black/40' : 'bg-white/60 shadow-sm'}`}>
+          <div className="min-h-[100px] border-l-2 border-green-500/50 pl-4 p-4 rounded-r-xl relative backdrop-blur-sm bg-black/40">
             {/* Invisible full message to pre-set height */}
             <p className="font-mono text-lg md:text-xl leading-relaxed text-transparent select-none" aria-hidden="true">
               {message}
             </p>
             {/* Visible typed text overlaid on top */}
-            <p className={`font-mono text-lg md:text-xl leading-relaxed shadow-black drop-shadow-sm absolute top-4 left-4 right-4 pl-4 ${isDark ? 'text-white/90' : 'text-zinc-900'}`}>
+            <p className="font-mono text-lg md:text-xl leading-relaxed shadow-black drop-shadow-sm absolute top-4 left-4 right-4 pl-4 text-white/90">
               {displayedText}
               {displayedText !== message && <span className="inline-block w-2 h-5 bg-green-500 ml-1 animate-blink" />}
             </p>

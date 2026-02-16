@@ -127,10 +127,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const isDark = currentTheme === 'dark';
   const bgColor = isDark ? 'bg-black/95' : 'bg-zinc-200/95';
   const cardBg = isDark ? 'bg-white/5 border-white/5' : 'bg-zinc-50 border-zinc-200 shadow-sm';
-  const textColor = isDark ? 'text-white' : 'text-zinc-800';
+  const textColor = isDark ? 'text-white' : 'text-zinc-700';
   const subTextColor = isDark ? 'text-white/40' : 'text-zinc-500';
   const labelColor = isDark ? 'text-white/30' : 'text-zinc-400';
-  const inputBg = isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-zinc-100 border-zinc-200 text-zinc-900';
+  const inputBg = isDark ? 'bg-black/40 border-white/10 text-white' : 'bg-zinc-100 border-zinc-200 text-zinc-700';
   const dividerColor = isDark ? 'bg-white/5' : 'bg-zinc-200';
   const footerBg = isDark ? 'bg-[#0a0a0a] border-white/5' : 'bg-zinc-100 border-zinc-200';
 
@@ -163,7 +163,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               step="5"
               value={duration}
               onChange={(e) => setDuration(parseInt(e.target.value))}
-              className="w-full accent-green-500 h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+              className={`w-full accent-green-500 h-2 rounded-lg appearance-none cursor-pointer ${isDark ? 'bg-zinc-800' : 'bg-zinc-300'}`}
             />
             <div className={`flex justify-between mt-2 text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-white/20' : 'text-zinc-400'}`}>
               <span>5m</span>
@@ -182,7 +182,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 onClick={() => setLocalSchedule(p => ({ ...p, enabled: !p.enabled }))}
                 className={`w-12 h-6 rounded-full transition-colors relative ${localSchedule.enabled ? 'bg-green-500' : 'bg-zinc-800'}`}
               >
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-black transition-all ${localSchedule.enabled ? 'left-7' : 'left-1'}`} />
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-zinc-700 transition-all ${localSchedule.enabled ? 'left-7' : 'left-1'}`} />
               </button>
             </div>
 
@@ -197,7 +197,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                       key={idx}
                       onClick={() => toggleDay(idx)}
                       className={`w-10 h-10 rounded-xl text-xs font-black transition-all duration-300 ${localSchedule.daysOfWeek.includes(idx)
-                        ? 'bg-green-500 text-black shadow-lg shadow-green-500/20 scale-110'
+                        ? 'bg-green-500 text-zinc-900 shadow-lg shadow-green-500/20 scale-110'
                         : isDark ? 'bg-white/5 text-white/20 hover:bg-white/10' : 'bg-zinc-100 text-zinc-400 hover:bg-zinc-200'
                         }`}
                     >
@@ -241,7 +241,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className={`border rounded-2xl p-2 flex relative ${isDark ? 'bg-zinc-900 border-white/5' : 'bg-zinc-100 border-zinc-200'}`}>
             <button
               onClick={() => onSaveTheme('light')}
-              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all z-10 ${currentTheme === 'light' ? 'text-black' : isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`}
+              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all z-10 ${currentTheme === 'light' ? 'text-zinc-800' : isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`}
             >
               Day Ops
             </button>
@@ -294,7 +294,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <p className={`text-2xl font-black ${textColor}`}>{new Date(breakUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
               <button
                 onClick={() => onTakeBreak(null)}
-                className="w-full py-3 bg-green-500 text-black font-black uppercase tracking-[0.2em] rounded-xl text-xs active:scale-95 transition-transform"
+                className="w-full py-3 bg-green-500 text-zinc-900 font-black uppercase tracking-[0.2em] rounded-xl text-xs active:scale-95 transition-transform"
               >
                 Resume Operations
               </button>
@@ -310,7 +310,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   key={opt.label}
                   onClick={() => onTakeBreak(opt.val)}
-                  className={`py-4 border rounded-2xl text-xs font-black uppercase transition-all active:scale-95 ${isDark ? 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-white/60 hover:text-white' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100 hover:border-zinc-300 text-zinc-500 hover:text-zinc-900'}`}
+                  className={`py-4 border rounded-2xl text-xs font-black uppercase transition-all active:scale-95 ${isDark ? 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-white/60 hover:text-white' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100 hover:border-zinc-300 text-zinc-500 hover:text-zinc-700'}`}
                 >
                   {opt.label}
                 </button>
@@ -327,7 +327,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <button
             onClick={() => setShowTroubleshoot(!showTroubleshoot)}
-            className={`w-full text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 py-4 transition-colors ${isDark ? 'text-white/20 hover:text-white' : 'text-zinc-400 hover:text-zinc-900'}`}
+            className={`w-full text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 py-4 transition-colors ${isDark ? 'text-white/20 hover:text-white' : 'text-zinc-400 hover:text-zinc-700'}`}
           >
             {showTroubleshoot ? 'HIDE SYSTEM LOGS' : 'SYSTEM TROUBLESHOOTING'}
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className={`transition - transform ${showTroubleshoot ? 'rotate-180' : ''} `}><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -338,7 +338,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <div>
                 <strong className={`block mb-1 font-black uppercase tracking-widest text-xs ${textColor}`}>1. COMMS CHANNEL</strong>
                 <p className="mb-3">Ensure tactical notifications are authorized.</p>
-                <button onClick={checkPermissions} className={`text-xs px-4 py-2 rounded-lg font-black uppercase tracking-widest transition-colors ${isDark ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-zinc-200 hover:bg-zinc-300 text-zinc-900'}`}>
+                <button onClick={checkPermissions} className={`text-xs px-4 py-2 rounded-lg font-black uppercase tracking-widest transition-colors ${isDark ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-zinc-200 hover:bg-zinc-300 text-zinc-700'}`}>
                   RE-AUTHORIZE
                 </button>
               </div>
@@ -360,14 +360,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             className={`p-6 rounded-2xl flex flex-col items-center gap-3 transition-all active:scale-95 group border ${isDark ? 'bg-white/5 hover:bg-white/10 border-white/5' : 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200'}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`transition-colors group-hover:text-green-500 ${isDark ? 'text-white/20' : 'text-zinc-400'}`}><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-            <span className={`text-xs font-black uppercase tracking-[0.2em] transition-colors ${isDark ? 'text-white/20 group-hover:text-white' : 'text-zinc-400 group-hover:text-zinc-900'}`}>Invite Friends</span>
+            <span className={`text-xs font-black uppercase tracking-[0.2em] transition-colors ${isDark ? 'text-white/20 group-hover:text-white' : 'text-zinc-400 group-hover:text-zinc-700'}`}>Invite Friends</span>
           </button>
           <button
             onClick={handleRate}
             className={`p-6 rounded-2xl flex flex-col items-center gap-3 transition-all active:scale-95 group border ${isDark ? 'bg-white/5 hover:bg-white/10 border-white/5' : 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200'}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`transition-colors group-hover:text-green-500 ${isDark ? 'text-white/20' : 'text-zinc-400'}`}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-            <span className={`text-xs font-black uppercase tracking-[0.2em] transition-colors ${isDark ? 'text-white/20 group-hover:text-white' : 'text-zinc-400 group-hover:text-zinc-900'}`}>Review</span>
+            <span className={`text-xs font-black uppercase tracking-[0.2em] transition-colors ${isDark ? 'text-white/20 group-hover:text-white' : 'text-zinc-400 group-hover:text-zinc-700'}`}>Review</span>
           </button>
         </div>
 
@@ -380,7 +380,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={handleSaveAndClose}
-            className={`w-full py-5 rounded-xl font-black uppercase transition-colors tracking-[0.3em] text-sm ${isDark ? 'text-white/20 hover:text-white' : 'text-zinc-400 hover:text-zinc-900'}`}
+            className={`w-full py-5 rounded-xl font-black uppercase transition-colors tracking-[0.3em] text-sm ${isDark ? 'text-white/20 hover:text-white' : 'text-zinc-400 hover:text-zinc-700'}`}
           >
             CLOSE COMMAND
           </button>
