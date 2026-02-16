@@ -135,8 +135,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const footerBg = isDark ? 'bg-[#0a0a0a] border-white/5' : 'bg-zinc-100 border-zinc-200';
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center ${bgColor} backdrop-blur-xl transition-colors duration-500`}>
-      <div className="w-full max-w-md h-full flex flex-col p-6 overflow-y-auto no-scrollbar">
+    <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center ${bgColor} backdrop-blur-xl transition-colors duration-500`}>
+      <div className="w-full max-w-md flex-1 flex flex-col p-6 overflow-y-auto no-scrollbar">
 
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -374,16 +374,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       </div>
 
 
-      <div className={`p-8 pt-6 border-t z-10 ${footerBg}`}>
+      <div className={`w-full p-8 pt-6 border-t z-10 ${footerBg}`}>
         <div className="max-w-xl mx-auto w-full">
-          {onLoadDemoData && (
-            <button
-              onClick={onLoadDemoData}
-              className={`w-full text-center text-[10px] uppercase tracking-widest transition-colors mb-2 ${isDark ? 'text-white/5 hover:text-white/20' : 'text-zinc-300 hover:text-zinc-500'}`}
-            >
-                        // Load Simulation Data //
-            </button>
-          )}
+
           <button
             type="button"
             onClick={handleSaveAndClose}

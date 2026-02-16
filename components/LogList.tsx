@@ -18,10 +18,23 @@ const LogItem: React.FC<{
 }> = ({ log, index, onEdit, onDelete, theme }) => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPress = useRef(false);
+  const startPos = useRef<{ x: number, y: number } | null>(null);
   const isDark = theme === 'dark';
 
-  const handleStart = () => {
+  const handleStart = (e: React.TouchEvent | React.MouseEvent) => {
     isLongPress.current = false;
+
+    // Capture start position
+    let clientX, clientY;
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
+    }
+    startPos.current = { x: clientX, y: clientY };
+
     timerRef.current = setTimeout(() => {
       isLongPress.current = true;
       try { Haptics.impact({ style: ImpactStyle.Heavy }); } catch (e) { }
@@ -29,11 +42,36 @@ const LogItem: React.FC<{
     }, 600);
   };
 
+  const handleMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!timerRef.current || !startPos.current) return;
+
+    let clientX, clientY;
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
+    }
+
+    const diffX = Math.abs(clientX - startPos.current.x);
+    const diffY = Math.abs(clientY - startPos.current.y);
+
+    // If moved more than 10px, cancel long press
+    if (diffX > 10 || diffY > 10) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+  };
+
   const handleEnd = () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    startPos.current = null;
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -41,6 +79,9 @@ const LogItem: React.FC<{
       e.stopPropagation();
       return;
     }
+    // If movement was significant (scrolling), browser usually suppresses click, 
+    // but just in case we could check isScrolling ref if we tracked it.
+    // For now, assuming browser handles click suppression on scroll.
     try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
     onEdit(log);
   };
@@ -48,8 +89,10 @@ const LogItem: React.FC<{
   return (
     <div
       onTouchStart={handleStart}
+      onTouchMove={handleMove}
       onTouchEnd={handleEnd}
       onMouseDown={handleStart}
+      onMouseMove={handleMove}
       onMouseUp={handleEnd}
       onMouseLeave={handleEnd}
       onClick={handleClick}
@@ -60,10 +103,10 @@ const LogItem: React.FC<{
     >
       {/* Timeline Node */}
       <div className={`absolute left-[-5px] top-8 w-2.5 h-2.5 rounded-full border-2 transition-all duration-300 ${log.type === 'WIN'
-        ? `border-zinc-800 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)] group-hover:scale-125`
+        ? `border-green-500 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)] group-hover:scale-125`
         : log.type === 'DRAW'
-          ? `border-zinc-800 bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)] group-hover:scale-125`
-          : `border-zinc-800 bg-red-500 shadow-[0_0_10px_rgba(220,38,38,0.4)]`
+          ? `border-amber-500 bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)] group-hover:scale-125`
+          : `border-red-500 bg-red-500 shadow-[0_0_10px_rgba(220,38,38,0.4)]`
         }`} />
 
       <div className="flex flex-col gap-2 pointer-events-none">
@@ -92,8 +135,6 @@ const LogItem: React.FC<{
           </p>
         </div>
       </div>
-
-      {/* Helper text for long press (optional, or just rely on intuition/tutorial) */}
     </div>
   );
 };

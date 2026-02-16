@@ -101,8 +101,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
         if (filter === 'D') {
             // 24 Hours
             for (let i = 0; i < 24; i++) {
-                const h = i % 12 || 12;
-                buckets.push({ label: `${h}`, wins: 0, losses: 0, draws: 0 });
+                const h = i;
+                const label = i === 0 ? '12a' : i === 12 ? '12p' : i > 12 ? `${i - 12}p` : `${i}a`;
+                buckets.push({ label, wins: 0, losses: 0, draws: 0 });
             }
             logs.forEach(l => {
                 const d = new Date(l.timestamp);
@@ -330,7 +331,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
                     const lossH = (d.losses / maxVal) * 100;
 
                     let showLabel = false;
-                    if (filter === 'D') showLabel = i % 6 === 0;
+                    if (filter === 'D') showLabel = i % 4 === 0;
                     else if (filter === 'W') showLabel = true;
                     else if (filter === 'M') showLabel = (i + 1) % 5 === 0 || i === 0 || i === chartData.length - 1;
                     else if (filter === '3M') showLabel = i % 4 === 0;
@@ -448,28 +449,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
     return (
         <div className="w-full space-y-4 mb-6">
 
-            {/* HEADER: Navigation & Rank */}
-            <div className="flex items-center justify-between px-2">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => onNavigate(-1)} disabled={!canGoBack} className={`p-2 rounded-full hover:bg-white/5 disabled:opacity-20 transition-colors ${isDark ? 'text-white' : 'text-zinc-900'}`}>
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                    </button>
-                    <div className="flex flex-col items-center cursor-pointer active:scale-95 transition-transform" onClick={onReset}>
-                        <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>{headerInfo.label}</span>
-                        <span className={`text-sm font-black uppercase tracking-widest ${isDark ? 'text-white' : 'text-zinc-900'}`}>{headerInfo.date}</span>
-                    </div>
-                    <button onClick={() => onNavigate(1)} disabled={!canGoForward} className={`p-2 rounded-full hover:bg-white/5 disabled:opacity-20 transition-colors ${isDark ? 'text-white' : 'text-zinc-900'}`}>
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                    </button>
-                </div>
 
-                {filter === 'D' && (
-                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${stats.rank.color.replace('text-', 'border-').replace('500', '500/30')} ${isDark ? 'bg-black/40' : 'bg-white'}`}>
-                        <svg className={`w-3 h-3 ${stats.rank.color}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0"><path fill="currentColor" d={stats.rank.icon} /></svg>
-                        <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${stats.rank.color}`}>{stats.rank.name}</span>
-                    </div>
-                )}
-            </div>
 
             {/* PRIMARY VISUAL: THE SOVEREIGN GRID */}
             <div className={`relative w-full border rounded-3xl p-5 overflow-visible group transition-colors duration-300 ${isDark ? 'bg-black/40 border-white/5' : 'bg-white border-zinc-200 shadow-sm'}`}>

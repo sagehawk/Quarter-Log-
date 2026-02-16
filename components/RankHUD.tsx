@@ -62,8 +62,10 @@ const RankHUD: React.FC<RankHUDProps> = ({ totalWins, period = 'LIFETIME', isFro
           {/* Insurance Badge */}
           {insurance > 0 && (
             <div className={`absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full border ${isDark ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
-              <span className="text-[8px]">🛡️</span>
-              <span className="text-[8px] font-black">{insurance}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+              </svg>
+              <span className="text-[9px] font-black leading-none pt-[1px]">{insurance}</span>
             </div>
           )}
         </div>

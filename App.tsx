@@ -22,12 +22,13 @@ import { requestNotificationPermission, checkNotificationPermission, scheduleNot
 import { generateAIReport, analyzeEntry } from './utils/aiService';
 import TimerPlugin from './utils/nativeTimer';
 import TutorialOverlay, { TutorialStep } from './components/TutorialOverlay';
-import FocusScore from './components/FocusScore';
 import WeeklyDebrief from './components/WeeklyDebrief';
-import InsightsCard from './components/InsightsCard';
-import DayPlanner from './components/DayPlanner';
 
 import StreakRepairModal from './components/StreakRepairModal';
+import CommandView from './components/views/CommandView';
+import PlanView from './components/views/PlanView';
+import IntelView from './components/views/IntelView';
+import BottomNav, { TabId } from './components/BottomNav';
 
 const STORAGE_KEY_LOGS = 'ironlog_entries';
 const STORAGE_KEY_INSURANCE = 'ironlog_streak_insurance';
@@ -64,6 +65,7 @@ self.onmessage = function(e) {
 
 const App: React.FC = () => {
     const [hasOnboarded, setHasOnboarded] = useState<boolean>(true);
+    const [activeTab, setActiveTab] = useState<TabId>('COMMAND');
     const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
     const [timeLeft, setTimeLeft] = useState(DEFAULT_INTERVAL_MS);
     const [cycleDuration, setCycleDuration] = useState(DEFAULT_INTERVAL_MS);
@@ -78,7 +80,10 @@ const App: React.FC = () => {
     }, [persona]);
 
     const [theme, setTheme] = useState<AppTheme>(() => {
-        return (localStorage.getItem('ironlog_theme') as AppTheme) || 'dark';
+        const stored = localStorage.getItem('ironlog_theme');
+        if (stored) return stored as AppTheme;
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+        return 'light';
     });
 
     const [streakInsurance, setStreakInsurance] = useState<number>(() => {
@@ -167,7 +172,8 @@ const App: React.FC = () => {
         }
     };
 
-    // ...
+    // blockStats logic exists below at line 665
+
 
     const currentStreak = useMemo(() => {
         const winsByDate = new Map<string, number>();
@@ -304,6 +310,7 @@ const App: React.FC = () => {
     const [strategicPriority, setStrategicPriority] = useState<string>("");
     const [isEditingPriority, setIsEditingPriority] = useState(false);
     const [priorityInput, setPriorityInput] = useState("");
+    const [priorityAnimation, setPriorityAnimation] = useState(false);
 
     const endTimeRef = useRef<number | null>(null);
     const workerRef = useRef<Worker | null>(null);
@@ -836,6 +843,8 @@ const App: React.FC = () => {
         setStrategicPriority(trimmed);
         localStorage.setItem('ironlog_strategic_priority', trimmed);
         setIsEditingPriority(false);
+        setPriorityAnimation(true);
+        setTimeout(() => setPriorityAnimation(false), 2000);
         try { Haptics.notification({ type: NotificationType.Success }); } catch (e) { }
     };
 
@@ -965,7 +974,7 @@ const App: React.FC = () => {
 
         if (isTutorialActive && tutorialStepIndex === 2) {
             setIsTutorialActive(false);
-            setTutorialPrefill("Started my first session");
+            setTutorialPrefill("Completed system initialization and strategic planning");
         } else {
             setTutorialPrefill(null);
         }
@@ -1427,12 +1436,12 @@ const App: React.FC = () => {
             <div className={`fixed inset-0 pointer-events-none z-50 bg-green-500/20 transition-opacity duration-150 ease-out ${flashWin ? 'opacity-100' : 'opacity-0'}`} />
 
             <div className="relative z-10">
-                <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center border-b ${isScrolled ? (isDark ? 'bg-[#050505]/80 border-white/5' : 'bg-white/80 border-zinc-200/50') + ' backdrop-blur-md' : 'border-transparent'}`} >
+                <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center border-b ${isScrolled ? (isDark ? 'bg-black border-white/5' : 'bg-[#F4F5F7] border-zinc-200/50') : 'border-transparent'}`} >
                     <div className="relative flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl overflow-hidden transition-all duration-500">
-                            <img src="/icon.png" alt="App Icon" className="w-full h-full object-cover" />
+                        <div className="h-10 w-auto rounded-xl overflow-hidden transition-all duration-500">
+                            <img src="/winner-effect-logo.png" alt="Winner Effect" className="h-full w-auto object-contain" />
                         </div>
-                        <div className="flex flex-col">
+                        <div className="hidden md:flex flex-col">
                             <span className={`text-xl font-bold tracking-[0.1em] uppercase leading-none ${isDark ? 'text-white' : 'text-zinc-900'}`}>Winner</span>
                             <span className={`text-xl font-light tracking-[0.1em] uppercase leading-none ${isDark ? 'text-white' : 'text-zinc-900'}`}>Effect</span>
                         </div>
@@ -1481,214 +1490,134 @@ const App: React.FC = () => {
                 />
 
                 <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} onAction={toast.onAction} theme={theme} />
-                <main className="max-w-xl mx-auto p-5 pt-44 flex flex-col min-h-[calc(100vh-80px)]">
+                <div className={`max-w-md mx-auto w-full relative pt-32 px-5 pb-20 ${activeTab === 'PLAN' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+                    {activeTab === 'COMMAND' && (
+                        <CommandView
+                            status={status}
+                            timeLeft={timeLeft}
+                            schedule={schedule}
+                            blockStats={blockStats}
+                            onToggleTimer={handleToggleTimer}
+                            onManualEntry={handleManualLogStart}
+                            theme={theme}
+                            strategicPriority={strategicPriority}
+                            isEditingPriority={isEditingPriority}
+                            priorityInput={priorityInput}
+                            onPriorityEditStart={() => setIsEditingPriority(true)}
+                            onPriorityInputChange={setPriorityInput}
+                            onPrioritySave={handlePrioritySave}
+                            priorityAnimation={priorityAnimation}
+                            onWeeklyDebrief={() => setIsWeeklyDebriefOpen(true)}
+                            recentLogs={logs}
+                            onNavigateToIntel={() => setActiveTab('INTEL')}
+                        />
+                    )}
 
-
-                    {/* Strategic Priority / North Star */}
-                    <section className="mb-6 group">
-                        {isEditingPriority ? (
-                            <div className="bg-black border border-green-500/50 rounded-3xl p-1 shadow-[0_0_30px_rgba(34,197,94,0.15)] animate-fade-in relative overflow-hidden">
-                                <div className="absolute inset-0 bg-green-500/5 pointer-events-none" />
-                                <textarea
-                                    value={priorityInput}
-                                    onChange={(e) => setPriorityInput(e.target.value)}
-                                    className="w-full bg-transparent text-white font-black text-2xl p-6 outline-none resize-none tracking-tight placeholder:text-white/20 relative z-10"
-                                    placeholder="Define your objective..."
-                                    rows={3}
-                                    autoFocus
-                                    onBlur={handlePrioritySave}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handlePrioritySave(); } }}
-                                />
-                                <div className="absolute bottom-4 right-4 z-20">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-green-500 bg-black/50 px-2 py-1 rounded backdrop-blur-md">Press Enter</span>
-                                </div>
-                            </div>
-                        ) : (
-                            <button
-                                onClick={() => {
-                                    try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
-                                    setIsEditingPriority(true);
-                                }}
-                                className={`w-full text-left border rounded-3xl p-6 transition-all active:scale-[0.98] shadow-2xl relative overflow-hidden group ${isDark
-                                    ? 'bg-gradient-to-br from-white/10 to-black border-green-500/20'
-                                    : 'bg-zinc-50 border-zinc-200'
-                                    }`}
-                            >
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 blur-[50px] rounded-full pointer-events-none group-hover:bg-green-500/20 transition-all" />
-
-                                <div className="flex items-center justify-between mb-3 relative z-10">
-                                    <div className="flex flex-col">
-                                        <span className="text-xs font-black uppercase tracking-[0.3em] text-green-500 italic drop-shadow-sm flex items-center gap-2">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-green-500"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                                            North Star
-                                        </span>
-                                        <span className={`text-[9px] font-mono tracking-widest uppercase mt-0.5 ${isDark ? 'text-white/30' : 'text-zinc-400'}`}>Your main goal</span>
-                                    </div>
-
-                                </div>
-                                <div className={`text-2xl font-black italic tracking-tighter leading-none relative z-10 ${strategicPriority ? (isDark ? 'text-white drop-shadow-lg' : 'text-zinc-900') : (isDark ? 'text-white/20' : 'text-zinc-300')}`}>
-                                    {strategicPriority || "Tap to set your main goal"}
-                                </div>
-                            </button>
-                        )}
-                    </section>
-
-                    <section className="flex-none mb-6">
-                        <DayPlanner schedule={schedule} logs={logs} plan={dayPlan} onPlanUpdate={handlePlanUpdate} theme={theme} />
-                    </section>
-
-                    <section className="flex-none mb-8" id="status-card">
-                        <StatusCard isActive={status === AppStatus.RUNNING} timeLeft={timeLeft} schedule={schedule} blockStats={blockStats} onToggle={handleToggleTimer} theme={theme} />
-                    </section>
-
-                    {/* Focus Score Section */}
-                    <div className="mb-8">
-                        <FocusScore
-                            logs={filteredLogs}
-                            allLogs={logs}
-                            streak={currentStreak}
+                    {activeTab === 'PLAN' && (
+                        <PlanView
+                            schedule={schedule}
+                            logs={logs}
+                            dayPlan={dayPlan}
+                            onPlanUpdate={handlePlanUpdate}
                             theme={theme}
                         />
-                    </div>
+                    )}
 
-                    {/* Pattern Intelligence */}
-                    <div className="mb-8">
-                        <InsightsCard logs={logs} theme={theme} />
-                    </div>
+                    {activeTab === 'INTEL' && (
+                        <IntelView
+                            logs={logs}
+                            filteredLogs={filteredLogs}
+                            allLogs={logs}
+                            currentStreak={currentStreak}
+                            theme={theme}
+                            filter={filter}
+                            setFilter={setFilter}
+                            viewDate={viewDate}
+                            setViewDate={setViewDate}
+                            schedule={schedule}
+                            onNavigate={handleNavigate}
+                            onResetView={handleResetView}
+                            isCurrentView={isCurrentView}
+                            canGoBack={canGoBack}
+                            canGoForward={canGoForward}
+                            savedReportForView={savedReportForView}
+                            onGenerateReport={handleGenerateAIReport}
+                            onOpenAIModal={handleOpenAIModal}
+                            onExport={handleCopyClick}
+                            copyFeedback={copyFeedback}
+                            onLogDelete={deleteLog}
+                            onLogEdit={handleLogEdit}
+                        />
+                    )}
+                </div>
+                <BottomNav activeTab={activeTab} onTabChange={setActiveTab} theme={theme} />
 
-                    <section className="flex-1 flex flex-col">
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-2xl font-black tracking-tight uppercase ${isDark ? 'text-white' : 'text-zinc-800'}`}>Activity Log</h2>
-                            <button onClick={handleManualLogStart} id="manual-entry-btn" className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center gap-1.5 border ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-green-500 hover:border-green-500/20' : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:border-zinc-300 shadow-sm'}`} >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                Manual Entry
-                            </button>
-                        </div>
-                        <div id="stats-card">
-                            <StatsCard
-                                logs={filteredLogs}
-                                filter={filter}
-                                schedule={schedule}
-                                durationMs={DEFAULT_INTERVAL_MS}
-                                viewDate={viewDate}
-                                onNavigate={handleNavigate}
-                                onReset={handleResetView}
-                                isCurrentView={isCurrentView}
-                                canGoBack={canGoBack}
-                                canGoForward={canGoForward}
-                                theme={theme}
-                            />
-                        </div>
-                        <div className="flex justify-center mb-6">
-                            <div className={`p-1.5 rounded-2xl flex items-center justify-between w-full border ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-200 shadow-sm'}`}>
-                                {(['D', 'W', 'M', '3M', 'Y'] as FilterType[]).map((f) => (
-                                    <button key={f} onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { } setFilter(f); setViewDate(new Date()); }} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-[0.2em] transition-all duration-300 ${filter === f ? 'bg-green-500 text-black shadow-lg shadow-green-500/20' : isDark ? 'text-zinc-500 hover:text-white hover:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50'}`} >
-                                        {f}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        {filteredLogs.length > 0 && (
-                            <div className="flex items-center justify-between mb-6 px-1 gap-4">
-                                {savedReportForView ? (
-                                    <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } handleOpenAIModal(); }} className={`flex-1 flex items-center gap-3 py-4 px-6 rounded-2xl transition-all border ${isDark ? 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20' : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 shadow-sm'}`} >
-                                        <div className={`p-2 rounded-lg transition-colors ${isDark ? 'bg-green-500/20' : 'bg-white'}`}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                                        </div>
-                                        <div className="flex flex-col items-start">
-                                            <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">AI Summary</span>
-                                            {savedReportForView.read === false && (<span className="text-xs text-green-500/60 font-black uppercase tracking-widest leading-none mt-2 animate-pulse">New insight available</span>)}
-                                        </div>
-                                    </button>
-                                ) : (
-                                    <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } handleGenerateAIReport(); }} className={`flex-0 p-4 rounded-2xl transition-all border ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800' : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50 shadow-sm'}`} title="Generate Insight">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                                    </button>
-                                )}
-                                {/* Weekly Debrief Trigger */}
-                                <button
-                                    onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } setIsWeeklyDebriefOpen(true); }}
-                                    className={`flex-0 p-4 rounded-2xl transition-all border ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800' : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50 shadow-sm'}`}
-                                    title="Weekly Review"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                </button>
-                                <button onClick={handleCopyClick} className={`flex items-center justify-center rounded-2xl border transition-all active:scale-95 shadow-inner ${savedReportForView ? 'w-14 h-14' : 'flex-1 py-4 px-6'} ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700' : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:border-zinc-300 shadow-sm'}`} title="Export Logs" >
-                                    <div className="flex items-center gap-2">
-                                        {copyFeedback ? (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg>) : (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>)}
-                                        {!savedReportForView && <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">EXPORT</span>}
-                                    </div>
-                                </button>
-                            </div>
-                        )}
-                        <div className="flex-1"><LogList logs={filteredLogs} onDelete={deleteLog} onEdit={handleLogEdit} theme={theme} /></div>
-                    </section>
-                </main>
-            </div>
-
-            <TutorialOverlay
-                isActive={isTutorialActive}
-                step={tutorialSteps[tutorialStepIndex]}
-                onNext={handleTutorialNext}
-            />
-            <EntryModal
-                isOpen={isEntryModalOpen}
-                initialEntry={editingLog}
-                onSave={handleLogSave}
-                onClose={() => { setIsEntryModalOpen(false); setIsManualEntry(false); setEditingLog(null); }}
-                isTutorial={isTutorialActive && tutorialStepIndex === 2}
-                theme={theme}
-            />
-            <SettingsModal
-                isOpen={isSettingsModalOpen}
-                currentDurationMs={cycleDuration}
-                currentTheme={theme}
-                logs={logs}
-                schedule={schedule}
-                breakUntil={breakUntil}
-                onSave={handleDurationSave}
-                onSaveSchedule={handleScheduleSave}
-                onSaveTheme={setTheme}
-                onTakeBreak={handleTakeBreak}
-                onLoadDemoData={handleLoadDemoData}
-                onOpenPersona={() => setIsPersonaModalOpen(true)}
-                onClose={() => setIsSettingsModalOpen(false)}
-            />
-            {isPersonaModalOpen && (
-                <PersonaSelector
-                    currentPersona={persona}
-                    onSelect={(p) => {
-                        setPersona(p);
-                        setIsPersonaModalOpen(false);
-                    }}
-                    onClose={() => setIsPersonaModalOpen(false)}
+                <TutorialOverlay
+                    isActive={isTutorialActive}
+                    step={tutorialSteps[tutorialStepIndex]}
+                    onNext={handleTutorialNext}
+                />
+                <EntryModal
+                    isOpen={isEntryModalOpen}
+                    initialEntry={editingLog}
+                    onSave={handleLogSave}
+                    onClose={() => { setIsEntryModalOpen(false); setIsManualEntry(false); setEditingLog(null); }}
+                    isTutorial={isTutorialActive && tutorialStepIndex === 2}
                     theme={theme}
                 />
-            )}
-            <ExportModal
-                isOpen={isExportModalOpen}
-                onClose={() => setIsExportModalOpen(false)}
-                logs={filteredLogs}
-                onSuccess={(msg) => setToast({ title: "Export Success", message: msg, visible: true })}
-                theme={theme}
-            />
-            <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={'Daily'} onClose={() => { setIsAIModalOpen(false); setOverrideReport(null); }} onGenerate={handleGenerateAIReport} theme={theme} />
-            <RankHierarchyModal
-                isOpen={isRankModalOpen}
-                onClose={() => setIsRankModalOpen(false)}
-                currentWins={dailyWins}
-                period="Daily"
-                theme={theme}
-            />
-            <WeeklyDebrief
-                isOpen={isWeeklyDebriefOpen}
-                logs={logs}
-                streak={currentStreak}
-                schedule={schedule}
-                onClose={() => setIsWeeklyDebriefOpen(false)}
-                theme={theme}
-            />
-            <div className="h-[env(safe-area-inset-bottom)]" />
+                <SettingsModal
+                    isOpen={isSettingsModalOpen}
+                    currentDurationMs={cycleDuration}
+                    currentTheme={theme}
+                    logs={logs}
+                    schedule={schedule}
+                    breakUntil={breakUntil}
+                    onSave={handleDurationSave}
+                    onSaveSchedule={handleScheduleSave}
+                    onSaveTheme={setTheme}
+                    onTakeBreak={handleTakeBreak}
+                    onLoadDemoData={handleLoadDemoData}
+                    onOpenPersona={() => setIsPersonaModalOpen(true)}
+                    onClose={() => setIsSettingsModalOpen(false)}
+                />
+                {
+                    isPersonaModalOpen && (
+                        <PersonaSelector
+                            currentPersona={persona}
+                            onSelect={(p) => {
+                                setPersona(p);
+                                setIsPersonaModalOpen(false);
+                            }}
+                            onClose={() => setIsPersonaModalOpen(false)}
+                            theme={theme}
+                        />
+                    )
+                }
+                <ExportModal
+                    isOpen={isExportModalOpen}
+                    onClose={() => setIsExportModalOpen(false)}
+                    logs={filteredLogs}
+                    onSuccess={(msg) => setToast({ title: "Export Success", message: msg, visible: true })}
+                    theme={theme}
+                />
+                <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={'Daily'} onClose={() => { setIsAIModalOpen(false); setOverrideReport(null); }} onGenerate={handleGenerateAIReport} theme={theme} />
+                <RankHierarchyModal
+                    isOpen={isRankModalOpen}
+                    onClose={() => setIsRankModalOpen(false)}
+                    currentWins={dailyWins}
+                    period="Daily"
+                    theme={theme}
+                />
+                <WeeklyDebrief
+                    isOpen={isWeeklyDebriefOpen}
+                    logs={logs}
+                    streak={currentStreak}
+                    schedule={schedule}
+                    onClose={() => setIsWeeklyDebriefOpen(false)}
+                    theme={theme}
+                />
+                <div className="h-[env(safe-area-inset-bottom)]" />
+            </div>
         </div>
     );
 };

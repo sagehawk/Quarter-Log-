@@ -24,7 +24,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, initia
       if (isTutorial && initialEntry) {
         setText(initialEntry.text);
         setCoachMood('IDLE');
-        setCoachMsg("Hit submit to log your first win.");
+        setCoachMsg("What did you work on? (Press Submit)");
       } else if (initialEntry) {
         setText(initialEntry.text);
         setCoachMood('IDLE');
@@ -58,14 +58,14 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onSave, onClose, initia
   const isDark = theme === 'dark';
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50 animate-fade-in">
       <TacticalCoachView mood={coachMood} message={coachMsg} theme={theme}>
         <div className="space-y-4 animate-fade-in">
           <textarea
             ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="> e.g. Deep work on Q3 report, 45 mins."
+            placeholder="> e.g. Deep work on..."
             className={`w-full font-mono p-4 rounded-xl border outline-none h-32 resize-none transition-colors ${isDark
               ? 'bg-black/50 text-white border-white/20 focus:border-green-500'
               : 'bg-white text-zinc-900 border-zinc-300 focus:border-green-600 shadow-sm placeholder:text-zinc-400'

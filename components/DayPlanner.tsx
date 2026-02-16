@@ -68,35 +68,11 @@ const getCurrentSlot = (): string => {
 };
 
 const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpdate, theme = 'dark' }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
     const [editingSlot, setEditingSlot] = useState<string | null>(null);
     const [customLabel, setCustomLabel] = useState('');
     const currentSlotRef = useRef<HTMLDivElement>(null);
-    const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-    const isLongPress = useRef(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const isDark = theme === 'dark';
-
-    // Collapse on scroll away
-    useEffect(() => {
-        if (!isExpanded) return;
-
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (!entry.isIntersecting) {
-                    setIsExpanded(false);
-                    setEditingSlot(null);
-                }
-            },
-            { threshold: 0 }
-        );
-
-        if (containerRef.current) {
-            observer.observe(containerRef.current);
-        }
-
-        return () => observer.disconnect();
-    }, [isExpanded]);
 
     const todayKey = getTodayKey();
     const slots = useMemo(() => generateSlots(schedule), [schedule]);
@@ -137,27 +113,32 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
     // Adherence calculation
     const adherence = useMemo(() => {
         if (!plan || plan.blocks.length === 0) return null;
-        const pastBlocks = plan.blocks.filter(b => b.startTime < currentSlot);
-        if (pastBlocks.length === 0) return null;
+        const relevantBlocks = plan.blocks.filter(b => b.startTime < currentSlot);
+        const currentBlock = plan.blocks.find(b => b.startTime === currentSlot);
+        const currentLog = currentBlock ? logMatchMap[currentBlock.startTime] : null;
+
+        if (currentBlock && currentLog && currentLog.type === 'WIN') {
+            relevantBlocks.push(currentBlock);
+        }
+
+        if (relevantBlocks.length === 0) return null;
 
         let matched = 0;
-        pastBlocks.forEach(b => {
-            // Check if there was a WIN during this block
-            // Logic simplified: if log exists and is WIN
+        relevantBlocks.forEach(b => {
             const log = logMatchMap[b.startTime];
             if (log && log.type === 'WIN') matched++;
         });
-        return Math.round((matched / pastBlocks.length) * 100);
+        return Math.round((matched / relevantBlocks.length) * 100);
     }, [plan, logMatchMap, currentSlot]);
 
-    // Scroll to current slot on expand
+    // Initial scroll to current time
     useEffect(() => {
-        if (isExpanded && currentSlotRef.current) {
+        if (currentSlotRef.current) {
             setTimeout(() => {
                 currentSlotRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 200);
+            }, 500);
         }
-    }, [isExpanded]);
+    }, []);
 
     const handlePresetSelect = (preset: typeof PRESETS[0]) => {
         if (!editingSlot) return;
@@ -213,21 +194,6 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
         onPlanUpdate(updatedPlan);
     };
 
-    const handleBlockPressStart = (slotTime: string) => {
-        isLongPress.current = false;
-        longPressTimer.current = setTimeout(() => {
-            isLongPress.current = true;
-            handleClearSlot(slotTime);
-        }, 600);
-    };
-
-    const handleBlockPressEnd = () => {
-        if (longPressTimer.current) {
-            clearTimeout(longPressTimer.current);
-            longPressTimer.current = null;
-        }
-    };
-
     const plannedCount = plan?.blocks.length || 0;
     const filledSlots = slots.filter(s => blockMap[s]).length;
     const currentBlock = blockMap[currentSlot] || null;
@@ -237,136 +203,131 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
     return (
         <div
             ref={containerRef}
-            className={`transition-all duration-300 overflow-hidden relative ${isDark ? 'bg-zinc-900 border border-white/5' : 'bg-zinc-50 border border-zinc-200 shadow-sm'} rounded-3xl ${isExpanded ? 'max-h-[800px]' : 'max-h-[88px]'}`}
+            className="flex flex-col h-full"
         >
-            <div
-                className={`p-6 flex items-center justify-between cursor-pointer sticky top-0 z-20 ${isDark ? 'bg-zinc-900' : 'bg-zinc-50'}`}
-                onClick={() => setIsExpanded(!isExpanded)}
-            >
-                <div>
-                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 block ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Tactical Plan</span>
-                    <div className="flex items-center gap-2">
-                        <span className={`text-2xl font-black italic tracking-tighter ${isDark ? 'text-white' : 'text-zinc-900'}`}>{adherence ?? 0}% Adherence</span>
-                        <div className={`text-[10px] px-2 py-0.5 rounded font-black uppercase ${!adherence ? 'bg-zinc-700 text-white' : adherence >= 80 ? 'bg-green-500 text-black' : adherence >= 50 ? 'bg-amber-500 text-black' : 'bg-red-500 text-white'}`}>
-                            {adherence === null ? 'PENDING' : adherence >= 80 ? 'ELITE' : adherence >= 50 ? 'SOLID' : 'DRIFT'}
+            <div className="pb-6 pt-2 z-10">
+                <div className="flex items-center justify-between px-2">
+                    <div>
+                        <span className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 block ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>TODAY'S MISSION</span>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-4xl font-black italic tracking-tighter ${isDark ? 'text-white' : 'text-zinc-900'}`}>{adherence ?? 0}%</span>
+                            <div className={`text-[10px] px-2 py-1 rounded font-black uppercase tracking-wider ${!adherence ? 'bg-zinc-700 text-white' : adherence >= 80 ? 'bg-green-500 text-black' : adherence >= 50 ? 'bg-amber-500 text-black' : 'bg-red-500 text-white'}`}>
+                                {adherence === null ? 'PENDING' : adherence >= 80 ? 'ELITE' : adherence >= 50 ? 'SOLID' : 'DRIFT'}
+                            </div>
                         </div>
                     </div>
                 </div>
-                <button className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isExpanded ? 'bg-green-500 text-black rotate-180' : isDark ? 'bg-white/5 text-zinc-500 hover:text-white' : 'bg-zinc-100 text-zinc-400 hover:text-zinc-900'}`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </button>
             </div>
 
-            {/* Expanded Timeline */}
-            {isExpanded && (
-                <div className="px-4 pb-4 animate-fade-in">
-                    {/* Timeline */}
-                    <div className="relative max-h-[400px] overflow-y-auto pr-1 scrollbar-thin">
-                        <div className="absolute left-[52px] top-0 bottom-0 w-px bg-zinc-800" />
+            <div className="flex-1 overflow-y-auto pr-1 pb-20 scrollbar-thin relative mask-gradient">
+                {/* Current time indicator line logic could go here if handled globally but CSS is fine */}
+                <div className="absolute left-[52px] top-0 bottom-0 w-px bg-zinc-800/10 dark:bg-zinc-800" />
+                <div className="py-4 space-y-1">
+                    {slots.map((slot, i) => {
+                        const block = blockMap[slot];
+                        const log = logMatchMap[slot];
+                        const isCurrent = slot === currentSlot;
+                        const isPast = slot < currentSlot;
+                        const showHourLabel = i === 0 || slot.endsWith(':00');
 
-                        {slots.map((slot, i) => {
-                            const block = blockMap[slot];
-                            const log = logMatchMap[slot];
-                            const isCurrent = slot === currentSlot;
-                            const isPast = slot < currentSlot;
-                            const showHourLabel = i === 0 || slot.endsWith(':00');
+                        let status: 'upcoming' | 'active' | 'win' | 'loss' | 'missed' | 'empty' = 'upcoming';
+                        if (isCurrent) status = 'active';
+                        else if (isPast && log?.type === 'WIN') status = 'win';
+                        else if (isPast && log?.type === 'LOSS') status = 'loss';
+                        else if (isPast && block && !log) status = 'missed';
+                        else if (isPast) status = 'empty';
 
-                            let status: 'upcoming' | 'active' | 'win' | 'loss' | 'missed' | 'empty' = 'upcoming';
-                            if (isCurrent) status = 'active';
-                            else if (isPast && log?.type === 'WIN') status = 'win';
-                            else if (isPast && log?.type === 'LOSS') status = 'loss';
-                            else if (isPast && block && !log) status = 'missed';
-                            else if (isPast) status = 'empty';
+                        return (
+                            <div
+                                key={slot}
+                                ref={isCurrent ? currentSlotRef : undefined}
+                                className={`flex items-stretch gap-3 relative transition-all cursor-pointer group rounded-xl p-2 border border-transparent ${isCurrent ? (isDark ? 'bg-white/5 border-white/5 ring-1 ring-green-500/20' : 'bg-zinc-50 border-zinc-200 ring-1 ring-zinc-200') : 'hover:bg-black/5 dark:hover:bg-white/5'
+                                    }`}
+                                onClick={() => {
+                                    if (editingSlot === slot) return;
+                                    if (block) {
+                                        handleClearSlot(slot);
+                                    } else {
+                                        setEditingSlot(slot);
+                                        setCustomLabel('');
+                                    }
+                                }}
+                            >
+                                {/* Time label */}
+                                <div className={`w-12 flex-shrink-0 text-right py-1.5 ${showHourLabel ? (isDark ? 'text-[11px] font-bold text-zinc-300' : 'text-[11px] font-bold text-zinc-600') : (isDark ? 'text-[10px] text-zinc-600' : 'text-[10px] text-zinc-400')
+                                    }`}>
+                                    {showHourLabel ? formatTime(slot) : formatTime(slot).replace(/ [AP]M/, '')}
+                                </div>
 
-                            return (
-                                <div
-                                    key={slot}
-                                    ref={isCurrent ? currentSlotRef : undefined}
-                                    className={`flex items-stretch gap-3 relative transition-all cursor-pointer ${isCurrent ? (isDark ? 'bg-white/5 rounded-lg -mx-1 px-1' : 'bg-zinc-100 rounded-lg -mx-1 px-1') : ''
-                                        }`}
-                                    onClick={() => {
-                                        if (isLongPress.current) {
-                                            isLongPress.current = false;
-                                            return;
-                                        }
-                                        setEditingSlot(prev => prev === slot ? null : slot);
-                                        setCustomLabel(block ? block.label : '');
-                                    }}
-                                >
-                                    {/* Time label */}
-                                    <div className={`w-12 flex-shrink-0 text-right py-2 ${showHourLabel ? (isDark ? 'text-[10px] font-black text-zinc-400' : 'text-[10px] font-black text-zinc-500') : (isDark ? 'text-[9px] text-zinc-600' : 'text-[9px] text-zinc-400')
-                                        }`}>
-                                        {showHourLabel ? formatTime(slot) : formatTime(slot).replace(/ [AP]M/, '')}
-                                    </div>
+                                {/* Timeline dot */}
+                                <div className="relative flex items-center justify-center w-3 flex-shrink-0">
+                                    <div className={`w-2.5 h-2.5 rounded-full z-10 transition-all ${isCurrent ? 'bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.6)] animate-pulse scale-125' :
+                                        status === 'win' ? 'bg-green-500' :
+                                            status === 'loss' ? 'bg-red-500' :
+                                                status === 'missed' ? 'bg-amber-500' :
+                                                    block ? CATEGORY_DOT[block.category] :
+                                                        isDark ? 'bg-zinc-800' : 'bg-zinc-300'
+                                        }`} />
+                                </div>
 
-                                    {/* Timeline dot */}
-                                    <div className="relative flex items-start pt-3 justify-center w-3 flex-shrink-0">
-                                        <div className={`w-2 h-2 rounded-full z-10 transition-all ${isCurrent ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse' :
-                                            status === 'win' ? 'bg-green-500' :
-                                                status === 'loss' ? 'bg-red-500' :
-                                                    status === 'missed' ? 'bg-amber-500' :
-                                                        block ? CATEGORY_DOT[block.category] :
-                                                            isDark ? 'bg-zinc-700' : 'bg-zinc-300'
-                                            }`} />
-                                    </div>
-
-                                    {/* Content */}
-                                    <div className={`flex-1 py-1.5 min-h-[36px] flex items-center`}>
-                                        {editingSlot === slot ? (
-                                            // Editing this slot
-                                            <div className="w-full animate-fade-in" onClick={e => e.stopPropagation()}>
-                                                <div className="flex flex-wrap gap-1.5 mb-2">
+                                {/* Content */}
+                                <div className={`flex-1 min-h-[44px] flex items-center`}>
+                                    {editingSlot === slot ? (
+                                        <div className="w-full animate-fade-in" onClick={e => e.stopPropagation()}>
+                                            <div className="flex items-start gap-2 mb-2">
+                                                <div className="flex flex-wrap gap-2 flex-1">
                                                     {PRESETS.map(p => (
                                                         <button
                                                             key={p.label}
                                                             onClick={() => handlePresetSelect(p)}
-                                                            className={`text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-all active:scale-95 ${CATEGORY_COLORS[p.category]}`}
+                                                            className={`text-[10px] font-bold px-3 py-2 rounded-lg border transition-all active:scale-95 shadow-sm ${CATEGORY_COLORS[p.category]}`}
                                                         >
                                                             {p.icon} {p.label}
                                                         </button>
                                                     ))}
                                                 </div>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Custom..."
-                                                    value={customLabel}
-                                                    onChange={e => setCustomLabel(e.target.value)}
-                                                    onKeyDown={e => e.key === 'Enter' && handleCustomSave()}
-                                                    className={`w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-zinc-500 ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-600' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'}`}
-                                                />
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setEditingSlot(null); }}
+                                                    className={`p-2 rounded-lg transition-colors ${isDark ? 'bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-400 hover:text-zinc-900'}`}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                </button>
                                             </div>
-                                        ) : block ? (
-                                            // Filled slot — long press to delete
-                                            <div
-                                                className="flex items-center justify-between w-full group select-none"
-                                                onTouchStart={() => handleBlockPressStart(slot)}
-                                                onTouchEnd={handleBlockPressEnd}
-                                                onMouseDown={() => handleBlockPressStart(slot)}
-                                                onMouseUp={handleBlockPressEnd}
-                                                onMouseLeave={handleBlockPressEnd}
-                                            >
-                                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${CATEGORY_COLORS[block.category]}`}>
-                                                    {block.label}
-                                                </span>
-                                                <div className="flex items-center gap-1.5">
-                                                    {status === 'win' && <span className="text-green-500 text-xs">✓</span>}
-                                                    {status === 'loss' && <span className="text-red-500 text-xs">✕</span>}
-                                                    {status === 'missed' && <span className="text-amber-500 text-xs">—</span>}
-                                                </div>
+
+                                            <input
+                                                type="text"
+                                                placeholder="Custom Label..."
+                                                value={customLabel}
+                                                onChange={e => setCustomLabel(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && handleCustomSave()}
+                                                autoFocus
+                                                className={`w-full border rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500/20 ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-600' : 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400 shadow-sm'}`}
+                                            />
+                                        </div>
+                                    ) : block ? (
+                                        <div
+                                            className="flex items-center justify-between w-full group select-none pl-1"
+                                        >
+                                            <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-1 rounded border shadow-sm ${CATEGORY_COLORS[block.category]}`}>
+                                                {block.label}
+                                            </span>
+                                            <div className="flex items-center gap-2 opacity-80">
+                                                {status === 'win' && <span className="text-green-500 font-black text-sm">WIN</span>}
+                                                {status === 'loss' && <span className="text-red-500 font-black text-sm">LOSS</span>}
+                                                {status === 'missed' && <span className="text-amber-500 font-black text-xs">MISSED</span>}
                                             </div>
-                                        ) : (
-                                            // Empty slot
-                                            <div className={`${isDark ? 'text-zinc-700' : 'text-zinc-200'} text-[10px] font-mono`}>
-                                                —
-                                            </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    ) : (
+                                        <div className={`${isDark ? 'text-zinc-800' : 'text-zinc-200'} text-xs font-mono ml-1`}>
+                                            —
+                                        </div>
+                                    )}
                                 </div>
-                            );
-                        })}
-                    </div>
+                            </div>
+                        );
+                    })}
                 </div>
-            )}
+            </div>
         </div>
     );
 };
