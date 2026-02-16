@@ -148,6 +148,19 @@ const App: React.FC = () => {
     const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
     const [tutorialPrefill, setTutorialPrefill] = useState<string | null>(null);
 
+    const [intelAnimation, setIntelAnimation] = useState('animate-fade-in');
+
+    const handleNavigateToIntel = useCallback(() => {
+        setIntelAnimation('animate-swipe-left');
+        setActiveTab('INTEL');
+    }, []);
+
+    useEffect(() => {
+        if (activeTab !== 'INTEL') {
+            setIntelAnimation('animate-fade-in');
+        }
+    }, [activeTab]);
+
     const tutorialSteps: TutorialStep[] = [
         { text: "Here's your dashboard. Let me show you around.", mood: 'IDLE' },
         { targetId: 'status-card', text: "This is your timer. Every 15 minutes, you log in and I grade it.", mood: 'PROCESSING' },
@@ -1436,7 +1449,7 @@ const App: React.FC = () => {
             <div className={`fixed inset-0 pointer-events-none z-50 bg-green-500/20 transition-opacity duration-150 ease-out ${flashWin ? 'opacity-100' : 'opacity-0'}`} />
 
             <div className="relative z-10">
-                <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center border-b ${isScrolled ? (isDark ? 'bg-black border-white/5' : 'bg-[#F4F5F7] border-zinc-200/50') : 'border-transparent'}`} >
+                <header className={`fixed top-0 w-full z-40 transition-all duration-500 ease-in-out pt-[calc(1.25rem+env(safe-area-inset-top))] px-5 pb-5 flex justify-between items-center border-b ${isDark ? 'bg-black' : 'bg-[#F4F5F7]'} ${isScrolled ? (isDark ? 'border-white/5' : 'border-zinc-200/50') : 'border-transparent'}`} >
                     <div className="relative flex items-center gap-3">
                         <div className="h-10 w-auto rounded-xl overflow-hidden transition-all duration-500">
                             <img src="/winner-effect-logo.png" alt="Winner Effect" className="h-full w-auto object-contain" />
@@ -1454,6 +1467,7 @@ const App: React.FC = () => {
                             dayStreak={currentStreak}
                             insurance={streakInsurance}
                             theme={theme}
+                            iconOnly={true}
                             onClick={() => {
                                 try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
                                 setIsRankModalOpen(true);
@@ -1509,7 +1523,7 @@ const App: React.FC = () => {
                             priorityAnimation={priorityAnimation}
                             onWeeklyDebrief={() => setIsWeeklyDebriefOpen(true)}
                             recentLogs={logs}
-                            onNavigateToIntel={() => setActiveTab('INTEL')}
+                            onNavigateToIntel={handleNavigateToIntel}
                         />
                     )}
 
@@ -1547,6 +1561,7 @@ const App: React.FC = () => {
                             copyFeedback={copyFeedback}
                             onLogDelete={deleteLog}
                             onLogEdit={handleLogEdit}
+                            animationClass={intelAnimation}
                         />
                     )}
                 </div>

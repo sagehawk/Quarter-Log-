@@ -10,9 +10,10 @@ interface RankHUDProps {
   dayStreak?: number;
   insurance?: number;
   theme?: AppTheme;
+  iconOnly?: boolean;
 }
 
-const RankHUD: React.FC<RankHUDProps> = ({ totalWins, period = 'LIFETIME', isFrozen = false, onClick, dayStreak = 0, insurance = 0, theme = 'dark' }) => {
+const RankHUD: React.FC<RankHUDProps> = ({ totalWins, period = 'LIFETIME', isFrozen = false, onClick, dayStreak = 0, insurance = 0, theme = 'dark', iconOnly = false }) => {
   const { currentRank } = getRankProgress(totalWins, period);
   const isDark = theme === 'dark';
 
@@ -20,6 +21,34 @@ const RankHUD: React.FC<RankHUDProps> = ({ totalWins, period = 'LIFETIME', isFro
   const nextThreshold = dayStreak < 7 ? 7 : dayStreak < 14 ? 14 : 0;
   const prevThreshold = dayStreak < 7 ? 0 : dayStreak < 14 ? 7 : 14;
   const progress = nextThreshold > 0 ? ((dayStreak - prevThreshold) / (nextThreshold - prevThreshold)) * 100 : 100;
+
+  if (iconOnly) {
+    return (
+      <button
+        onClick={onClick}
+        className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all active:scale-95 group relative ${isDark ? 'bg-zinc-900/50 hover:bg-zinc-800 border-white/5 hover:border-white/10' : 'bg-white hover:bg-zinc-100 border-zinc-200 hover:border-zinc-300'}`}
+        title={`Rank: ${currentRank.name}`}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`w-6 h-6 ${currentRank.color} drop-shadow-[0_0_8px_currentColor] transition-transform group-hover:scale-110 duration-300`}
+        >
+          <path d={currentRank.icon} />
+        </svg>
+
+        {/* Streak dot indicator if streak > 0 */}
+        {dayStreak > 0 && (
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full border-2 border-black animate-flame" />
+        )}
+      </button>
+    );
+  }
 
   return (
     <div

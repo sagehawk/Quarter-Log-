@@ -29,6 +29,7 @@ interface IntelViewProps {
     copyFeedback: boolean;
     onLogDelete: (id: string) => void;
     onLogEdit: (log: LogEntry) => void;
+    animationClass?: string;
 }
 
 const IntelView: React.FC<IntelViewProps> = ({
@@ -36,12 +37,12 @@ const IntelView: React.FC<IntelViewProps> = ({
     filter, setFilter, viewDate, setViewDate, schedule,
     onNavigate, onResetView, isCurrentView, canGoBack, canGoForward,
     savedReportForView, onGenerateReport, onOpenAIModal, onExport, copyFeedback,
-    onLogDelete, onLogEdit
+    onLogDelete, onLogEdit, animationClass = 'animate-fade-in'
 }) => {
     const isDark = theme === 'dark';
 
     return (
-        <div className="space-y-8 pb-32 animate-fade-in">
+        <div className="pb-32">
             {/* Date Navigator Header (Fixed Top) */}
             <div className={`fixed top-[86px] left-0 right-0 z-30 px-5 py-3 flex items-center justify-between transition-colors duration-300 ${isDark ? 'bg-black' : 'bg-[#F4F5F7]'}`}>
                 <div className="flex flex-col">
@@ -87,26 +88,21 @@ const IntelView: React.FC<IntelViewProps> = ({
                 </div>
             </div>
 
-            {/* Spacer for Fixed Header */}
-            <div className="h-[60px]" />
+            <div className={`pt-10 space-y-8 ${animationClass}`}>
+                {/* Focus Score Section */}
+                <div>
+                    <FocusScore
+                        logs={filteredLogs}
+                        allLogs={allLogs}
+                        streak={currentStreak}
+                        theme={theme}
+                    />
+                </div>
 
-            {/* Focus Score Section */}
-            <div>
-                <FocusScore
-                    logs={filteredLogs}
-                    allLogs={allLogs}
-                    streak={currentStreak}
-                    theme={theme}
-                />
-            </div>
-
-            {/* Stats Card (Chart) */}
-            <div id="stats-card">
+                {/* Performance Stats */}
                 <StatsCard
                     logs={filteredLogs}
                     filter={filter}
-                    schedule={schedule}
-                    durationMs={15 * 60 * 1000} // Default 15m
                     viewDate={viewDate}
                     onNavigate={onNavigate}
                     onReset={onResetView}
@@ -114,12 +110,62 @@ const IntelView: React.FC<IntelViewProps> = ({
                     canGoBack={canGoBack}
                     canGoForward={canGoForward}
                     theme={theme}
+                    schedule={schedule}
+                    durationMs={15 * 60 * 1000}
                 />
-            </div>
 
-            {/* Pattern Intelligence */}
-            <div>
-                <InsightsCard logs={logs} theme={theme} />
+                {/* Pattern Intelligence */}
+                <div>
+                    <InsightsCard logs={logs} theme={theme} />
+                </div>
+
+                {/* AI Summary Section */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                        <h3 className={`text-xs font-black uppercase tracking-[0.2em] ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>AI Intelligence</h3>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                        {savedReportForView ? (
+                            <button
+                                onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } onOpenAIModal(); }}
+                                className={`flex-1 flex items-center gap-3 py-4 px-6 rounded-2xl transition-all border ${isDark ? 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20' : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 shadow-sm'}`}
+                            >
+                                <div className={`p-2 rounded-lg transition-colors ${isDark ? 'bg-green-500/20' : 'bg-white'}`}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                </div>
+                                <div className="flex flex-col items-start">
+                                    <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">View Report</span>
+                                    {savedReportForView.read === false && <span className="text-[10px] text-green-500 font-bold uppercase tracking-widest mt-1">NEW</span>}
+                                </div>
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } onGenerateReport(); }}
+                                className={`flex-1 flex items-center justify-center gap-2 py-4 px-6 rounded-2xl border transition-all active:scale-95 ${isDark ? 'bg-zinc-900 border-zinc-800 text-green-500 hover:bg-zinc-800' : 'bg-white border-zinc-200 text-green-600 hover:bg-zinc-50 shadow-sm'}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                                <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">Generate AI Insight</span>
+                            </button>
+                        )}
+
+                        <button
+                            onClick={onExport}
+                            className={`flex items-center justify-center gap-2 py-4 px-6 rounded-2xl border transition-all active:scale-95 ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-white' : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-900 shadow-sm'}`}
+                        >
+                            {copyFeedback ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            )}
+                            <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">Export Logs</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex-1">
+                    <LogList logs={filteredLogs} onDelete={onLogDelete} onEdit={onLogEdit} theme={theme} />
+                </div>
             </div>
 
             {/* Filter Bar (Sticky Bottom) */}
@@ -132,37 +178,7 @@ const IntelView: React.FC<IntelViewProps> = ({
                     ))}
                 </div>
             </div>
-
-            <div className="flex flex-col">
-                {filteredLogs.length > 0 && (
-                    <div className="flex items-center justify-between mb-6 px-1 gap-4">
-                        {savedReportForView ? (
-                            <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } onOpenAIModal(); }} className={`flex-1 flex items-center gap-3 py-4 px-6 rounded-2xl transition-all border ${isDark ? 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20' : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 shadow-sm'}`} >
-                                <div className={`p-2 rounded-lg transition-colors ${isDark ? 'bg-green-500/20' : 'bg-white'}`}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                                </div>
-                                <div className="flex flex-col items-start">
-                                    <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">AI Summary</span>
-                                    {savedReportForView.read === false && (<span className="text-xs text-green-500/60 font-black uppercase tracking-widest leading-none mt-2 animate-pulse">New insight available</span>)}
-                                </div>
-                            </button>
-                        ) : (
-                            <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { } onGenerateReport(); }} className={`flex-0 p-4 rounded-2xl transition-all border ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-600 hover:text-white hover:bg-zinc-800' : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50 shadow-sm'}`} title="Generate Insight">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-                            </button>
-                        )}
-                        <button onClick={onExport} className={`flex items-center justify-center rounded-2xl border transition-all active:scale-95 shadow-inner ${savedReportForView ? 'w-14 h-14' : 'flex-1 py-4 px-6'} ${isDark ? 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-white hover:border-zinc-700' : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:border-zinc-300 shadow-sm'}`} title="Export Logs" >
-                            <div className="flex items-center gap-2">
-                                {copyFeedback ? (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg>) : (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>)}
-                                {!savedReportForView && <span className="text-sm font-black uppercase tracking-[0.2em] leading-none">EXPORT</span>}
-                            </div>
-                        </button>
-                    </div>
-                )}
-
-                <div className="flex-1"><LogList logs={filteredLogs} onDelete={onLogDelete} onEdit={onLogEdit} theme={theme} /></div>
-            </div>
-        </div >
+        </div>
     );
 };
 
