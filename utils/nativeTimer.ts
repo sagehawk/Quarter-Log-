@@ -8,6 +8,14 @@ export interface TimerPlugin {
   cancelDailyStart(): Promise<void>;
 }
 
-const Timer = registerPlugin<TimerPlugin>('TimerPlugin');
+const Timer = registerPlugin<TimerPlugin>('TimerPlugin', {
+  web: {
+    start: async () => { console.log('TimerPlugin.start called on web'); },
+    stop: async () => { console.log('TimerPlugin.stop called on web'); },
+    checkPendingLog: async () => { console.log('TimerPlugin.checkPendingLog called on web'); return undefined; },
+    scheduleDailyStart: async (options) => { console.log('TimerPlugin.scheduleDailyStart called on web', options); },
+    cancelDailyStart: async () => { console.log('TimerPlugin.cancelDailyStart called on web'); }
+  }
+});
 
 export default Timer;

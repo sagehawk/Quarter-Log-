@@ -36,7 +36,7 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
             <div className={`absolute top-0 right-0 w-64 h-64 bg-green-500/5 blur-[80px] rounded-full pointer-events-none transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
 
             {/* Animated Border effect for active state */}
-            <div className={`absolute bottom-0 left-0 h-[1px] bg-gradient-to-r from-transparent via-green-500/50 to-transparent w-full transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
+            <div className={`absolute bottom-0 left-0 h-[1px] bg-green-500/20 w-full transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`} />
 
             <div className="relative z-10 flex flex-col gap-5">
                 {/* Header Row */}
@@ -98,8 +98,7 @@ const StatusCard: React.FC<StatusCardProps> = ({ isActive, timeLeft, schedule, b
                         className={`absolute inset-y-0 left-0 bg-green-500 transition-all duration-1000 ease-linear ${!isActive ? 'opacity-0' : 'opacity-100'}`}
                         style={{ width: `${progress}%` }}
                     />
-                    {/* Tick marks overlay for 'ruler' effect */}
-                    <div className="absolute inset-0 w-full h-full bg-[repeating-linear-gradient(90deg,transparent,transparent_19%,#000_20%)] opacity-30 mix-blend-overlay pointer-events-none" />
+                    {/* Removed repeating linear gradient overlay */}
                 </div>
             </div>
         </div>

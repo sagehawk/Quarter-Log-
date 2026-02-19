@@ -1,14 +1,17 @@
+export type LogCategory = 'DEEP WORK' | 'MEETINGS' | 'RESEARCH' | 'BREAK' | 'EXERCISE' | 'ADMIN' | 'BURN';
 
-export type LogCategory = 'MAKER' | 'MANAGER' | 'R&D' | 'FUEL' | 'RECOVERY' | 'BURN' | 'OTHER';
+export type LogType = 'WIN' | 'LOSS' | 'DRAW';
 
 export interface LogEntry {
   id: string;
   timestamp: number; // Date.now()
   text: string;
-  type?: 'WIN' | 'LOSS' | 'DRAW';
+  type?: LogType;
   category?: LogCategory;
   isInsuranceWin?: boolean;
   duration?: number; // Duration in ms
+  pillarsMatches?: number[]; // Indices of pillars (1-3) matched
+  isVerified?: boolean; // True if this log verified a planned block
 }
 
 export interface FreezeState {
@@ -61,6 +64,15 @@ export interface PlannedBlock {
 
 export interface DayPlan {
   dateKey: string;          // "2026-02-15"
+  // The Crown / The Dragon
+  dragon: string;
+  // The Pillars (Strategy) - Max 3
+  pillars: string[];
+  // The Constraints (Rules)
+  constraints: string[];
+  // The Logistics (Timeline)
   blocks: PlannedBlock[];
   createdAt: number;
+  pillarsCompleted?: boolean[];
+  constraintViolated?: boolean;
 }

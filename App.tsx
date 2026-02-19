@@ -9,20 +9,19 @@ import SettingsModal from './components/SettingsModal';
 import AIFeedbackModal from './components/AIFeedbackModal';
 import PersonaSelector from './components/PersonaSelector';
 import FeedbackOverlay from './components/FeedbackOverlay';
-import RankHUD from './components/RankHUD';
-import RankHierarchyModal from './components/RankHierarchyModal';
 import Toast from './components/Toast';
 import StatsCard from './components/StatsCard';
 import Onboarding from './components/Onboarding';
 import ExportModal from './components/ExportModal';
 import { generateDemoData } from './utils/demoData';
 import StatusCard from './components/StatusCard';
-import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState, FilterType, AIPersona, DayPlan, AppTheme } from './types';
+import { LogEntry, AppStatus, DEFAULT_INTERVAL_MS, ScheduleConfig, UserGoal, AIReport, FreezeState, FilterType, AIPersona, DayPlan, AppTheme, LogCategory } from './types';
 import { requestNotificationPermission, checkNotificationPermission, scheduleNotification, cancelNotification, registerNotificationActions, configureNotificationChannel, sendNotification, sendReportNotification, sendFeedbackNotification } from './utils/notifications';
 import { generateAIReport, analyzeEntry } from './utils/aiService';
 import TimerPlugin from './utils/nativeTimer';
 import TutorialOverlay, { TutorialStep } from './components/TutorialOverlay';
 import WeeklyDebrief from './components/WeeklyDebrief';
+
 
 import StreakRepairModal from './components/StreakRepairModal';
 import CommandView from './components/views/CommandView';
@@ -66,6 +65,7 @@ self.onmessage = function(e) {
 const App: React.FC = () => {
     const [hasOnboarded, setHasOnboarded] = useState<boolean>(true);
     const [activeTab, setActiveTab] = useState<TabId>('COMMAND');
+    const [isReflectionOverlayOpen, setIsReflectionOverlayOpen] = useState(false);
     const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
     const [timeLeft, setTimeLeft] = useState(DEFAULT_INTERVAL_MS);
     const [cycleDuration, setCycleDuration] = useState(DEFAULT_INTERVAL_MS);
@@ -99,13 +99,42 @@ const App: React.FC = () => {
         localStorage.setItem('ironlog_theme', theme);
     }, [theme]);
 
-    const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [reports, setReports] = useState<Record<string, AIReport>>({});
-    const [schedule, setSchedule] = useState<ScheduleConfig>({
-        enabled: true,
-        startTime: '09:00',
-        endTime: '17:00',
-        daysOfWeek: [1, 2, 3, 4, 5]
+    const [logs, setLogs] = useState<LogEntry[]>(() => {
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY_LOGS);
+            return stored ? JSON.parse(stored) : [];
+        } catch (e) {
+            console.error('Failed to load logs', e);
+            return [];
+        }
+    });
+
+    const [reports, setReports] = useState<Record<string, AIReport>>(() => {
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY_REPORTS);
+            return stored ? JSON.parse(stored) : {};
+        } catch (e) {
+            console.error('Failed to load reports', e);
+            return {};
+        }
+    });
+
+    const [schedule, setSchedule] = useState<ScheduleConfig>(() => {
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY_SCHEDULE);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                return { ...parsed, enabled: true };
+            }
+        } catch (e) {
+            console.error('Failed to load schedule', e);
+        }
+        return {
+            enabled: true,
+            startTime: '09:00',
+            endTime: '17:00',
+            daysOfWeek: [1, 2, 3, 4, 5]
+        };
     });
 
     const [freezeState, setFreezeState] = useState<FreezeState>({
@@ -153,6 +182,30 @@ const App: React.FC = () => {
     const handleNavigateToIntel = useCallback(() => {
         setIntelAnimation('animate-swipe-left');
         setActiveTab('INTEL');
+    }, []);
+
+    const [isLoggingMode, setIsLoggingMode] = useState(false);
+
+    const handleManualLogStart = useCallback(() => {
+        try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+
+        if (isTutorialActive && tutorialStepIndex === 2) {
+            // For now, just advance tutorial or stop it, as Plan View doesn't have the same tutorial overlay yet.
+            // Maybe just let the user explore.
+            setIsTutorialActive(false);
+            localStorage.setItem('ironlog_tutorial_complete', 'true');
+        }
+
+        setActiveTab('PLAN');
+        setIsLoggingMode(true);
+    }, [isTutorialActive, tutorialStepIndex]);
+
+    const handleLogAdd = useCallback((newLog: LogEntry) => {
+        setLogs(prev => {
+            const updated = [...prev, newLog];
+            localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(updated));
+            return updated;
+        });
     }, []);
 
     useEffect(() => {
@@ -286,7 +339,7 @@ const App: React.FC = () => {
                 timestamp: yesterday.getTime(),
                 text: "Streak Insurance Auto-Save",
                 type: 'WIN',
-                category: 'OTHER',
+                category: 'ADMIN',
                 isInsuranceWin: true
             };
 
@@ -299,7 +352,6 @@ const App: React.FC = () => {
 
 
 
-    const [isRankModalOpen, setIsRankModalOpen] = useState(false);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [aiReportLoading, setAiReportLoading] = useState(false);
     const [aiReportContent, setAiReportContent] = useState<string | null>(null);
@@ -340,7 +392,7 @@ const App: React.FC = () => {
                 if (pending && pending.input) {
                     lastNativeInputTime.current = Date.now();
                     setIsEntryModalOpen(false);
-                    handleLogSave(pending.input, pending.type, true, undefined, pending.activeEndTime);
+                    handleLogSave(pending.input, cycleDuration, logs, pending.type as 'WIN' | 'LOSS', undefined, pending.activeEndTime);
                     LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => { });
                     LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => { });
                 }
@@ -381,16 +433,8 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const onboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED);
-        if (!onboarded) setHasOnboarded(false);
-
-        const storedLogs = localStorage.getItem(STORAGE_KEY_LOGS);
-        if (storedLogs) {
-            try { setLogs(JSON.parse(storedLogs)); } catch (e) { console.error(e); }
-        }
-
-        const storedReports = localStorage.getItem(STORAGE_KEY_REPORTS);
-        if (storedReports) {
-            try { setReports(JSON.parse(storedReports)); } catch (e) { console.error(e); }
+        if (!onboarded) {
+            // setHasOnboarded(false); // DISABLED FOR VIEWING
         }
 
         const seenWarning = localStorage.getItem(STORAGE_KEY_SEEN_FREEZE_WARNING);
@@ -415,16 +459,9 @@ const App: React.FC = () => {
             } catch (e) { console.error(e); }
         }
 
-        const storedPersona = localStorage.getItem(STORAGE_KEY_PERSONA);
-        if (storedPersona) setPersona(storedPersona as AIPersona);
+        // Persona is lazy loaded in useState
 
-        const storedSchedule = localStorage.getItem(STORAGE_KEY_SCHEDULE);
-        if (storedSchedule) {
-            try {
-                const parsed = JSON.parse(storedSchedule);
-                setSchedule({ ...parsed, enabled: true });
-            } catch (e) { console.error(e); }
-        }
+        // Schedule is lazy loaded in useState
 
         const storedPriority = localStorage.getItem('ironlog_strategic_priority');
         if (storedPriority) {
@@ -523,7 +560,7 @@ const App: React.FC = () => {
                 if (isPersonaModalOpen) { setIsPersonaModalOpen(false); return; } // Added for PersonaSelector
                 if (isSettingsModalOpen) { setIsSettingsModalOpen(false); return; }
                 if (isAIModalOpen) { setIsAIModalOpen(false); setOverrideReport(null); return; }
-                if (isRankModalOpen) { setIsRankModalOpen(false); return; }
+                if (isAIModalOpen) { setIsAIModalOpen(false); setOverrideReport(null); return; }
                 if (isEditingPriority) { setIsEditingPriority(false); return; }
 
                 CapacitorApp.exitApp();
@@ -536,7 +573,7 @@ const App: React.FC = () => {
         return () => {
             handlerPromise.then(h => h.remove());
         };
-    }, [isEntryModalOpen, isSettingsModalOpen, isAIModalOpen, isRankModalOpen, isEditingPriority]);
+    }, [isEntryModalOpen, isSettingsModalOpen, isAIModalOpen, isEditingPriority]);
 
     const handleTakeBreak = (durationMs: number | null) => {
         if (durationMs === null) {
@@ -654,13 +691,19 @@ const App: React.FC = () => {
     const blockStats = useMemo(() => getBlockStats(), [getBlockStats, minuteTick]);
     useEffect(() => { blockStatsRef.current = blockStats; }, [blockStats]);
 
+    const startTimerRef = useRef<((overrideTime?: number, explicitEndTime?: number) => Promise<void>) | null>(null);
+
     const handleTimerComplete = useCallback(async () => {
-        workerRef.current?.postMessage({ command: 'stop' });
-        setStatus(AppStatus.WAITING_FOR_INPUT);
-        localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
-        setIsManualEntry(false);
-        setIsEntryModalOpen(true);
-    }, []);
+        // Auto-restart for "accumulating" cycles and keeping notification alive
+        // setIsReflectionOverlayOpen(true); // Removed
+        try { await Haptics.notification({ type: NotificationType.Warning }); } catch (e) { }
+
+        // Start next cycle immediately
+        startTimerRef.current?.();
+
+        // Redirect to Manual Log
+        handleManualLogStart();
+    }, [handleManualLogStart]);
 
     const scheduleNativeAutoStart = useCallback(async () => {
         if (!schedule.enabled) {
@@ -720,8 +763,22 @@ const App: React.FC = () => {
         if (explicitEndTime && explicitEndTime > now) {
             targetTime = explicitEndTime;
         } else {
-            const timeToUse = overrideTime ?? cycleDuration;
-            targetTime = now + timeToUse;
+            if (overrideTime) {
+                targetTime = now + overrideTime;
+            } else {
+                // Align to next interval (e.g. 15m) based on clock
+                const interval = cycleDuration;
+                // We want the next mark divisible by interval
+                // align based on current minute relative to hour?
+                // Simple epoch alignment:
+                const nextMark = Math.ceil((now + 1000) / interval) * interval;
+                targetTime = nextMark;
+
+                // If the duration is too short (< 1 min), extend to next
+                if (targetTime - now < 60000) {
+                    targetTime += interval;
+                }
+            }
         }
 
         endTimeRef.current = targetTime;
@@ -745,6 +802,10 @@ const App: React.FC = () => {
             handleTimerComplete();
         }
     }, [tickLogic, getBlockStats, cycleDuration, handleTimerComplete]);
+
+    useEffect(() => {
+        startTimerRef.current = startTimer;
+    }, [startTimer]);
 
     const pauseTimer = useCallback(async () => {
         setIsPaused(true);
@@ -800,7 +861,7 @@ const App: React.FC = () => {
 
         if (startWithWin) {
             setTimeout(() => {
-                handleLogSave("Protocol Initiated", 'WIN', true);
+                handleLogSave("Protocol Initiated", cycleDuration, logs, 'WIN', undefined, false, true);
                 setTimeout(() => setIsTutorialActive(true), 2000);
             }, 500);
         } else {
@@ -980,23 +1041,21 @@ const App: React.FC = () => {
         return logs.filter(l => l.type === 'WIN' && !l.isInsuranceWin && l.timestamp >= startOfDay).length;
     }, [logs]);
 
-    const currentPeriodWins = useMemo(() => filteredLogs.filter(l => l.type === 'WIN' && !l.isInsuranceWin).length, [filteredLogs]);
+    const todaysComplianceStats = useMemo(() => {
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const todaysLogs = logs.filter(l => l.timestamp >= startOfDay);
+        const wins = todaysLogs.filter(l => l.type === 'WIN').length;
+        const losses = todaysLogs.filter(l => l.type === 'LOSS').length;
+        const categoryBreakdown: Record<string, number> = {};
+        todaysLogs.forEach(l => {
+            const cat = l.category || 'ADMIN';
+            categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + 1;
+        });
+        return { wins, losses, categoryBreakdown };
+    }, [logs]);
 
-    const handleManualLogStart = () => {
-        try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
-
-        if (isTutorialActive && tutorialStepIndex === 2) {
-            setIsTutorialActive(false);
-            setTutorialPrefill("Completed system initialization and strategic planning");
-        } else {
-            setTutorialPrefill(null);
-        }
-
-        setIsManualEntry(true);
-        setIsEntryModalOpen(true);
-    };
-
-    const handleLogSave = useCallback(async (text: string, type?: 'WIN' | 'LOSS' | 'DRAW', timestampOrIsNotification?: number | boolean, duration?: number, explicitEndTime?: number) => {
+    const handleLogSave = async (text: string, duration: number = cycleDuration, list: LogEntry[] = logs, type?: 'WIN' | 'LOSS' | 'DRAW', forceCategory?: string, timestampOrIsNotification?: number | boolean, skipAI: boolean = false, suppressFeedback: boolean = false, isVerified: boolean = false) => {
         let timestamp = Date.now();
         let isFromNotification = false;
         let finalDuration = duration;
@@ -1010,8 +1069,27 @@ const App: React.FC = () => {
         const trimmedText = text.trim();
         if (!trimmedText && !type) return;
 
+        // CHECK FOR DUPLICATES (Fix for "Double Entry" bug)
+        // If a log exists with the same timestamp (within 1 second) and we are not editing, abort or update it.
+        if (!editingLog) {
+            const duplicate = list.find(l => Math.abs(l.timestamp - timestamp) < 1000);
+            if (duplicate) {
+                console.log("Duplicate log detected, updating existing instead of creating new.");
+                const updatedLogs = list.map(l => l.id === duplicate.id ? {
+                    ...l,
+                    text: trimmedText || l.text,
+                    category: (forceCategory || l.category) as LogCategory,
+                    type: type || l.type || 'WIN',
+                    duration: finalDuration
+                } : l);
+                setLogs(updatedLogs);
+                setIsEntryModalOpen(false);
+                return;
+            }
+        }
+
         if (editingLog) {
-            const updatedLogs = logs.map(l => l.id === editingLog.id ? {
+            const updatedLogs = list.map(l => l.id === editingLog.id ? {
                 ...l,
                 text: trimmedText || l.text,
                 type: type || l.type || 'WIN',
@@ -1029,7 +1107,7 @@ const App: React.FC = () => {
         setToast(prev => ({ ...prev, visible: false }));
         setTutorialPrefill(null);
 
-        if (!isFromNotification) {
+        if (!isFromNotification && !skipAI && !suppressFeedback) {
             setFeedbackState({
                 visible: true,
                 totalWins: dailyWins,
@@ -1042,27 +1120,84 @@ const App: React.FC = () => {
         }
 
         const strategic = localStorage.getItem('ironlog_strategic_priority') || undefined;
-        let analysis = { category: 'OTHER', type: type || 'WIN', feedback: 'Log recorded.' };
+        let analysis: { category: string; type: 'WIN' | 'LOSS' | 'DRAW'; feedback: string; pillarsCompleted?: number[]; constraintViolated?: boolean; } = { category: 'ADMIN', type: type || 'WIN', feedback: 'Log recorded.' };
 
-        if (!type) {
+        // Only run AI if NOT skipping and NO type provided
+        if (!type && !skipAI) {
             try {
                 // Calculate Daily Stats for Context
                 const startOfDay = new Date().setHours(0, 0, 0, 0);
-                const todaysLogs = logs.filter(l => l.timestamp >= startOfDay);
+                const todaysLogs = list.filter(l => l.timestamp >= startOfDay);
                 const wins = todaysLogs.filter(l => l.type === 'WIN').length;
                 const losses = todaysLogs.filter(l => l.type === 'LOSS').length;
                 const categoryBreakdown: Record<string, number> = {};
                 todaysLogs.forEach(l => {
-                    const cat = l.category || 'OTHER';
+                    const cat = l.category || 'ADMIN';
                     categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + 1;
                 });
                 const dailyStats = { wins, losses, categoryBreakdown };
 
                 // @ts-ignore
-                analysis = await analyzeEntry(trimmedText, strategic, persona, schedule, timestamp, logs.slice(0, 5), dailyStats);
+                analysis = await analyzeEntry(
+                    trimmedText,
+                    strategic,
+                    persona,
+                    schedule,
+                    timestamp,
+                    list.slice(0, 5),
+                    dailyStats,
+                    dayPlan?.pillars || [],
+                    dayPlan?.constraints || []
+                );
+
+                // Update DayPlan with Pillars/Sacrifice status
+                if (dayPlan) {
+                    let planUpdated = false;
+                    const newPlan = { ...dayPlan };
+
+                    // Handle Pillars
+                    // We need a way to store completion. 
+                    // Current DayPlan structure: pillars: string[]
+                    // We propose adding `pillarsStatus: boolean[]` to DayPlan or using a convention.
+                    // For now, let's assume we need to update types.
+                    // But to avoid huge refactor now, maybe we can toggle the UI locally or Use a different field?
+                    // Reviewing DayPlanner.tsx: 
+                    // {pillars.map((p, i) => <div ... ${p ? ...} />)} 
+                    // It uses `p` (the string) to determine color?
+                    // No, `p` is the text. If text exists, it shows a dot.
+                    // But we want to show IF COMPLETED.
+                    // So we probably need to turn the dot GREEN or something when completed.
+                    // We need a new state `pillarsCompleted: boolean[]` in DayPlan.
+
+                    if (analysis.pillarsCompleted && analysis.pillarsCompleted.length > 0) {
+                        const currentCompleted = newPlan.pillarsCompleted || [false, false, false];
+                        analysis.pillarsCompleted.forEach(idx => {
+                            if (idx >= 1 && idx <= 3) currentCompleted[idx - 1] = true;
+                        });
+                        newPlan.pillarsCompleted = currentCompleted;
+                        planUpdated = true;
+                    }
+
+                    if (analysis.constraintViolated) {
+                        newPlan.constraintViolated = true;
+                        planUpdated = true;
+                    }
+
+                    if (planUpdated) {
+                        handlePlanUpdate(newPlan);
+                    }
+                }
+
             } catch (e) {
                 console.error(e);
             }
+        } else if (skipAI) {
+            // If skipping AI, we likely have a type/category already, or default to checking keywords?
+            // For now, simpler: assume WIN/ADMIN if not provided, or logic elsewhere handles it.
+            // Actually, the user asked to just "categorize the task nothing else". 
+            // We can do a quick local categorization if we want, or just default.
+            // But if `skipAI` is true, we assume the caller (Plan View) passed `forceCategory` or we default.
+            if (forceCategory) analysis.category = forceCategory;
         }
 
         // @ts-ignore
@@ -1074,9 +1209,11 @@ const App: React.FC = () => {
             text: trimmedText || (finalType === 'WIN' ? "Focused Work" : "Distracted"),
             type: finalType as 'WIN' | 'LOSS',
             // @ts-ignore
-            category: analysis.category,
-            isFrozenWin: false,
-            duration: finalDuration
+            category: (forceCategory || analysis.category) as LogCategory,
+            isInsuranceWin: false,
+            duration: finalDuration,
+            pillarsMatches: analysis.pillarsCompleted,
+            isVerified: isVerified
         };
 
         const updatedLogs = [newLog, ...logs];
@@ -1095,15 +1232,23 @@ const App: React.FC = () => {
 
             const title = finalType === 'WIN' ? "MISSION ACCOMPLISHED" : finalType === 'DRAW' ? "HOLDING PATTERN" : "BREACH DETECTED";
 
-            setFeedbackState({
-                visible: true,
-                totalWins: newDailyWins,
-                type: finalType as 'WIN' | 'LOSS' | 'DRAW',
-                period: 'D',
-                customTitle: title,
-                customSub: (analysis.category || "LOGGED").toUpperCase(),
-                aiMessage: analysis.feedback
-            });
+            if (!suppressFeedback) {
+                setFeedbackState({
+                    visible: true,
+                    totalWins: newDailyWins,
+                    type: finalType as 'WIN' | 'LOSS' | 'DRAW',
+                    period: 'D',
+                    customTitle: title,
+                    customSub: (forceCategory || analysis.category || "LOGGED").toUpperCase(),
+                    aiMessage: analysis.feedback
+                });
+            } else {
+                setToast({
+                    title: (forceCategory || analysis.category || "LOGGED").toUpperCase(),
+                    message: "Plan Verified & Logged",
+                    visible: true
+                });
+            }
         } else {
             await sendFeedbackNotification(analysis.feedback);
         }
@@ -1133,13 +1278,13 @@ const App: React.FC = () => {
 
         localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
         setTimeLeft(cycleDuration);
-        if (isWithinSchedule()) await startTimer(cycleDuration, explicitEndTime);
+        if (isWithinSchedule()) await startTimer(cycleDuration);
         else {
             setStatus(AppStatus.IDLE);
             setIsPaused(false);
             scheduleNextStartNotification();
         }
-    }, [startTimer, isWithinSchedule, logs, scheduleNextStartNotification, cycleDuration, editingLog, dailyWins, persona, reports]);
+    };
 
     const handleLogClose = () => {
         setIsEntryModalOpen(false);
@@ -1177,7 +1322,7 @@ const App: React.FC = () => {
                     if (pending && pending.type) {
                         lastNativeInputTime.current = Date.now();
                         setIsEntryModalOpen(false);
-                        handleLogSave(pending.input || "", pending.type, true, undefined, pending.activeEndTime);
+                        handleLogSave(pending.input || "", cycleDuration, logs, pending.type as 'WIN' | 'LOSS', undefined, pending.activeEndTime);
                         LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => { });
                         LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => { });
                         return;
@@ -1236,7 +1381,7 @@ const App: React.FC = () => {
             }
 
             if (notification.actionId === 'log_input' && notification.inputValue) {
-                handleLogSave(notification.inputValue, undefined, true);
+                handleLogSave(notification.inputValue, cycleDuration, logs, undefined, undefined, true);
             } else {
                 setIsEntryModalOpen(true);
                 setIsManualEntry(false);
@@ -1249,7 +1394,8 @@ const App: React.FC = () => {
                 if (pending && pending.type) {
                     lastNativeInputTime.current = Date.now();
                     setIsEntryModalOpen(false);
-                    handleLogSave(pending.input || "", pending.type, true, undefined, pending.activeEndTime);
+                    // text, duration, list, type, category, timestamp
+                    handleLogSave(pending.input || "", cycleDuration, logs, pending.type as 'WIN' | 'LOSS', undefined, pending.activeEndTime || Date.now());
                     LocalNotifications.cancel({ notifications: [{ id: 1 }] }).catch(() => { });
                     LocalNotifications.cancel({ notifications: [{ id: 2 }] }).catch(() => { });
                 }
@@ -1438,9 +1584,10 @@ const App: React.FC = () => {
         return { wins: progress, target: dailyTarget, percent: (progress / dailyTarget) * 100 };
     }, [dailyWins]);
 
-    if (!hasOnboarded) return <Onboarding onComplete={handleOnboardingComplete} />;
-
     const isDark = theme === 'dark';
+
+    // Calculate Daily Adherence for HUD
+    if (!hasOnboarded) return <Onboarding onComplete={handleOnboardingComplete} />;
 
     return (
         <div className={`min-h-screen transition-colors duration-500 selection:bg-green-500/30 ${isDark ? 'bg-black text-white' : 'bg-[#F4F5F7] text-zinc-900'}`}>
@@ -1459,20 +1606,8 @@ const App: React.FC = () => {
                             <span className={`text-xl font-light tracking-[0.1em] uppercase leading-none ${isDark ? 'text-white' : 'text-zinc-900'}`}>Effect</span>
                         </div>
                     </div>
+
                     <div className="flex items-center gap-3">
-                        <RankHUD
-                            totalWins={dailyWins}
-                            period="D"
-                            isFrozen={freezeState.isFrozen}
-                            dayStreak={currentStreak}
-                            insurance={streakInsurance}
-                            theme={theme}
-                            iconOnly={true}
-                            onClick={() => {
-                                try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
-                                setIsRankModalOpen(true);
-                            }}
-                        />
                         <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { } setIsSettingsModalOpen(true); }} id="settings-btn" className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${isDark ? 'bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 hover:text-white border-white/5 hover:border-white/10' : 'bg-white hover:bg-zinc-100 text-zinc-400 hover:text-zinc-900 border-zinc-200 hover:border-zinc-300'}`} title="Settings" >
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                         </button>
@@ -1504,7 +1639,7 @@ const App: React.FC = () => {
                 />
 
                 <Toast title={toast.title} message={toast.message} isVisible={toast.visible} onClose={() => setToast(prev => ({ ...prev, visible: false }))} onAction={toast.onAction} theme={theme} />
-                <div className={`max-w-md mx-auto w-full relative pt-32 px-5 pb-20 ${activeTab === 'PLAN' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+                <div className={`max-w-md mx-auto w-full relative pt-[calc(5rem+env(safe-area-inset-top))] px-5 pb-20 ${activeTab === 'PLAN' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
                     {activeTab === 'COMMAND' && (
                         <CommandView
                             status={status}
@@ -1524,6 +1659,8 @@ const App: React.FC = () => {
                             onWeeklyDebrief={() => setIsWeeklyDebriefOpen(true)}
                             recentLogs={logs}
                             onNavigateToIntel={handleNavigateToIntel}
+                            dayPlan={dayPlan}
+                            onPlanUpdate={handlePlanUpdate}
                         />
                     )}
 
@@ -1534,6 +1671,21 @@ const App: React.FC = () => {
                             dayPlan={dayPlan}
                             onPlanUpdate={handlePlanUpdate}
                             theme={theme}
+                            cycleDuration={cycleDuration}
+                            loggingMode={isLoggingMode}
+                            onLogAdd={handleLogAdd}
+                            strategicPriority={strategicPriority}
+                            onShowFeedback={(msg) => {
+                                const cleanMsg = msg.replace(/\[MOOD:.*?\]\s*/i, '').trim();
+                                setToast({ title: "Intel", message: cleanMsg, visible: true });
+                            }}
+                            onPlanVerify={(text, type, duration, category, timestamp) => {
+                                // If timestamp is provided, use it. Otherwise use Date.now() via handleLogSave default.
+                                // We pass `timestamp` as the 6th arg (timestampOrIsNotification). 
+                                // handleLogSave(text, duration, list, type, category, timestampOrIsNotification, skipAI, suppressFeedback, isVerified)
+                                handleLogSave(text, duration, logs, type, category, timestamp || true, false, false, true);
+                            }}
+                            onSlotClick={undefined}
                         />
                     )}
 
@@ -1580,6 +1732,7 @@ const App: React.FC = () => {
                     isTutorial={isTutorialActive && tutorialStepIndex === 2}
                     theme={theme}
                 />
+                {/* CycleReflectionOverlay Removed */}
                 <SettingsModal
                     isOpen={isSettingsModalOpen}
                     currentDurationMs={cycleDuration}
@@ -1616,13 +1769,6 @@ const App: React.FC = () => {
                     theme={theme}
                 />
                 <AIFeedbackModal isOpen={isAIModalOpen} isLoading={aiReportLoading} report={aiReportContent} isSaved={!!savedReportForView} canUpdate={canUpdateReport} period={'Daily'} onClose={() => { setIsAIModalOpen(false); setOverrideReport(null); }} onGenerate={handleGenerateAIReport} theme={theme} />
-                <RankHierarchyModal
-                    isOpen={isRankModalOpen}
-                    onClose={() => setIsRankModalOpen(false)}
-                    currentWins={dailyWins}
-                    period="Daily"
-                    theme={theme}
-                />
                 <WeeklyDebrief
                     isOpen={isWeeklyDebriefOpen}
                     logs={logs}

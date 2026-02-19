@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Share } from '@capacitor/share';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { keepAwake } from '../utils/sound';
 import { sendNotification, requestNotificationPermission } from '../utils/notifications';
 import { LogEntry, ScheduleConfig, UserGoal, AppTheme } from '../types';
@@ -163,13 +164,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               step="5"
               value={duration}
               onChange={(e) => setDuration(parseInt(e.target.value))}
+              onInput={() => { try { Haptics.selectionChanged(); } catch (e) { } }}
               className={`w-full accent-green-500 h-2 rounded-lg appearance-none cursor-pointer ${isDark ? 'bg-zinc-800' : 'bg-zinc-300'}`}
             />
             <div className={`flex justify-between mt-2 text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-white/20' : 'text-zinc-400'}`}>
               <span>5m</span>
+              <span>15m</span>
               <span>30m</span>
+              <span>45m</span>
               <span>60m</span>
             </div>
+            <p className={`text-[10px] mt-4 opacity-50 ${textColor}`}>
+              Determines frequency of check-ins and planner slot size.
+            </p>
           </div>
         </div>
 

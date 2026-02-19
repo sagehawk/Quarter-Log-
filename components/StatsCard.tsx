@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { LogEntry, ScheduleConfig, FilterType, AppTheme } from '../types';
-import { getRankForPeriod } from '../utils/rankSystem';
 import CategoryPieChart from './CategoryPieChart';
 
 interface StatsCardProps {
@@ -170,8 +169,8 @@ const StatsCard: React.FC<StatsCardProps> = ({
     const stats = useMemo(() => {
         const wins = logs.filter(l => l.type === 'WIN').length;
         const total = logs.length;
+
         const rate = total > 0 ? Math.round((wins / total) * 100) : 0;
-        const rank = filter === 'D' ? getRankForPeriod(wins, 'D') : getRankForPeriod(wins, 'LIFETIME');
 
         let streak = 0;
         const sorted = [...logs].sort((a, b) => b.timestamp - a.timestamp);
@@ -181,7 +180,7 @@ const StatsCard: React.FC<StatsCardProps> = ({
             else break;
         }
 
-        return { wins, total, rate, rank, streak };
+        return { wins, total, rate, streak };
     }, [logs, filter]);
 
     // --- 3. Render Helpers ---

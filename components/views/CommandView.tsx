@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
 import StatusCard from '../StatusCard';
 import LogList from '../LogList';
-import { LogEntry, ScheduleConfig, AppTheme, AppStatus } from '../../types';
+import BattlePlanCard from '../BattlePlanCard';
+import { LogEntry, ScheduleConfig, AppTheme, AppStatus, DayPlan } from '../../types';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 interface CommandViewProps {
@@ -22,12 +23,14 @@ interface CommandViewProps {
     onWeeklyDebrief: () => void;
     recentLogs: LogEntry[];
     onNavigateToIntel: () => void;
+    dayPlan: DayPlan | null;
+    onPlanUpdate: (plan: DayPlan) => void;
 }
 
 const CommandView: React.FC<CommandViewProps> = ({
     status, timeLeft, schedule, blockStats, onToggleTimer, onManualEntry, theme,
     strategicPriority, isEditingPriority, priorityInput, onPriorityEditStart, onPriorityInputChange, onPrioritySave,
-    priorityAnimation, onWeeklyDebrief, recentLogs, onNavigateToIntel
+    priorityAnimation, onWeeklyDebrief, recentLogs, onNavigateToIntel, dayPlan, onPlanUpdate
 }) => {
     const isDark = theme === 'dark';
 
@@ -80,6 +83,15 @@ const CommandView: React.FC<CommandViewProps> = ({
                     </button>
                 )}
             </section>
+
+            {/* Battle Plan Card (Moved from Plan View) */}
+            <BattlePlanCard
+                plan={dayPlan}
+                onPlanUpdate={onPlanUpdate}
+                todayKey={new Date().toISOString().split('T')[0]} // Command view is always today
+                theme={theme}
+                strategicPriority={strategicPriority}
+            />
 
             {/* Timer Card */}
             <section id="status-card">

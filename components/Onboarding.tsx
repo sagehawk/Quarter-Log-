@@ -18,7 +18,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         endTime: '17:00',
         daysOfWeek: [0, 1, 2, 3, 4, 5, 6]
     });
-    const [priority, setPriority] = useState("");
+    const [priority, setPriority] = useState("WIN THE DAY");
     const [initials, setInitials] = useState("");
 
     const scenes: { mood: CoachMood; text: string }[] = [

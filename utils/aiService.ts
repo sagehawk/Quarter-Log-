@@ -262,6 +262,7 @@ export const generateProtocolRecovery = async (
   }
 };
 
+// Update return type
 export const analyzeEntry = async (
   text: string,
   strategicPriority: string = "General Productivity",
@@ -269,10 +270,12 @@ export const analyzeEntry = async (
   schedule?: ScheduleConfig,
   currentTime: number = Date.now(),
   recentLogs: LogEntry[] = [],
-  dailyStats?: { wins: number; losses: number; categoryBreakdown: Record<string, number> }
-): Promise<{ category: string, type: 'WIN' | 'LOSS' | 'DRAW', feedback: string }> => {
+  dailyStats?: { wins: number; losses: number; categoryBreakdown: Record<string, number> },
+  pillars: string[] = [],
+  constraints: string[] = []
+): Promise<{ category: string, type: 'WIN' | 'LOSS' | 'DRAW', feedback: string, pillarsCompleted?: number[], constraintViolated?: boolean }> => {
   const apiKey = process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) return { category: 'OTHER', type: 'WIN', feedback: "Log recorded." };
+  if (!apiKey) return { category: 'OTHER', type: 'WIN', feedback: "Log recorded.", pillarsCompleted: [], constraintViolated: false };
 
   const ai = new GoogleGenAI({ apiKey });
   const personaStyle = getPersonaInstruction(persona);
@@ -287,7 +290,7 @@ export const analyzeEntry = async (
     const isWorkDay = schedule.daysOfWeek.includes(day);
     scheduleContext = `
       CURRENT TIME: ${timeStr}
-  SCHEDULE: ${schedule.startTime} to ${schedule.endTime}
+      SCHEDULE: ${schedule.startTime} to ${schedule.endTime}
       IS WORK DAY: ${isWorkDay}
   `;
   }
@@ -308,10 +311,20 @@ export const analyzeEntry = async (
 
     dailyScorecardContext = `
       DAILY SCORECARD:
-  - Wins: ${dailyStats.wins} | Losses: ${dailyStats.losses} | Win Rate: ${winRate}%
-    - Breakdown: ${breakdown}
+      - Wins: ${dailyStats.wins} | Losses: ${dailyStats.losses} | Win Rate: ${winRate}%
+      - Breakdown: ${breakdown}
   `;
   }
+
+  const pillarsContext = pillars.some(p => p.trim()) ? `
+  PILLARS (Daily Must-Dos):
+  ${pillars.map((p, i) => p.trim() ? `${i + 1}. ${p}` : '').filter(Boolean).join('\n')}
+  ` : "";
+
+  const constraintsContext = constraints.some(c => c.trim()) ? `
+  SACRIFICE (Daily Non-Negotiable):
+  ${constraints.map(c => c.trim() ? `- ${c}` : '').filter(Boolean).join('\n')}
+  ` : "";
 
   const systemInstruction = `
   You are a Tactical Analyst.
@@ -321,40 +334,51 @@ export const analyzeEntry = async (
   ${scheduleContext}
   ${dailyScorecardContext}
   ${historyContext}
+  ${pillarsContext}
+  ${constraintsContext}
 
-  1. CATEGORIZE it into one of the High - Performance Buckets:
-  - MAKER: High Leverage, Revenue Generating, Deep Work. (The Goal)
-    - MANAGER: Low Leverage, Admin, Calls, Maintenance. (Necessary Evil)
-      - R & D: Learning, Skill Acquisition, Research. (Investing)
-        - FUEL: Health, Sleep, Gym, Bio - Support. (Foundation)
-          - RECOVERY: Active Rest, Family, Leisure. (Recharging)
-            - BURN: Wasted time, Scrolling, Drifting. (The Enemy)
+  1. CATEGORIZE it into one of these buckets:
+  - DEEP WORK: High Leverage, Focused execution, Coding, Writing, Designing.
+  - MEETINGS: Syncs, Calls, Collaboration, Emails.
+  - RESEARCH: Learning, Skill Acquisition, Market Research.
+  - BREAK: Rest, Recharging, Leisure, Family, Meals.
+  - EXERCISE: Gym, Workouts, Physical Activity.
+  - ADMIN: Low Leverage, Maintenance, Chores, Finances.
+  - BURN: Wasted time, Scrolling, Drifting. (The Enemy)
 
   2. JUDGE it:
-  - WIN: Moving forward(MAKER, R & D, Strategic FUEL, Planned RECOVERY).
-     - LOSS: Moving backward(BURN, Procrastination, Avoidance).
-     - DRAW: Neutral / Maintenance / Holding Pattern(Routine FUEL, Commuting, Chores, Necessary but non - strategic Admin).
+  - WIN: Moving forward (DEEP WORK, RESEARCH, EXERCISE, Planned BREAK).
+  - LOSS: Moving backward (BURN, Procrastination, Avoidance).
+  - DRAW: Neutral / Maintenance / Holding Pattern (ADMIN, MEETINGS, Routine Chores).
      
-     * SPECIAL RULE: Routine meals(Lunch / Dinner) are a DRAW unless combined with "Networking".
+     * SPECIAL RULE: Routine meals (Lunch/Dinner) are a DRAW unless combined with "Networking".
 
-  3. FEEDBACK: One short, punchy sentence.
-     - CRITICAL: Do NOT repeat advice given in the RECENT HISTORY.Be fresh.
-     - TRIGGER[MOOD: SAVAGE]if 'BURN' count > 2 in the DAILY SCORECARD.
+  3. FEEDBACK: Skill Bridging Formula.
+     - STRUCTURE: "Because you [Action], you proved [Skill], so you can [Step towards Goal]."
+     - EXAMPLE: "Because you coded for 2 hours, you proved discipline, so you can handle the launch day pressure."
+     - CONSTRAINT: Keep it under 20 words. Punchy.
 
-  4. TIME AWARENESS RULES(CRITICAL):
+  4. PILLARS & SACRIFICE CHECK:
+     - Does this log COMPLETE a generic 'Pillar'? (e.g. "Workout" log completes "Exercise daily")
+     - Does this log VIOLATE a 'Sacrifice'? (e.g. "Ate cake" violates "No sugar")
+     - Return indices of completed pillars (1-based index) and boolean if sacrifice violated.
+
+  5. TIME AWARENESS RULES(CRITICAL):
   - If CURRENT TIME is past SCHEDULE END TIME(by > 1 hour) on a WORK DAY:
-  - DO NOT encourage "grinding" or "pushing harder".
-       - DO suggest sleep, rest, or winding down.
-       - If the log is "Coding" or "Work" late at night, mark it as a 'WIN' but warn about burnout in the feedback.
-     - If CURRENT TIME is very late(e.g., 1 AM - 4 AM):
-  - Be concerned.Suggest sleep immediately.
-       - Use[MOOD: STOIC]or[MOOD: DRAW] to signal concern.
+     - DO NOT encourage "grinding" or "pushing harder".
+     - DO suggest sleep, rest, or winding down.
+     - If the log is "Coding" or "Work" late at night, mark it as a 'WIN' but warn about burnout in the feedback.
+  - If CURRENT TIME is very late(e.g., 1 AM - 4 AM):
+     - Be concerned.Suggest sleep immediately.
+     - Use[MOOD: STOIC]or[MOOD: DRAW] to signal concern.
 
   STRICT OUTPUT FORMAT(JSON ONLY):
   {
     "category": "CATEGORY_NAME",
-      "type": "WIN" or "LOSS" or "DRAW",
-        "feedback": "[MOOD: TAG] Your feedback text."
+    "type": "WIN" or "LOSS" or "DRAW",
+    "feedback": "[MOOD: TAG] Your feedback text.",
+    "pillarsCompleted": [1, 3], // List of pillar INDICES (1, 2, 3) that were completed by this log. Empty if none.
+    "constraintViolated": boolean // True if this log explicitly violates a constraint.
   }
   
   Mood Tags:
@@ -383,10 +407,12 @@ export const analyzeEntry = async (
     return {
       category: result.category || 'OTHER',
       type: result.type || 'WIN',
-      feedback: result.feedback || "[MOOD: IDLE] Entry logged."
+      feedback: result.feedback || "[MOOD: IDLE] Entry logged.",
+      pillarsCompleted: result.pillarsCompleted,
+      constraintViolated: result.constraintViolated
     };
   } catch (error) {
     console.error("Analysis Error:", error);
-    return { category: 'OTHER', type: 'WIN', feedback: "[MOOD: IDLE] Log recorded (Offline)." };
+    return { category: 'OTHER', type: 'WIN', feedback: "[MOOD: IDLE] Log recorded (Offline).", pillarsCompleted: [], constraintViolated: false };
   }
 };
