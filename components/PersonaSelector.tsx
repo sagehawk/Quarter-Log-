@@ -17,7 +17,7 @@ const PERSONAS = [
     desc: "Cold, analytical, and efficient. Focuses purely on data and outcomes. No fluff.",
     quote: "Show me the data.",
     color: 'text-green-500',
-    bg: 'from-green-500/20 to-green-900/40',
+    bg: 'from-green-500/10 to-green-900/20',
     icon: '📊'
   },
   {
@@ -26,8 +26,8 @@ const PERSONAS = [
     title: 'Ruthless Accountability',
     desc: "Direct, painful truths. Doesn't care about your feelings, only your results.",
     quote: "Work harder.",
-    color: 'text-red-500',
-    bg: 'from-red-500/20 to-red-900/40',
+    color: 'text-green-400',
+    bg: 'from-green-500/10 to-green-900/20',
     icon: '🔥'
   },
   {
@@ -36,8 +36,8 @@ const PERSONAS = [
     title: 'Calm & Long-Term',
     desc: "Unshakeable. Focuses on what you can control. Sees obstacles as the way.",
     quote: "The obstacle is the way.",
-    color: 'text-blue-400',
-    bg: 'from-blue-500/20 to-blue-900/40',
+    color: 'text-green-400',
+    bg: 'from-green-500/10 to-green-900/20',
     icon: '🗿'
   },
   {
@@ -46,8 +46,8 @@ const PERSONAS = [
     title: 'Unstoppable Energy',
     desc: "Pure enthusiasm and belief. Focuses on momentum, wins, and massive action.",
     quote: "LET'S GOOO!",
-    color: 'text-amber-400',
-    bg: 'from-amber-500/20 to-amber-900/40',
+    color: 'text-green-400',
+    bg: 'from-green-500/10 to-green-900/20',
     icon: '⚡'
   },
   {
@@ -56,8 +56,8 @@ const PERSONAS = [
     title: 'Vision & Systems',
     desc: "Sees the big picture. Focuses on leverage, trends, and 2nd order effects.",
     quote: "Checkmate.",
-    color: 'text-purple-400',
-    bg: 'from-purple-500/20 to-purple-900/40',
+    color: 'text-green-400',
+    bg: 'from-green-500/10 to-green-900/20',
     icon: '♟️'
   }
 ];

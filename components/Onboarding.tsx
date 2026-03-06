@@ -1,142 +1,147 @@
 import React, { useState } from 'react';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
-import { UserGoal, ScheduleConfig } from '../types';
+import { NotificationConfig } from '../types';
 import { requestNotificationPermission } from '../utils/notifications';
-import TacticalCoachView, { CoachMood } from './TacticalCoachView';
 
 interface OnboardingProps {
-    onComplete: (goals: UserGoal[], schedule: ScheduleConfig, priority?: string, startChallenge?: boolean, startWithWin?: boolean) => void;
+    onComplete: (notifConfig: NotificationConfig) => void;
 }
 
 const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
-    const [scene, setScene] = useState(0);
+    const [step, setStep] = useState(0);
+    const [morningTime, setMorningTime] = useState('08:00');
+    const [eveningTime, setEveningTime] = useState('21:00');
+    const [notifEnabled, setNotifEnabled] = useState(true);
+    const [animating, setAnimating] = useState(false);
 
-    // Data State
-    const [schedule, setSchedule] = useState<ScheduleConfig>({
-        enabled: true,
-        startTime: '09:00',
-        endTime: '17:00',
-        daysOfWeek: [0, 1, 2, 3, 4, 5, 6]
-    });
-    const [priority, setPriority] = useState("WIN THE DAY");
-    const [initials, setInitials] = useState("");
-
-    const scenes: { mood: CoachMood; text: string }[] = [
-        { mood: 'IDLE', text: "Welcome. I'm your Handler. My job is to keep you locked in and winning." },
-        { mood: 'ASKING', text: "Every 15 minutes, you log what you did. I grade it. Wins stack. Losses get flagged. You see exactly where your time goes." },
-        { mood: 'PROCESSING', text: "Over time, you'll see your patterns. What makes you productive. What drains you. No guesswork." },
-        { mood: 'IDLE', text: "When do you operate? Set your active hours and I'll only check in during that window." },
-        { mood: 'ASKING', text: "What are you working toward right now? I'll hold you accountable to this." },
-        { mood: 'STOIC', text: "Turn on notifications so I can check in when each block ends." },
-        { mood: 'IDLE', text: "One rule: log honestly. I'll handle the rest. Sign your initials to begin." },
+    const scenes = [
+        {
+            emoji: '⚔️',
+            title: 'Ready to win your day?',
+            subtitle: "Battle Plan helps you define what matters, execute, and track your discipline.",
+        },
+        {
+            emoji: '📋',
+            title: 'How it works',
+            subtitle: "Set a daily battle plan with your goal, 3 strategies, and a sacrifice. Check them off as you go. The AI tracks your progress and gives you a report.",
+        },
+        {
+            emoji: '🔔',
+            title: 'Stay accountable',
+            subtitle: "Set a morning reminder to create your plan and an evening reminder to review your day.",
+        },
+        {
+            emoji: '🚀',
+            title: "Let's go",
+            subtitle: "You're all set. Create your first battle plan and start winning.",
+        },
     ];
 
-    const { mood, text } = scenes[scene] || scenes[0];
-
-    const nextScene = () => {
+    const goNext = () => {
         try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
-        setScene(prev => Math.min(prev + 1, scenes.length - 1));
+        setAnimating(true);
+        setTimeout(() => {
+            setStep(prev => prev + 1);
+            setAnimating(false);
+        }, 200);
     };
 
     const handleFinish = () => {
         try { Haptics.notification({ type: NotificationType.Success }); } catch (e) { }
-        onComplete(['BUSINESS'], schedule, priority || "WIN THE DAY", true, false);
+        onComplete({
+            morningTime,
+            eveningTime,
+            enabled: notifEnabled,
+        });
     };
 
-    const renderContent = () => {
-        switch (scene) {
-            case 0:
-                return (
-                    <button onClick={nextScene} className="w-full py-4 bg-green-500 text-black font-black uppercase tracking-widest rounded-xl hover:bg-white transition-all">
-                        Get Started
-                    </button>
-                );
-            case 1:
-                return (
-                    <button onClick={nextScene} className="w-full py-4 bg-white/10 border border-white/20 text-white font-black uppercase tracking-widest rounded-xl hover:bg-white/20 transition-all">
-                        Got It
-                    </button>
-                );
-            case 2:
-                return (
-                    <button onClick={nextScene} className="w-full py-4 bg-white/10 border border-white/20 text-white font-black uppercase tracking-widest rounded-xl hover:bg-white/20 transition-all">
-                        Makes Sense
-                    </button>
-                );
-            case 3:
-                return (
-                    <div className="space-y-4">
-                        <div className="flex gap-4">
+    const handleEnableNotifications = async () => {
+        const granted = await requestNotificationPermission();
+        setNotifEnabled(granted);
+        goNext();
+    };
+
+    const current = scenes[step];
+    const isLast = step === scenes.length - 1;
+    const isNotifStep = step === 2;
+
+    const renderStepContent = () => {
+        if (isNotifStep) {
+            return (
+                <div className="space-y-5 w-full">
+                    <div className="flex gap-3">
+                        <div className="flex-1">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600 block mb-2">
+                                Morning
+                            </label>
                             <input
                                 type="time"
-                                value={schedule.startTime}
-                                onChange={(e) => setSchedule({ ...schedule, startTime: e.target.value })}
-                                className="flex-1 bg-black/50 text-white font-bold p-4 rounded-xl border border-green-500/30 focus:border-green-500 outline-none text-center"
-                            />
-                            <input
-                                type="time"
-                                value={schedule.endTime}
-                                onChange={(e) => setSchedule({ ...schedule, endTime: e.target.value })}
-                                className="flex-1 bg-black/50 text-white font-bold p-4 rounded-xl border border-green-500/30 focus:border-green-500 outline-none text-center"
+                                value={morningTime}
+                                onChange={e => setMorningTime(e.target.value)}
+                                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 font-bold p-4 rounded-xl outline-none text-center focus:border-green-500 transition-all"
                             />
                         </div>
-                        <button onClick={nextScene} className="w-full py-4 bg-green-500 text-black font-black uppercase tracking-widest rounded-xl hover:bg-white transition-all">
-                            Confirm Schedule
-                        </button>
+                        <div className="flex-1">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600 block mb-2">
+                                Evening
+                            </label>
+                            <input
+                                type="time"
+                                value={eveningTime}
+                                onChange={e => setEveningTime(e.target.value)}
+                                className="w-full bg-zinc-50 border border-zinc-200 text-zinc-900 font-bold p-4 rounded-xl outline-none text-center focus:border-green-500 transition-all"
+                            />
+                        </div>
                     </div>
-                );
-            case 4:
-                return (
-                    <div className="space-y-4">
-                        <textarea
-                            placeholder="e.g. Launch MVP, Close 3 Deals..."
-                            value={priority}
-                            onChange={(e) => setPriority(e.target.value)}
-                            className="w-full bg-black/50 text-white font-bold p-4 rounded-xl border border-green-500/30 focus:border-green-500 outline-none min-h-[100px]"
-                        />
-                        <button onClick={nextScene} disabled={!priority} className="w-full py-4 bg-green-500 text-black font-black uppercase tracking-widest rounded-xl hover:bg-white transition-all disabled:opacity-50">
-                            Set Objective
-                        </button>
-                    </div>
-                );
-            case 5:
-                return (
-                    <div className="space-y-3">
-                        <button onClick={async () => { await requestNotificationPermission(); nextScene(); }} className="w-full py-4 bg-green-500 text-black font-black uppercase tracking-widest rounded-xl hover:bg-white transition-all">
-                            Enable Notifications
-                        </button>
-                        <button onClick={nextScene} className="w-full py-3 text-white/40 text-xs font-black uppercase tracking-widest hover:text-white">
-                            Skip For Now
-                        </button>
-                    </div>
-                );
-            case 6:
-                return (
-                    <div className="space-y-4">
-                        <input
-                            type="text"
-                            placeholder="INTLS"
-                            value={initials}
-                            onChange={(e) => setInitials(e.target.value.toUpperCase().slice(0, 3))}
-                            className="w-full bg-black/50 text-white font-serif italic text-4xl p-4 border-b border-green-500 outline-none text-center"
-                        />
-                        <button onClick={handleFinish} disabled={!initials} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-green-500 transition-all disabled:opacity-50">
-                            Let's Go
-                        </button>
-                    </div>
-                );
-            default: return null;
+                    <button
+                        onClick={handleEnableNotifications}
+                        className="w-full py-4 bg-green-500 text-white font-black uppercase tracking-widest rounded-xl hover:bg-green-400 transition-all text-sm"
+                    >
+                        Enable Notifications
+                    </button>
+                    <button
+                        onClick={goNext}
+                        className="w-full py-3 text-zinc-400 text-xs font-bold uppercase tracking-widest hover:text-zinc-600"
+                    >
+                        Skip For Now
+                    </button>
+                </div>
+            );
         }
+
+        return (
+            <button
+                onClick={isLast ? handleFinish : goNext}
+                className="w-full py-4 bg-green-500 text-white font-black uppercase tracking-widest rounded-xl hover:bg-green-400 transition-all text-sm active:scale-[0.98]"
+            >
+                {isLast ? "Create My First Battle Plan" : step === 0 ? "Get Started" : "Got It"}
+            </button>
+        );
     };
 
     return (
-        <div className="fixed inset-0 z-[200]">
-            <TacticalCoachView
-                mood={mood}
-                message={text}
-            >
-                {renderContent()}
-            </TacticalCoachView>
+        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white px-8">
+            {/* Progress dots */}
+            <div className="absolute top-[calc(2rem+env(safe-area-inset-top))] left-0 right-0 flex justify-center gap-2">
+                {scenes.map((_, i) => (
+                    <div
+                        key={i}
+                        className={`w-2 h-2 rounded-full transition-all duration-500 ${i <= step ? 'bg-green-500 scale-110' : 'bg-zinc-200'
+                            }`}
+                    />
+                ))}
+            </div>
+
+            <div className={`flex flex-col items-center text-center max-w-sm transition-opacity duration-200 ${animating ? 'opacity-0' : 'opacity-100'}`}>
+                <span className="text-5xl mb-6">{current.emoji}</span>
+                <h1 className="text-2xl font-black text-zinc-900 mb-3 leading-tight">
+                    {current.title}
+                </h1>
+                <p className="text-sm text-zinc-500 mb-10 leading-relaxed">
+                    {current.subtitle}
+                </p>
+                {renderStepContent()}
+            </div>
         </div>
     );
 };

@@ -2,15 +2,13 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 
-// Incremented version to ensure channel settings (sound/vibration) are updated on user devices
-const CHANNEL_ID = 'quarterlog_timer_v4';
+const CHANNEL_ID = 'battleplan_daily_v1';
 
 export const checkNotificationPermission = async (): Promise<boolean> => {
   try {
     if (Capacitor.getPlatform() === 'web') {
       return Notification.permission === 'granted';
     }
-    // Native Check
     const status = await LocalNotifications.checkPermissions();
     return status.display === 'granted';
   } catch (e) {
@@ -21,16 +19,11 @@ export const checkNotificationPermission = async (): Promise<boolean> => {
 
 export const requestNotificationPermission = async (): Promise<boolean> => {
   try {
-    // Web Fallback: Use standard browser API
     if (Capacitor.getPlatform() === 'web') {
-      if (!('Notification' in window)) {
-        return false;
-      }
+      if (!('Notification' in window)) return false;
       const permission = await Notification.requestPermission();
       return permission === 'granted';
     }
-
-    // Native (Android/iOS): Use Capacitor Plugin
     const status = await LocalNotifications.requestPermissions();
     return status.display === 'granted';
   } catch (e) {
@@ -41,153 +34,91 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
 
 export const configureNotificationChannel = async () => {
   if (Capacitor.getPlatform() !== 'android') return;
-
   try {
-    // Create a high-importance channel to ensure "Heads-up" notifications
-    // Using 'beep.wav' - Ensure this file exists in android/app/src/main/res/raw/
     await LocalNotifications.createChannel({
       id: CHANNEL_ID,
-      name: 'IronLog Tactical',
-      description: 'Tactical alerts for the 15-minute cycle',
-      importance: 5, // 5 = High Importance (Heads-up notification + Sound + Vibration)
-      visibility: 1, // 1 = Public (Visible on lock screen)
-      sound: 'beep.wav', // Custom sound filename (without extension in some versions, but 'beep.wav' is safe for Capacitor)
+      name: 'Battle Plan Daily',
+      description: 'Morning and evening battle plan reminders',
+      importance: 4,
+      visibility: 1,
+      sound: 'beep.wav',
       vibration: true,
       lights: true,
-      lightColor: '#eab308'
+      lightColor: '#22c55e'
     });
   } catch (e) {
     console.error("Failed to create notification channel", e);
   }
 };
 
-export const registerNotificationActions = async () => {
-  if (Capacitor.getPlatform() === 'web') return;
-
+export const cancelAllNotifications = async () => {
   try {
-    await LocalNotifications.registerActionTypes({
-      types: [
-        {
-          id: 'LOG_ACTIVITY',
-          actions: [
-            {
-              id: 'log_input',
-              title: 'Log Status',
-              input: true,
-              inputPlaceholder: 'Brief status report...',
-              inputButtonTitle: 'Send'
-            },
-            {
-              id: 'OPEN_APP',
-              title: 'Open App',
-              foreground: true
-            }
-          ]
-        }
-      ]
-    });
-  } catch (e) {
-    console.error("Failed to register actions", e);
-  }
+    if (Capacitor.getPlatform() === 'web') return;
+    await LocalNotifications.cancel({ notifications: [{ id: 10 }, { id: 11 }] });
+  } catch (e) { }
 };
 
-export const scheduleNotification = async (title: string, body: string, delayMs: number) => {
-  try {
-    // Web Fallback: Use setTimeout + Notification API
-    if (Capacitor.getPlatform() === 'web') {
-      if (Notification.permission === 'granted') {
-        setTimeout(() => {
-          new Notification(title, { 
-            body,
-            icon: 'https://i.imgur.com/HEBJbFC.png' // Use remote icon
-          });
-        }, delayMs);
-      }
-      return;
-    }
+const getNextOccurrence = (timeStr: string): Date => {
+  const [h, m] = timeStr.split(':').map(Number);
+  const now = new Date();
+  const target = new Date();
+  target.setHours(h, m, 0, 0);
+  if (target.getTime() <= now.getTime()) {
+    target.setDate(target.getDate() + 1);
+  }
+  return target;
+};
 
-    // Native Logic: Schedule OS Alarm
-    // Cancel any existing notification to ensure we only have one active timer
-    await cancelNotification();
-    
+export const scheduleMorningNotification = async (time: string) => {
+  try {
+    if (Capacitor.getPlatform() === 'web') return;
+
+    await LocalNotifications.cancel({ notifications: [{ id: 10 }] });
+
+    const at = getNextOccurrence(time);
     await LocalNotifications.schedule({
-      notifications: [
-        {
-          title,
-          body,
-          id: 1, // Fixed ID allows us to easily cancel/update the specific timer notification
-          schedule: { at: new Date(Date.now() + delayMs) },
-          sound: 'beep.wav', // Explicitly request the custom sound
-          smallIcon: 'ic_stat_status_bar_logo', // Ensure this matches capacitor.config
-          channelId: CHANNEL_ID, // Use the high-priority channel
-          actionTypeId: 'LOG_ACTIVITY',
-          extra: null,
-          ongoing: true,
-          autoCancel: false
-        }
-      ]
+      notifications: [{
+        title: "Time to set your Battle Plan",
+        body: "Define your North Star, strategies, and sacrifice for today.",
+        id: 10,
+        schedule: {
+          at,
+          every: 'day',
+          allowWhileIdle: true
+        },
+        sound: 'beep.wav',
+        smallIcon: 'ic_stat_status_bar_logo',
+        channelId: CHANNEL_ID,
+      }]
     });
   } catch (e) {
-    console.error("Failed to schedule notification", e);
+    console.error("Failed to schedule morning notification", e);
   }
 };
 
-export const cancelNotification = async () => {
+export const scheduleEveningNotification = async (time: string) => {
   try {
-    if (Capacitor.getPlatform() === 'web') {
-      return;
-    }
-    await LocalNotifications.cancel({ notifications: [{ id: 1 }] });
-  } catch (e) {
-    // Ignore error if nothing to cancel
-  }
-};
+    if (Capacitor.getPlatform() === 'web') return;
 
-export const sendNotification = async (title: string, body: string, isTest: boolean = false) => {
-  // Use a very short delay for immediate notifications to ensure execution order
-  return scheduleNotification(title, body, 100); 
-};
+    await LocalNotifications.cancel({ notifications: [{ id: 11 }] });
 
-export const sendReportNotification = async (title: string, body: string) => {
-  try {
+    const at = getNextOccurrence(time);
     await LocalNotifications.schedule({
-      notifications: [
-        {
-          title,
-          body,
-          id: 3, // Unique ID for Reports
-          schedule: { at: new Date(Date.now() + 100) },
-          sound: 'beep.wav',
-          smallIcon: 'ic_stat_status_bar_logo',
-          channelId: CHANNEL_ID,
-          actionTypeId: '', // No actions, just click
-          extra: { type: 'AI_REPORT' } // identifying data
-        }
-      ]
+      notifications: [{
+        title: "Battle Report Ready",
+        body: "Check in and see how you did today.",
+        id: 11,
+        schedule: {
+          at,
+          every: 'day',
+          allowWhileIdle: true
+        },
+        sound: 'beep.wav',
+        smallIcon: 'ic_stat_status_bar_logo',
+        channelId: CHANNEL_ID,
+      }]
     });
   } catch (e) {
-    console.error("Failed to send report notification", e);
-  }
-};
-
-export const sendFeedbackNotification = async (message: string) => {
-  try {
-    await LocalNotifications.schedule({
-      notifications: [
-        {
-          title: "Tactical Update",
-          body: message,
-          id: 4, // Unique ID for Instant Feedback
-          schedule: { at: new Date(Date.now() + 100) },
-          sound: 'beep.wav',
-          smallIcon: 'ic_stat_status_bar_logo',
-          channelId: CHANNEL_ID,
-          actionTypeId: '', 
-          extra: { type: 'AI_FEEDBACK' } 
-        }
-      ]
-    });
-  } catch (e) {
-    console.error("Failed to send feedback notification", e);
+    console.error("Failed to schedule evening notification", e);
   }
 };
