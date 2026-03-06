@@ -28,7 +28,7 @@ const CycleReflectionOverlay: React.FC<CycleReflectionOverlayProps> = ({
     cycleDuration
 }) => {
     const [logText, setLogText] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState<LogCategory>('MAKER');
+    const [selectedCategory, setSelectedCategory] = useState<LogCategory>('DEEP WORK');
     const [coachMood, setCoachMood] = useState<CoachMood>('ASKING');
     const [coachMessage, setCoachMessage] = useState("Report status. What did you execute?");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,13 +105,13 @@ const CycleReflectionOverlay: React.FC<CycleReflectionOverlayProps> = ({
             <div className={`absolute bottom-6 right-6 left-28 z-50 transition-all duration-500 ${isSubmitting ? 'opacity-0 translate-y-10' : 'opacity-100 translate-y-0'}`}>
                 <div className={`p-4 rounded-xl shadow-2xl border backdrop-blur-md ${isDark ? 'bg-zinc-900/90 border-zinc-800' : 'bg-white/90 border-zinc-200'}`}>
                     <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide">
-                        {(['MAKER', 'MANAGER', 'R&D', 'FUEL', 'RECOVERY', 'BURN', 'OTHER'] as LogCategory[]).map(cat => (
+                        {(['DEEP WORK', 'MEETINGS', 'RESEARCH', 'BREAK', 'EXERCISE', 'ADMIN', 'BURN'] as LogCategory[]).map(cat => (
                             <button
                                 key={cat}
                                 onClick={() => { setSelectedCategory(cat); try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { } }}
                                 className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border ${selectedCategory === cat
-                                        ? (isDark ? 'bg-white text-black border-white' : 'bg-zinc-900 text-white border-zinc-900')
-                                        : (isDark ? 'bg-zinc-800/50 text-zinc-400 border-transparent hover:bg-zinc-800' : 'bg-zinc-100/50 text-zinc-500 border-transparent hover:bg-zinc-200')
+                                    ? (isDark ? 'bg-white text-black border-white' : 'bg-zinc-900 text-white border-zinc-900')
+                                    : (isDark ? 'bg-zinc-800/50 text-zinc-400 border-transparent hover:bg-zinc-800' : 'bg-zinc-100/50 text-zinc-500 border-transparent hover:bg-zinc-200')
                                     }`}
                             >
                                 {cat}
@@ -133,8 +133,8 @@ const CycleReflectionOverlay: React.FC<CycleReflectionOverlayProps> = ({
                             onClick={handleSubmit}
                             disabled={!logText.trim()}
                             className={`px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all ${logText.trim()
-                                    ? 'bg-green-500 text-black hover:bg-green-400 shadow-[0_0_10px_rgba(34,197,94,0.4)]'
-                                    : (isDark ? 'bg-zinc-800 text-zinc-600' : 'bg-zinc-200 text-zinc-400')
+                                ? 'bg-green-500 text-black hover:bg-green-400 shadow-[0_0_10px_rgba(34,197,94,0.4)]'
+                                : (isDark ? 'bg-zinc-800 text-zinc-600' : 'bg-zinc-200 text-zinc-400')
                                 }`}
                         >
                             Log

@@ -592,7 +592,7 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
                         <div className="absolute top-0 right-3 bottom-0 left-[64px] pointer-events-none z-30">
                             {dateLogs.map((log, index) => {
                                 const endMs = log.timestamp;
-                                const startMs = endMs - log.duration;
+                                const startMs = endMs - (log.duration || cycleDuration);
 
                                 const startY = getOffsetPx(startMs);
                                 const endY = getOffsetPx(endMs);
@@ -601,13 +601,13 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
 
                                 // Handling overlapping nicely
                                 const overlappingLogs = dateLogs.filter((other, j) => {
-                                    return j < index && ((other.timestamp > startMs && other.timestamp - other.duration < endMs));
+                                    return j < index && ((other.timestamp > startMs && other.timestamp - (other.duration || cycleDuration) < endMs));
                                 });
                                 const overlapLevel = Math.min(overlappingLogs.length, 3);
 
                                 const leftMargin = overlapLevel * 10;
 
-                                const bgClass = CATEGORY_DOT[log.category] || 'bg-zinc-500';
+                                const bgClass = log.category ? (CATEGORY_DOT[log.category] || 'bg-zinc-500') : 'bg-zinc-500';
 
                                 return (
                                     <div
