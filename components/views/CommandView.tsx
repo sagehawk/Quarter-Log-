@@ -25,14 +25,51 @@ interface CommandViewProps {
     onNavigateToIntel: () => void;
     dayPlan: DayPlan | null;
     onPlanUpdate: (plan: DayPlan) => void;
+    onIntegrityLog?: (did: string) => void;
 }
 
 const CommandView: React.FC<CommandViewProps> = ({
     status, timeLeft, schedule, blockStats, onToggleTimer, onManualEntry, theme,
     strategicPriority, isEditingPriority, priorityInput, onPriorityEditStart, onPriorityInputChange, onPrioritySave,
-    priorityAnimation, onWeeklyDebrief, recentLogs, onNavigateToIntel, dayPlan, onPlanUpdate
+    priorityAnimation, onWeeklyDebrief, recentLogs, onNavigateToIntel, dayPlan, onPlanUpdate, onIntegrityLog
 }) => {
     const isDark = theme === 'dark';
+
+    const [intention, setIntention] = useState(() => localStorage.getItem('ironlog_intention') || '');
+    const [integrityStep, setIntegrityStep] = useState<0 | 1 | 2>(0);
+    const [didInput, setDidInput] = useState('');
+    const [willDoInput, setWillDoInput] = useState('');
+
+    const textInputRef = useRef<HTMLInputElement>(null);
+
+    const handleStartIntegrity = () => {
+        try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+        setIntegrityStep(1);
+        setTimeout(() => textInputRef.current?.focus(), 50);
+    };
+
+    const handleDidSubmit = () => {
+        if (!didInput.trim()) return;
+        try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
+        setIntegrityStep(2);
+        setTimeout(() => textInputRef.current?.focus(), 50);
+    };
+
+    const handleWillDoSubmit = () => {
+        if (!willDoInput.trim()) return;
+
+        const newIntention = willDoInput.trim();
+        localStorage.setItem('ironlog_intention', newIntention);
+        setIntention(newIntention);
+
+        if (onIntegrityLog) {
+            onIntegrityLog(didInput.trim());
+        }
+
+        setDidInput('');
+        setWillDoInput('');
+        setIntegrityStep(0);
+    };
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -93,40 +130,91 @@ const CommandView: React.FC<CommandViewProps> = ({
                 strategicPriority={strategicPriority}
             />
 
-            {/* Timer Card */}
-            <section id="status-card">
-                <StatusCard
-                    isActive={status === AppStatus.RUNNING}
-                    timeLeft={timeLeft}
-                    schedule={schedule}
-                    blockStats={blockStats}
-                    onToggle={onToggleTimer}
-                    onManualEntry={onManualEntry}
-                    theme={theme}
-                />
-            </section>
+            {/* Timer Card Removed */}
 
-            {/* Quick Actions (Weekly Review) */}
-            <div className="flex items-center justify-center gap-4 mt-8">
-                <button
-                    onClick={onWeeklyDebrief}
-                    className={`flex items-center gap-2 px-6 py-4 rounded-3xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 ${isDark ? 'bg-zinc-900 text-zinc-500 hover:text-white hover:bg-zinc-800' : 'bg-zinc-100 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200'}`}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    Weekly Review
-                </button>
 
-                <button
-                    id="manual-entry-btn"
-                    onClick={() => {
-                        try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { }
-                        onManualEntry();
-                    }}
-                    className={`flex items-center gap-2 px-6 py-4 rounded-3xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 ${isDark ? 'bg-zinc-800 text-white hover:bg-zinc-700' : 'bg-white text-zinc-900 border border-zinc-100'}`}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                    Log Now
-                </button>
+            {/* Integrity Logging Loop */}
+            <div className={`mt-8 border rounded-3xl p-6 transition-all ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200 shadow-sm'}`}>
+                {integrityStep === 0 ? (
+                    <div className="flex flex-col items-center gap-4 text-center">
+                        <div className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                            {intention ? "ACTIVE PROTOCOL" : "AWAITING ORDERS"}
+                        </div>
+                        {intention && (
+                            <div className={`text-xl font-bold italic ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                                "{intention}"
+                            </div>
+                        )}
+                        <div className="flex items-center justify-center gap-4 mt-2 w-full">
+                            <button
+                                onClick={onWeeklyDebrief}
+                                className={`flex-1 flex justify-center items-center gap-2 px-4 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 ${isDark ? 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200'}`}
+                            >
+                                Review
+                            </button>
+
+                            <button
+                                onClick={handleStartIntegrity}
+                                className={`flex-[2] flex justify-center items-center gap-2 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg ${isDark ? 'bg-green-500 text-black shadow-green-500/20 hover:bg-green-400' : 'bg-zinc-900 text-white shadow-zinc-900/20 hover:bg-zinc-800'}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                Log Block
+                            </button>
+                        </div>
+                    </div>
+                ) : integrityStep === 1 ? (
+                    <div className="animate-fade-in flex flex-col gap-4">
+                        <div className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-green-500' : 'text-green-600'}`}>
+                            INTEGRITY CHECK
+                        </div>
+                        <div className={`text-xl font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                            {intention ? (
+                                <>You said you would: <span className="opacity-50 line-through">"{intention}"</span><br />What did you actually do?</>
+                            ) : "What did you do?"}
+                        </div>
+                        <input
+                            ref={textInputRef}
+                            type="text"
+                            value={didInput}
+                            onChange={(e) => setDidInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleDidSubmit(); }}
+                            placeholder="Enter reality..."
+                            className={`w-full bg-transparent border-b-2 text-lg py-2 outline-none transition-colors ${isDark ? 'border-zinc-700 focus:border-green-500 text-white placeholder:text-zinc-600' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900 placeholder:text-zinc-400'}`}
+                        />
+                        <button
+                            onClick={handleDidSubmit}
+                            disabled={!didInput.trim()}
+                            className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${didInput.trim() ? (isDark ? 'bg-white text-black' : 'bg-black text-white') : (isDark ? 'bg-zinc-800 text-zinc-500' : 'bg-zinc-200 text-zinc-400')}`}
+                        >
+                            Confirm Reality
+                        </button>
+                    </div>
+                ) : (
+                    <div className="animate-fade-in flex flex-col gap-4">
+                        <div className={`text-xs font-black uppercase tracking-widest ${isDark ? 'text-blue-500' : 'text-blue-600'}`}>
+                            NEXT PROTOCOL
+                        </div>
+                        <div className={`text-xl font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                            What will you do next?
+                        </div>
+                        <input
+                            ref={textInputRef}
+                            type="text"
+                            value={willDoInput}
+                            onChange={(e) => setWillDoInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleWillDoSubmit(); }}
+                            placeholder="Set intention..."
+                            className={`w-full bg-transparent border-b-2 text-lg py-2 outline-none transition-colors ${isDark ? 'border-zinc-700 focus:border-blue-500 text-white placeholder:text-zinc-600' : 'border-zinc-300 focus:border-zinc-900 text-zinc-900 placeholder:text-zinc-400'}`}
+                        />
+                        <button
+                            onClick={handleWillDoSubmit}
+                            disabled={!willDoInput.trim()}
+                            className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all ${willDoInput.trim() ? (isDark ? 'bg-blue-500 text-white' : 'bg-zinc-900 text-white') : (isDark ? 'bg-zinc-800 text-zinc-500' : 'bg-zinc-200 text-zinc-400')}`}
+                        >
+                            Commit Intention
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Recent Logs Section */}

@@ -229,14 +229,16 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
         return map;
     }, [plan, todayKey]);
 
-    // Match logs to slots
-    const logMatchMap = useMemo(() => {
-        const map: Record<string, LogEntry | null> = {};
-        const dateLogs = logs.filter(l => {
+    const dateLogs = useMemo(() => {
+        return logs.filter(l => {
             const d = new Date(l.timestamp);
             return d.toISOString().split('T')[0] === todayKey;
         });
+    }, [logs, todayKey]);
 
+    // Match logs to slots
+    const logMatchMap = useMemo(() => {
+        const map: Record<string, LogEntry | null> = {};
         const intervalMin = Math.floor(cycleDuration / 60000);
 
         slots.forEach(slot => {
@@ -252,7 +254,27 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
             map[slot] = match || null;
         });
         return map;
-    }, [logs, slots, todayKey, viewDate, cycleDuration]);
+    }, [dateLogs, slots, viewDate, cycleDuration]);
+
+    const getOffsetPx = (timeMs: number) => {
+        if (!slots.length) return 0;
+        const startSlotMs = getSlotTimestamp(slots[0]);
+        const cycleDurationMin = cycleDuration / 60000;
+        const minutesOffset = (timeMs - startSlotMs) / 60000;
+
+        let y = 8; // py-2 top padding
+        y += (minutesOffset / cycleDurationMin) * 48; // h-12 per cycle
+
+        // Add next day divider height
+        const nextDaySlotIndex = slots.findIndex((s, i) => i > 0 && s < slots[i - 1]);
+        if (nextDaySlotIndex !== -1) {
+            const nextDayStartMs = getSlotTimestamp(slots[nextDaySlotIndex]);
+            if (timeMs >= nextDayStartMs) {
+                y += 32; // h-8 divider
+            }
+        }
+        return y;
+    };
 
     // Adherence calculation (Updated to 100% / Total Slots)
     const adherence = useMemo(() => {
@@ -441,7 +463,6 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
                                     );
                                 })}
                             </div>
-                            <div className={`w-px h-3 ${isDark ? 'bg-zinc-800' : 'bg-zinc-300'}`} />
                             <span className={`text-[10px] font-mono font-bold ${plan?.constraintViolated
                                 ? 'text-red-500 animate-pulse shadow-red-500/50 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]'
                                 : (isDark ? 'text-zinc-600' : 'text-zinc-400')
@@ -457,44 +478,25 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
                     {/* Continuous Timeline Line */}
                     <div className={`absolute left-[60px] top-0 bottom-0 w-px ${isDark ? 'bg-zinc-800' : 'bg-zinc-200'}`} />
 
-                    <div className="py-2 space-y-0.5">
+                    <div className="py-2 relative">
                         {slots.map((slot, i) => {
                             const block = blockMap[slot];
-                            const log = logMatchMap[slot];
                             const isCurrent = isToday && slot === currentSlot;
-
-                            const nowSlotIdx = slots.indexOf(currentSlot);
-                            const thisSlotIdx = i;
-                            const isPast = isToday ? (thisSlotIdx < nowSlotIdx) : (new Date(todayKey) < new Date());
-
-                            const showHourLabel = i === 0 || slot.endsWith(':00');
-
-                            let status: 'upcoming' | 'active' | 'win' | 'loss' | 'missed' | 'empty' = 'upcoming';
-                            if (isCurrent) status = 'active';
-                            else if (isPast && log?.type === 'WIN') status = 'win';
-                            else if (isPast && log?.type === 'LOSS') status = 'loss';
-                            else if (isPast && block && !log) status = 'missed';
-                            else if (isPast) status = 'empty';
-
-                            // Yellow State Logic: Removed (User Request)
-                            // const isYellowState = (isPast || isCurrent) && block && !log;
-
                             const isSelected = selectedSlots.has(slot);
-
-                            // Check for Day Break (rollover from 23:xx to 00:xx)
+                            const showHourLabel = i === 0 || slot.endsWith(':00');
                             const isNextDay = i > 0 && slot < slots[i - 1];
 
                             return (
                                 <React.Fragment key={slot}>
                                     {isNextDay && (
-                                        <div className="flex items-center gap-4 py-4 opacity-50">
+                                        <div className="flex items-center gap-4 h-8 opacity-50 relative z-30">
                                             <div className="w-12 text-right text-[10px] font-bold tracking-wider text-zinc-500">NEXT DAY</div>
                                             <div className="flex-1 h-px bg-zinc-500/20 border-t border-dashed border-zinc-500/50"></div>
                                         </div>
                                     )}
                                     <div
                                         ref={i === firstEmptySlotIndex ? firstEmptyRef : (isCurrent ? currentSlotRef : undefined)}
-                                        className={`flex items-start gap-0 relative group rounded-r-xl pr-0 transition-all ${isSelected
+                                        className={`h-12 flex items-start gap-0 relative group rounded-r-xl pr-0 transition-all ${isSelected
                                             ? (isDark ? 'bg-green-500/20' : 'bg-green-100')
                                             : isCurrent
                                                 ? 'bg-transparent'
@@ -504,135 +506,80 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
                                             handleSlotClickInternal(slot, block);
                                         }}
                                     >
-                                        {/* Horizontal Grid Line (Notebook Style) */}
                                         <div className={`absolute bottom-0 left-[48px] right-0 h-px ${isDark ? 'bg-zinc-800' : 'bg-zinc-200'}`} />
 
-                                        {/* Real-time Current Indicator (Google Cal Style) - Moved to Container Scope */}
                                         {isCurrent && (
                                             <div
                                                 className="absolute left-[60px] right-0 z-50 flex items-center pointer-events-none"
                                                 style={{
                                                     top: `${((now.getTime() % cycleDuration) / cycleDuration) * 100}%`,
-                                                    transform: 'translateY(-50%)' // Center vertically on the exact time
+                                                    transform: 'translateY(-50%)'
                                                 }}
                                             >
-                                                {/* Left Dot (Centered on Axis) */}
                                                 <div className="absolute left-0 -translate-x-1/2 w-3 h-3 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-
-                                                {/* Horizontal Line */}
                                                 <div className="h-[2px] w-full bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.4)]" />
                                             </div>
                                         )}
 
-                                        {/* Time Column */}
-                                        <div className={`w-14 flex-shrink-0 text-right pr-2 -mt-2.5 z-20 whitespace-nowrap ${showHourLabel
+                                        <div className={`w-14 flex-shrink-0 text-right pr-2 -mt-[9px] z-20 whitespace-nowrap ${showHourLabel
                                             ? `font-bold uppercase tracking-wider text-[11px] ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`
                                             : `text-[10px] font-mono ${isDark ? 'text-zinc-700 group-hover:text-zinc-500' : 'text-zinc-400 group-hover:text-zinc-500'}`
                                             }`}>
                                             {showHourLabel ? formatTime(slot) : slot.split(':')[1]}
                                         </div>
 
-                                        {/* Timeline Node - Removed for flush fit */}
-                                        {/* <div className="relative z-10 flex items-center justify-center w-2.5 h-2.5 flex-shrink-0" /> */}
+                                        <div className="flex-1 h-12 flex items-center relative py-1 pl-1 pr-1">
+                                            <div className="w-full h-full relative z-10">
+                                                {block && (() => {
+                                                    const isFuture = !isToday || (slots.indexOf(slot) >= slots.indexOf(currentSlot));
 
-                                        {/* Content Slot - Left Padding ensures start at 60px line */}
-                                        <div className="flex-1 min-h-[36px] flex items-center relative py-0.5 pl-1">
-                                            <div className="w-full pl-0 h-full">
-                                                {(() => {
-                                                    // Determine Background Color & Styles
-                                                    let bgColor = 'bg-transparent';
-                                                    let textColor = isDark ? 'text-zinc-400' : 'text-zinc-500';
+                                                    // Make completed blocks semi-transparent as the actual log will sit on top!
+                                                    const isCompleted = logMatchMap[slot];
 
-                                                    if (block && log) {
-                                                        // Verified Plan: Solid Category Color
-                                                        bgColor = CATEGORY_DOT[block.category] || 'bg-zinc-500';
-                                                        textColor = 'text-white';
-                                                    } else if (block) {
-                                                        // Planned Future: Tinted + Border (Outline Effect)
-                                                        bgColor = CATEGORY_COLORS[block.category] || 'bg-zinc-500/20 border-zinc-500/30 text-zinc-400';
-                                                        // Yellow State logic removed
-                                                        // if (!isYellowState) textColor = '';
-                                                    } else if (log) {
-                                                        // Ad-hoc Log: Solid Category Color
-                                                        bgColor = CATEGORY_DOT[log.category || 'ADMIN'] || 'bg-zinc-500';
-                                                        textColor = 'text-white';
-                                                    }
+                                                    const bgClass = CATEGORY_COLORS[block.category] || 'bg-zinc-500/20 text-zinc-400';
 
-                                                    const containerClasses = `w-full h-full rounded-md px-2 flex items-center justify-between transition-all relative overflow-hidden border border-l-0 ${bgColor} ${block || log ? 'shadow-sm' : 'border-transparent'} ${isSelected ? 'ring-2 ring-offset-1 ring-blue-500 ring-offset-transparent' : ''}`;
+                                                    const containerClasses = `w-full h-full rounded-md px-2 flex items-center justify-between transition-all relative overflow-hidden border border-l-0 border-zinc-500/30 ${bgClass} shadow-sm ${isSelected ? 'ring-2 ring-offset-1 ring-blue-500 ring-offset-transparent' : ''} ${isCompleted ? 'opacity-30' : ''}`;
 
-                                                    if (block && log) {
-                                                        return (
-                                                            <div className={containerClasses}>
-                                                                <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-green-500 z-10" />
-                                                                <div className="flex flex-col leading-none py-1 pl-2">
-                                                                    <span className={`text-[10px] font-bold uppercase tracking-wider text-white/70`}>{block.category}</span>
-                                                                    <span className={`text-xs font-bold text-white`}>{log.text}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    {log.type === 'WIN' && <span className="text-[10px] font-black italic text-white/90">+{Math.round(100 / slots.length)}%</span>}
-                                                                    {log.pillarsMatches?.map(pIdx => (
-                                                                        <div key={pIdx} className="w-3.5 h-3.5 rounded-full bg-white text-blue-600 flex items-center justify-center shadow-sm">
-                                                                            <span className="text-[8px] font-bold relative top-[0.5px]">{pIdx}</span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
+                                                    return (
+                                                        <div className={containerClasses}>
+                                                            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-green-500 z-10" />
+                                                            <div className="flex flex-col leading-none py-1 pl-2">
+                                                                <span className={`text-[10px] font-bold uppercase tracking-wider opacity-70`}>{block.category}</span>
+                                                                <span className={`text-xs font-bold truncate pr-4`}>{block.label}</span>
                                                             </div>
-                                                        );
-                                                    } else if (block) {
-                                                        const isFuture = !isPast && !isCurrent;
-                                                        return (
-                                                            <div className={containerClasses}>
-                                                                <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-green-500 z-10" />
-                                                                <div className="flex flex-col leading-none py-1 pl-2">
-                                                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${textColor} opacity-70`}>{block.category}</span>
-                                                                    <span className={`text-xs font-bold ${textColor}`}>{block.label}</span>
-                                                                </div>
 
-                                                                <div className="flex items-center gap-1 pr-2 relative z-20">
-                                                                    {/* Present/Past: Verify Button */}
-                                                                    {!isFuture && (
-                                                                        <button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                try { Haptics.notification({ type: NotificationType.Success }); } catch (e) { }
-                                                                                if (onPlanVerify) {
-                                                                                    onPlanVerify(block.label, 'WIN', cycleDuration, block.category, getSlotTimestamp(slot));
-                                                                                }
-                                                                            }}
-                                                                            className={`p-1.5 rounded-md hover:bg-green-500 hover:text-white transition-colors text-green-500`}
-                                                                        >
-                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                                                        </button>
-                                                                    )}
-
-                                                                    {/* Always: Delete Button */}
+                                                            <div className="flex items-center gap-1 pr-2 relative z-20">
+                                                                {!isFuture && !isCompleted && (
                                                                     <button
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
-                                                                            if (plan && onPlanUpdate) {
-                                                                                const newBlocks = plan.blocks.filter(b => b.id !== block.id);
-                                                                                onPlanUpdate({ ...plan, blocks: newBlocks });
+                                                                            try { Haptics.notification({ type: NotificationType.Success }); } catch (e) { }
+                                                                            if (onPlanVerify) {
+                                                                                onPlanVerify(block.label, 'WIN', cycleDuration, block.category, getSlotTimestamp(slot) + cycleDuration);
                                                                             }
                                                                         }}
-                                                                        className={`p-1.5 rounded-md hover:bg-red-500 hover:text-white transition-colors text-zinc-500`}
+                                                                        className={`p-1.5 rounded-md hover:bg-green-500 hover:text-white transition-colors text-green-500`}
                                                                     >
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                                                     </button>
-                                                                </div>
+                                                                )}
+
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        try { Haptics.impact({ style: ImpactStyle.Medium }); } catch (e) { }
+                                                                        if (plan && onPlanUpdate) {
+                                                                            const newBlocks = plan.blocks.filter(b => b.id !== block.id);
+                                                                            onPlanUpdate({ ...plan, blocks: newBlocks });
+                                                                        }
+                                                                    }}
+                                                                    className={`p-1.5 rounded-md hover:bg-red-500 hover:text-white transition-colors text-zinc-500`}
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                                </button>
                                                             </div>
-                                                        );
-                                                    } else if (log) {
-                                                        return (
-                                                            <div className={containerClasses}>
-                                                                <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-green-500 z-10" />
-                                                                <span className={`text-xs font-bold text-white py-1 pl-2`}>{log.text}</span>
-                                                                <span className="text-[10px] font-black italic text-white/90">0%</span>
-                                                            </div>
-                                                        );
-                                                    } else {
-                                                        return <div className="h-full w-full flex items-center"></div>;
-                                                    }
+                                                        </div>
+                                                    );
                                                 })()}
                                             </div>
                                         </div>
@@ -640,6 +587,64 @@ const DayPlanner: React.FC<DayPlannerProps> = ({ schedule, logs, plan, onPlanUpd
                                 </React.Fragment>
                             );
                         })}
+
+                        {/* Exact Timing Overlays */}
+                        <div className="absolute top-0 right-3 bottom-0 left-[64px] pointer-events-none z-30">
+                            {dateLogs.map((log, index) => {
+                                const endMs = log.timestamp;
+                                const startMs = endMs - log.duration;
+
+                                const startY = getOffsetPx(startMs);
+                                const endY = getOffsetPx(endMs);
+
+                                const height = Math.max(endY - startY, 12);
+
+                                // Handling overlapping nicely
+                                const overlappingLogs = dateLogs.filter((other, j) => {
+                                    return j < index && ((other.timestamp > startMs && other.timestamp - other.duration < endMs));
+                                });
+                                const overlapLevel = Math.min(overlappingLogs.length, 3);
+
+                                const leftMargin = overlapLevel * 10;
+
+                                const bgClass = CATEGORY_DOT[log.category] || 'bg-zinc-500';
+
+                                return (
+                                    <div
+                                        key={log.id}
+                                        className={`absolute rounded-l-none rounded-r-lg shadow-xl overflow-hidden flex flex-col justify-center px-2 py-0.5 transition-all text-white border border-black/10`}
+                                        style={{
+                                            top: startY,
+                                            height: height,
+                                            left: leftMargin,
+                                            right: 0,
+                                            zIndex: 40 + overlapLevel,
+                                            pointerEvents: 'auto',
+                                            backgroundColor: 'rgba(0,0,0,0.4)',
+                                            backdropFilter: 'blur(12px)',
+                                        }}
+                                    >
+                                        <div className={`absolute top-0 left-0 bottom-0 w-1 ${bgClass}`} />
+                                        <div className={`absolute top-0 right-0 bottom-0 left-0 opacity-40 ${bgClass}`} />
+
+                                        <div className="relative z-10 flex flex-col pl-2">
+                                            {height >= 32 && <span className="text-[9px] font-black opacity-60 uppercase tracking-widest">{log.category}</span>}
+                                            <span className="text-xs font-bold leading-tight truncate drop-shadow-md">{log.text}</span>
+                                        </div>
+
+                                        {/* Status Indicators */}
+                                        <div className="absolute top-1 right-2 flex items-center gap-1.5 opacity-80">
+                                            {log.type === 'WIN' && <span className="text-[10px] font-black italic drop-shadow-md">+{Math.round(100 / slots.length)}%</span>}
+                                            {log.pillarsMatches?.map(pIdx => (
+                                                <div key={pIdx} className="w-3.5 h-3.5 rounded-full bg-white/90 text-blue-600 flex items-center justify-center shadow-sm">
+                                                    <span className="text-[8px] font-bold relative top-[0.5px]">{pIdx}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             </div>

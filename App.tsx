@@ -507,8 +507,8 @@ const App: React.FC = () => {
                 } else {
                     endTimeRef.current = null;
                     localStorage.removeItem(STORAGE_KEY_TIMER_TARGET);
-                    setStatus(AppStatus.WAITING_FOR_INPUT);
-                    setIsEntryModalOpen(true);
+                    // On init, if timer expired, start the next cycle smoothly.
+                    startTimerRef.current?.();
                 }
             }
 
@@ -700,10 +700,7 @@ const App: React.FC = () => {
 
         // Start next cycle immediately
         startTimerRef.current?.();
-
-        // Redirect to Manual Log
-        handleManualLogStart();
-    }, [handleManualLogStart]);
+    }, []);
 
     const scheduleNativeAutoStart = useCallback(async () => {
         if (!schedule.enabled) {
@@ -801,7 +798,7 @@ const App: React.FC = () => {
         } else {
             handleTimerComplete();
         }
-    }, [tickLogic, getBlockStats, cycleDuration, handleTimerComplete]);
+    }, [tickLogic, cycleDuration, handleTimerComplete]);
 
     useEffect(() => {
         startTimerRef.current = startTimer;
@@ -1383,8 +1380,7 @@ const App: React.FC = () => {
             if (notification.actionId === 'log_input' && notification.inputValue) {
                 handleLogSave(notification.inputValue, cycleDuration, logs, undefined, undefined, true);
             } else {
-                setIsEntryModalOpen(true);
-                setIsManualEntry(false);
+                handleManualLogStart();
             }
         });
 
@@ -1608,6 +1604,20 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {status !== AppStatus.IDLE && (
+                            <button
+                                onClick={handleToggleTimer}
+                                className={`flex items-center gap-2 px-3 h-10 rounded-xl border transition-all ${isDark ? 'bg-zinc-900/50 hover:bg-zinc-800 border-white/5' : 'bg-white hover:bg-zinc-100 border-zinc-200'}`}
+                            >
+                                <div className={`relative flex items-center justify-center w-2 h-2`}>
+                                    <div className={`absolute w-full h-full rounded-full ${status === AppStatus.RUNNING ? 'bg-green-500 animate-ping opacity-75' : 'bg-red-500/50'}`} />
+                                    <div className={`relative w-1.5 h-1.5 rounded-full ${status === AppStatus.RUNNING ? 'bg-green-400' : 'bg-red-500'}`} />
+                                </div>
+                                <span className={`font-mono font-bold tracking-tight ${status === AppStatus.RUNNING ? (isDark ? 'text-green-500' : 'text-green-600') : (isDark ? 'text-white/50' : 'text-zinc-500')}`}>
+                                    {Math.floor(timeLeft / 60000)}:{String(Math.floor((timeLeft % 60000) / 1000)).padStart(2, '0')}
+                                </span>
+                            </button>
+                        )}
                         <button onClick={() => { try { Haptics.impact({ style: ImpactStyle.Light }); } catch (e) { } setIsSettingsModalOpen(true); }} id="settings-btn" className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${isDark ? 'bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 hover:text-white border-white/5 hover:border-white/10' : 'bg-white hover:bg-zinc-100 text-zinc-400 hover:text-zinc-900 border-zinc-200 hover:border-zinc-300'}`} title="Settings" >
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                         </button>
@@ -1661,6 +1671,7 @@ const App: React.FC = () => {
                             onNavigateToIntel={handleNavigateToIntel}
                             dayPlan={dayPlan}
                             onPlanUpdate={handlePlanUpdate}
+                            onIntegrityLog={(text) => handleLogSave(text, cycleDuration, logs)}
                         />
                     )}
 

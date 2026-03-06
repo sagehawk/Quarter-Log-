@@ -13,7 +13,7 @@ interface PlanViewProps {
     onLogAdd: (log: LogEntry) => void;
     strategicPriority?: string;
     onShowFeedback?: (message: string) => void;
-    onPlanVerify?: (text: string, type: 'WIN', duration: number, category: string) => void;
+    onPlanVerify?: (text: string, type: 'WIN', duration: number, category: string, timestamp?: number) => void;
     onSlotClick?: (slotId: string) => void;
 }
 
