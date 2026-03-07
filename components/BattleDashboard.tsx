@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
-import { BattlePlan, SacrificeLog, AppTheme, AIPersona } from '../types';
+import { BattlePlan, SacrificeLog, AppTheme } from '../types';
 import { generateBattleReport } from '../utils/aiService';
 
 interface BattleDashboardProps {
     plan: BattlePlan;
     sacrificeLog: SacrificeLog;
     theme: AppTheme;
-    persona: AIPersona;
+
     onPlanUpdate: (plan: BattlePlan) => void;
     onSacrificeUpdate: (log: SacrificeLog) => void;
     onCreateNewPlan: () => void;
@@ -17,7 +17,7 @@ const BattleDashboard: React.FC<BattleDashboardProps> = ({
     plan,
     sacrificeLog,
     theme,
-    persona,
+
     onPlanUpdate,
     onSacrificeUpdate,
     onCreateNewPlan,
@@ -75,7 +75,7 @@ const BattleDashboard: React.FC<BattleDashboardProps> = ({
         setReportLoading(true);
         setShowReport(true);
         try {
-            const report = await generateBattleReport(plan, sacrificeLog, persona);
+            const report = await generateBattleReport(plan, sacrificeLog, 'LOGIC');
             setReportContent(report);
         } catch (e) {
             setReportContent("Failed to generate report. Try again.");

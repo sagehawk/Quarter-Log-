@@ -10,7 +10,7 @@ interface SettingsModalProps {
   notifConfig: NotificationConfig;
   onSaveTheme: (theme: AppTheme) => void;
   onSaveNotifConfig: (config: NotificationConfig) => void;
-  onOpenPersona: () => void;
+
   onClose: () => void;
 }
 
@@ -20,7 +20,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   notifConfig,
   onSaveTheme,
   onSaveNotifConfig,
-  onOpenPersona,
+  // @ts-ignore unused but kept for interface compat
+
   onClose,
 }) => {
   const [localNotifConfig, setLocalNotifConfig] = useState<NotificationConfig>(notifConfig);
@@ -134,30 +135,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
             <div className={`absolute top-2 bottom-2 w-[calc(50%-8px)] bg-green-500 rounded-xl transition-all duration-300 ${currentTheme === 'light' ? 'left-2' : 'left-[calc(50%+4px)]'}`} />
           </div>
-        </div>
-
-        {/* AI Persona */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <span className={`font-black uppercase text-sm tracking-[0.2em] border-l-4 border-green-500 pl-4 ${textColor}`}>AI Coach</span>
-          </div>
-          <button
-            onClick={onOpenPersona}
-            className={`w-full p-5 rounded-2xl border flex items-center justify-between group transition-all ${isDark ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800' : 'bg-white hover:bg-zinc-50 border-zinc-200 shadow-sm'}`}
-          >
-            <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform ${isDark ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
-                🤖
-              </div>
-              <div className="text-left">
-                <span className={`block font-black uppercase text-sm tracking-wide ${textColor}`}>Select Personality</span>
-                <span className={`block text-[10px] font-mono mt-1 uppercase tracking-wider ${subTextColor}`}>Change your AI coach's style</span>
-              </div>
-            </div>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isDark ? 'bg-zinc-800 text-zinc-500' : 'bg-zinc-100 text-zinc-400'} group-hover:bg-green-500 group-hover:text-white`}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </div>
-          </button>
         </div>
 
         {/* Divider */}

@@ -6,7 +6,6 @@ import Onboarding from './components/Onboarding';
 import BattlePlanSetup from './components/BattlePlanSetup';
 import BattleDashboard from './components/BattleDashboard';
 import SettingsModal from './components/SettingsModal';
-import PersonaSelector from './components/PersonaSelector';
 import Toast from './components/Toast';
 import {
     configureNotificationChannel,
@@ -19,7 +18,6 @@ const STORAGE_KEY_ONBOARDED = 'bp_onboarded';
 const STORAGE_KEY_BATTLE_PLAN = 'bp_battle_plan';
 const STORAGE_KEY_SACRIFICE_LOG = 'bp_sacrifice_log';
 const STORAGE_KEY_NOTIF_CONFIG = 'bp_notif_config';
-const STORAGE_KEY_PERSONA = 'bp_persona';
 const STORAGE_KEY_THEME = 'bp_theme';
 const STORAGE_KEY_NORTH_STAR = 'bp_north_star';
 
@@ -45,15 +43,6 @@ const App: React.FC = () => {
     useEffect(() => {
         localStorage.setItem(STORAGE_KEY_THEME, theme);
     }, [theme]);
-
-    // --- Persona ---
-    const [persona, setPersona] = useState<AIPersona>(() => {
-        return (localStorage.getItem(STORAGE_KEY_PERSONA) as AIPersona) || 'LOGIC';
-    });
-
-    useEffect(() => {
-        localStorage.setItem(STORAGE_KEY_PERSONA, persona);
-    }, [persona]);
 
     // --- Notification Config ---
     const [notifConfig, setNotifConfig] = useState<NotificationConfig>(() => {
@@ -121,7 +110,6 @@ const App: React.FC = () => {
     // --- UI State ---
     const [isCreatingPlan, setIsCreatingPlan] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [isPersonaOpen, setIsPersonaOpen] = useState(false);
     const [toast, setToast] = useState<{ title: string; message: string; visible: boolean }>({
         title: '', message: '', visible: false,
     });
@@ -137,14 +125,13 @@ const App: React.FC = () => {
             const handler = await CapacitorApp.addListener('backButton', () => {
                 if (isCreatingPlan) { setIsCreatingPlan(false); return; }
                 if (isSettingsOpen) { setIsSettingsOpen(false); return; }
-                if (isPersonaOpen) { setIsPersonaOpen(false); return; }
                 CapacitorApp.exitApp();
             });
             return handler;
         };
         const p = setup();
         return () => { p.then(h => h.remove()); };
-    }, [isCreatingPlan, isSettingsOpen, isPersonaOpen]);
+    }, [isCreatingPlan, isSettingsOpen]);
 
     // --- Onboarding Complete ---
     const handleOnboardingComplete = (config: NotificationConfig) => {
@@ -213,7 +200,6 @@ const App: React.FC = () => {
                         plan={battlePlan!}
                         sacrificeLog={sacrificeLog}
                         theme={theme}
-                        persona={persona}
                         onPlanUpdate={handlePlanUpdate}
                         onSacrificeUpdate={handleSacrificeUpdate}
                         onCreateNewPlan={() => setIsCreatingPlan(true)}
@@ -246,18 +232,8 @@ const App: React.FC = () => {
                 notifConfig={notifConfig}
                 onSaveTheme={setTheme}
                 onSaveNotifConfig={setNotifConfig}
-                onOpenPersona={() => setIsPersonaOpen(true)}
                 onClose={() => setIsSettingsOpen(false)}
             />
-
-            {isPersonaOpen && (
-                <PersonaSelector
-                    currentPersona={persona}
-                    onSelect={(p) => { setPersona(p); setIsPersonaOpen(false); }}
-                    onClose={() => setIsPersonaOpen(false)}
-                    theme={theme}
-                />
-            )}
         </div>
     );
 };
