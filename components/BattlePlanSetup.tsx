@@ -47,7 +47,7 @@ const BattlePlanSetup: React.FC<BattlePlanSetupProps> = ({ theme, existingNorthS
         try { Haptics.notification({ type: NotificationType.Success }); } catch (e) { }
         const plan: BattlePlan = {
             id: crypto.randomUUID(),
-            dateKey: new Date().toISOString().split('T')[0],
+            dateKey: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(),
             northStar: northStar.trim(),
             victoryCondition: victoryCondition.trim(),
             strategies: strategies.filter(s => s.trim()).map(s => ({
